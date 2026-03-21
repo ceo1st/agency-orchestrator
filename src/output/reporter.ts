@@ -51,36 +51,49 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
 }
 
 /**
- * 实时进度打印
+ * 打印一个步骤的完整结果（标题 + 内容），不拆成 start/complete
  */
-export function printStepStart(node: DAGNode, stepIndex: number, totalSteps: number): void {
+export function printStepResult(node: DAGNode, stepIndex: number, totalSteps: number): void {
   const role = node.step.role || node.step.type || '?';
-  process.stdout.write(`\n  [${stepIndex}/${totalSteps}] ${node.step.id} — ${role}`);
-}
-
-export function printStepComplete(node: DAGNode, verbose: boolean = false): void {
   const duration = ((node.endTime || 0) - (node.startTime || 0)) / 1000;
   const tokens = node.tokenUsage
-    ? `, ${node.tokenUsage.input + node.tokenUsage.output} tokens`
+    ? `${node.tokenUsage.input + node.tokenUsage.output} tokens`
     : '';
 
+  console.log(`\n  ── [${stepIndex}/${totalSteps}] ${node.step.id} (${role}) ──`);
+
   if (node.status === 'completed') {
-    console.log(`  -> 完成 (${duration.toFixed(1)}s${tokens})`);
-    // 默认显示输出内容
+    console.log(`  完成 | ${duration.toFixed(1)}s | ${tokens}`);
     if (node.result) {
       console.log('');
-      // 缩进显示，加灰色边框
-      const lines = node.result.split('\n');
-      for (const line of lines) {
+      for (const line of node.result.split('\n')) {
         console.log(`    ${line}`);
       }
-      console.log('');
     }
   } else if (node.status === 'failed') {
-    console.log(`  -> 失败: ${node.error}`);
+    console.log(`  失败: ${node.error}`);
   } else if (node.status === 'skipped') {
-    console.log(`  -> 跳过 (上游失败)`);
+    console.log(`  跳过 (上游失败)`);
   }
+}
+
+/**
+ * 打印正在运行的步骤提示（简短一行）
+ */
+export function printStepRunning(nodes: DAGNode[]): void {
+  if (nodes.length === 1) {
+    process.stdout.write(`\n  ... ${nodes[0].step.id} 执行中`);
+  } else {
+    const ids = nodes.map(n => n.step.id).join(' + ');
+    process.stdout.write(`\n  ... ${ids} 并行执行中`);
+  }
+}
+
+/**
+ * 清除"执行中"提示行
+ */
+export function clearRunningLine(): void {
+  process.stdout.write('\r\x1b[K');
 }
 
 export function printSummary(result: WorkflowResult, outputPath: string): void {
@@ -88,7 +101,7 @@ export function printSummary(result: WorkflowResult, outputPath: string): void {
   const duration = (result.totalDuration / 1000).toFixed(1);
   const completedSteps = result.steps.filter(s => s.status === 'completed').length;
 
-  console.log('\n' + '='.repeat(50));
+  console.log('\n\n' + '='.repeat(50));
   console.log(`  ${result.success ? '完成' : '部分失败'}: ${completedSteps}/${result.steps.length} 步 | ${duration}s | ${totalTokens} tokens`);
   console.log(`  详细输出: ${outputPath}`);
   console.log('='.repeat(50));

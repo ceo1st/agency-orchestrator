@@ -23,6 +23,10 @@ export interface ExecutorOptions {
   /** 每步完成的回调 */
   onStepComplete?: (node: DAGNode) => void;
   onStepStart?: (node: DAGNode) => void;
+  /** 一批并行步骤开始前的回调 */
+  onBatchStart?: (nodes: DAGNode[]) => void;
+  /** 一批并行步骤全部完成后的回调（按顺序） */
+  onBatchComplete?: (nodes: DAGNode[]) => void;
 }
 
 export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<WorkflowResult> {
@@ -46,6 +50,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
 
   for (const level of dag.levels) {
     // 同层节点可并行，但受 concurrency 限制
+    const { onBatchStart, onBatchComplete } = options;
     const allTasks = level.map(id => dag.nodes.get(id)!);
 
     // 过滤掉已被标记为 skipped 的节点
@@ -69,6 +74,8 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
     // 按 concurrency 分批执行
     for (let i = 0; i < tasks.length; i += concurrency) {
       const batch = tasks.slice(i, i + concurrency);
+
+      onBatchStart?.(batch);
 
       const results = await Promise.allSettled(
         batch.map(node => executeStep(node, {
@@ -116,6 +123,8 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
 
         onStepComplete?.(node);
       }
+
+      onBatchComplete?.(batch);
     }
   }
 

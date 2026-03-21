@@ -33,7 +33,7 @@ import { executeDAG, type ExecutorOptions } from './core/executor.js';
 import { ClaudeConnector } from './connectors/claude.js';
 import { OllamaConnector } from './connectors/ollama.js';
 import { OpenAICompatibleConnector } from './connectors/openai-compatible.js';
-import { saveResults, printStepStart, printStepComplete, printSummary } from './output/reporter.js';
+import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary } from './output/reporter.js';
 import type { LLMConnector } from './types.js';
 
 /**
@@ -107,12 +107,15 @@ export async function run(
     llmConfig: workflow.llm,
     concurrency: workflow.concurrency || 2,
     inputs: inputMap,
-    onStepStart: quiet ? undefined : (node) => {
-      stepCounter++;
-      printStepStart(node, stepCounter, totalSteps);
+    onBatchStart: quiet ? undefined : (nodes) => {
+      printStepRunning(nodes);
     },
-    onStepComplete: quiet ? undefined : (node) => {
-      printStepComplete(node);
+    onBatchComplete: quiet ? undefined : (nodes) => {
+      clearRunningLine();
+      for (const node of nodes) {
+        stepCounter++;
+        printStepResult(node, stepCounter, totalSteps);
+      }
     },
   } satisfies ExecutorOptions);
 
