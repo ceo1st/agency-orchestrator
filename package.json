@@ -1,0 +1,61 @@
+{
+  "name": "agency-orchestrator",
+  "version": "0.1.0",
+  "description": "基于 agency-agents 角色定义的轻量多智能体编排引擎 — 用 YAML 定义工作流，自动调度 AI 角色协作完成复杂任务",
+  "keywords": [
+    "agency-agents",
+    "multi-agent",
+    "orchestrator",
+    "workflow",
+    "ai-agents",
+    "llm",
+    "claude",
+    "yaml-workflow",
+    "agent-orchestration",
+    "chinese-ai"
+  ],
+  "author": "jnMetaCode",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/jnMetaCode/agency-orchestrator#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jnMetaCode/agency-orchestrator"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "agency-orchestrator": "dist/cli.js",
+    "ao": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "npx tsx test/run.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist/",
+    "workflows/",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

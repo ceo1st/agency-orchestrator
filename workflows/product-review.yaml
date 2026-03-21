@@ -1,0 +1,77 @@
+name: "产品需求评审"
+description: "多角色协作评审 PRD 文档 — 产品经理分析需求，架构师评估技术，设计师评估体验，最后汇总结论"
+
+agents_dir: "../agency-agents-zh"
+
+llm:
+  provider: "claude"
+  model: "claude-sonnet-4-6"
+  max_tokens: 4096
+  timeout: 120000
+  retry: 3
+
+concurrency: 2
+
+inputs:
+  - name: prd_content
+    description: "PRD 文档内容"
+    required: true
+
+steps:
+  - id: analyze
+    role: "product/product-manager"
+    task: |
+      请分析以下 PRD 文档，提取：
+      1. 核心需求（按优先级排列）
+      2. 目标用户画像
+      3. 潜在风险和不确定性
+      4. 关键成功指标
+
+      PRD 内容：
+      {{prd_content}}
+    output: requirements
+
+  - id: tech_review
+    role: "engineering/engineering-software-architect"
+    task: |
+      基于以下需求分析，请评估：
+      1. 技术可行性（高/中/低）
+      2. 推荐技术架构
+      3. 预估开发复杂度
+      4. 技术风险点
+
+      需求分析：
+      {{requirements}}
+    output: tech_report
+    depends_on: [analyze]
+
+  - id: design_review
+    role: "design/design-ux-researcher"
+    task: |
+      基于以下需求分析，请评估：
+      1. 用户体验风险
+      2. 可用性问题
+      3. 设计建议
+      4. 需要进一步验证的假设
+
+      需求分析：
+      {{requirements}}
+    output: design_report
+    depends_on: [analyze]
+
+  - id: final_summary
+    role: "product/product-manager"
+    task: |
+      综合以下技术和设计两方面的反馈，输出最终评审结论：
+
+      ## 技术评估
+      {{tech_report}}
+
+      ## 设计评估
+      {{design_report}}
+
+      请输出：
+      1. 总体结论（通过/需修改/不通过）
+      2. 必须解决的问题清单
+      3. 建议的下一步行动
+    depends_on: [tech_review, design_review]
