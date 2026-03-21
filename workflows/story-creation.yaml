@@ -19,9 +19,11 @@ inputs:
   - name: style
     description: "风格偏好（如：悬疑、温情、荒诞、科幻）"
     required: false
+    default: "悬疑"
   - name: length
     description: "目标字数（默认 800）"
     required: false
+    default: "800"
 
 steps:
   - id: story_structure

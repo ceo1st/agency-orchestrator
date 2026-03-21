@@ -24,6 +24,7 @@ export interface InputDefinition {
   name: string;
   description?: string;
   required?: boolean;
+  default?: string;            // 可选输入的默认值
 }
 
 export interface StepDefinition {

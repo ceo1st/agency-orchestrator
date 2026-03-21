@@ -44,12 +44,7 @@ export function parseWorkflow(filePath: string): WorkflowDefinition {
       throw new Error(`step "${step.id}" 缺少 task`);
     }
 
-    // 校验 depends_on 引用的 id 存在（前向引用也允许）
-    if (step.depends_on) {
-      for (const dep of step.depends_on) {
-        // 延迟校验：在 DAG 构建时检查
-      }
-    }
+    // depends_on 的引用校验在 validateWorkflow() 中处理
   }
 
   return {
@@ -88,10 +83,14 @@ export function validateWorkflow(workflow: WorkflowDefinition): string[] {
     for (const ref of varRefs) {
       const varName = ref.slice(2, -2);
       // 变量要么来自 inputs，要么来自某个 step 的 output
-      const isInput = workflow.inputs?.some(i => i.name === varName);
+      const inputDef = workflow.inputs?.find(i => i.name === varName);
       const isOutput = workflow.steps.some(s => s.output === varName);
-      if (!isInput && !isOutput) {
+      if (!inputDef && !isOutput) {
         errors.push(`step "${step.id}" 引用了未定义的变量: {{${varName}}}`);
+      }
+      // 可选输入无默认值用在模板中 → 警告
+      if (inputDef && !inputDef.required && inputDef.default === undefined) {
+        errors.push(`step "${step.id}" 使用了可选输入 {{${varName}}}，但未设置默认值（未提供时为空字符串）`);
       }
     }
   }

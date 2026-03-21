@@ -10,9 +10,14 @@
     "ai-agents",
     "llm",
     "claude",
+    "deepseek",
+    "ollama",
+    "openai",
     "yaml-workflow",
     "agent-orchestration",
-    "chinese-ai"
+    "chinese-ai",
+    "dag",
+    "crewai-alternative"
   ],
   "author": "jnMetaCode",
   "license": "Apache-2.0",

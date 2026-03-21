@@ -7,7 +7,8 @@ export class OllamaConnector implements LLMConnector {
   private baseUrl: string;
 
   constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+    const raw = baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+    this.baseUrl = raw.replace(/\/+$/, '');
   }
 
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {

@@ -64,7 +64,7 @@ export async function run(
   let connector: LLMConnector;
   switch (workflow.llm.provider) {
     case 'claude':
-      connector = new ClaudeConnector();
+      connector = new ClaudeConnector(workflow.llm.api_key);
       break;
     case 'ollama':
       connector = new OllamaConnector(workflow.llm.base_url);
@@ -88,10 +88,18 @@ export async function run(
   // 构建输入
   const inputMap = new Map(Object.entries(inputs));
 
-  // 检查必填输入
+  // 检查必填输入 + 注入默认值
   for (const def of workflow.inputs || []) {
     if (def.required && !inputMap.has(def.name)) {
       throw new Error(`缺少必填输入: ${def.name}`);
+    }
+    // 可选输入未提供时使用默认值
+    if (!inputMap.has(def.name) && def.default !== undefined) {
+      inputMap.set(def.name, def.default);
+    }
+    // 可选输入无默认值且未提供 → 设为空字符串（避免模板引擎崩溃）
+    if (!inputMap.has(def.name)) {
+      inputMap.set(def.name, '');
     }
   }
 
