@@ -11,6 +11,7 @@ export { executeDAG } from './core/executor.js';
 export { renderTemplate, extractVariables } from './core/template.js';
 export { loadAgent, listAgents } from './agents/loader.js';
 export { ClaudeConnector } from './connectors/claude.js';
+export { OllamaConnector } from './connectors/ollama.js';
 export { saveResults } from './output/reporter.js';
 
 export type {
@@ -29,6 +30,7 @@ import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { executeDAG, type ExecutorOptions } from './core/executor.js';
 import { ClaudeConnector } from './connectors/claude.js';
+import { OllamaConnector } from './connectors/ollama.js';
 import { saveResults, printStepStart, printStepComplete, printSummary } from './output/reporter.js';
 import type { LLMConnector } from './types.js';
 
@@ -57,8 +59,11 @@ export async function run(
     case 'claude':
       connector = new ClaudeConnector();
       break;
+    case 'ollama':
+      connector = new OllamaConnector();
+      break;
     default:
-      throw new Error(`暂不支持 provider: ${workflow.llm.provider}（MVP 仅支持 claude）`);
+      throw new Error(`暂不支持 provider: ${workflow.llm.provider}（支持 claude / ollama）`);
   }
 
   // 构建输入
