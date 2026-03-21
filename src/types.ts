@@ -11,7 +11,9 @@ export interface WorkflowDefinition {
 }
 
 export interface LLMConfig {
-  provider: 'claude' | 'openai' | 'ollama';
+  provider: 'claude' | 'openai' | 'ollama' | 'deepseek';
+  base_url?: string;          // 自定义 API 地址（DeepSeek、智谱等）
+  api_key?: string;           // 可在 YAML 中配置，也可用环境变量
   model: string;
   max_tokens?: number;        // 默认 4096
   timeout?: number;           // 单步超时 ms，默认 120000

@@ -12,6 +12,7 @@ export { renderTemplate, extractVariables } from './core/template.js';
 export { loadAgent, listAgents } from './agents/loader.js';
 export { ClaudeConnector } from './connectors/claude.js';
 export { OllamaConnector } from './connectors/ollama.js';
+export { OpenAICompatibleConnector } from './connectors/openai-compatible.js';
 export { saveResults } from './output/reporter.js';
 
 export type {
@@ -31,6 +32,7 @@ import { buildDAG, formatDAG } from './core/dag.js';
 import { executeDAG, type ExecutorOptions } from './core/executor.js';
 import { ClaudeConnector } from './connectors/claude.js';
 import { OllamaConnector } from './connectors/ollama.js';
+import { OpenAICompatibleConnector } from './connectors/openai-compatible.js';
 import { saveResults, printStepStart, printStepComplete, printSummary } from './output/reporter.js';
 import type { LLMConnector } from './types.js';
 
@@ -60,10 +62,22 @@ export async function run(
       connector = new ClaudeConnector();
       break;
     case 'ollama':
-      connector = new OllamaConnector();
+      connector = new OllamaConnector(workflow.llm.base_url);
+      break;
+    case 'deepseek':
+      connector = new OpenAICompatibleConnector({
+        apiKey: workflow.llm.api_key || process.env.DEEPSEEK_API_KEY,
+        baseUrl: workflow.llm.base_url || 'https://api.deepseek.com/v1',
+      });
+      break;
+    case 'openai':
+      connector = new OpenAICompatibleConnector({
+        apiKey: workflow.llm.api_key || process.env.OPENAI_API_KEY,
+        baseUrl: workflow.llm.base_url || 'https://api.openai.com/v1',
+      });
       break;
     default:
-      throw new Error(`暂不支持 provider: ${workflow.llm.provider}（支持 claude / ollama）`);
+      throw new Error(`暂不支持 provider: ${workflow.llm.provider}（支持 claude / deepseek / openai / ollama）`);
   }
 
   // 构建输入
