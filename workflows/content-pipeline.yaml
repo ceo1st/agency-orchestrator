@@ -23,7 +23,7 @@ inputs:
 
 steps:
   - id: research
-    role: "marketing/marketing-content-strategist"
+    role: "marketing/marketing-social-media-strategist"
     task: |
       为以下主题做内容研究：
       主题：{{topic}}
@@ -38,7 +38,7 @@ steps:
     output: research_report
 
   - id: draft
-    role: "marketing/marketing-copywriter"
+    role: "marketing/marketing-content-creator"
     task: |
       基于以下研究，撰写一篇适合 {{platform}} 的文章：
 
@@ -54,7 +54,7 @@ steps:
     depends_on: [research]
 
   - id: brand_review
-    role: "marketing/marketing-brand-strategist"
+    role: "marketing/marketing-growth-hacker"
     task: |
       请审核以下内容的品牌一致性：
 
@@ -69,7 +69,7 @@ steps:
     depends_on: [draft]
 
   - id: final_edit
-    role: "marketing/marketing-copywriter"
+    role: "marketing/marketing-content-creator"
     task: |
       根据品牌审核反馈，修改并定稿：
 

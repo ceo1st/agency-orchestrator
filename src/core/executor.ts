@@ -46,7 +46,25 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
 
   for (const level of dag.levels) {
     // 同层节点可并行，但受 concurrency 限制
-    const tasks = level.map(id => dag.nodes.get(id)!);
+    const allTasks = level.map(id => dag.nodes.get(id)!);
+
+    // 过滤掉已被标记为 skipped 的节点
+    const tasks = allTasks.filter(node => {
+      if (node.status === 'skipped') {
+        node.endTime = Date.now();
+        node.startTime = node.endTime;
+        stepResults.push({
+          id: node.step.id,
+          role: node.step.role,
+          status: 'skipped',
+          duration: 0,
+          tokens: { input: 0, output: 0 },
+        });
+        onStepComplete?.(node);
+        return false;
+      }
+      return true;
+    });
 
     // 按 concurrency 分批执行
     for (let i = 0; i < tasks.length; i += concurrency) {
