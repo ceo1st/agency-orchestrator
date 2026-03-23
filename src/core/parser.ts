@@ -78,6 +78,24 @@ export function validateWorkflow(workflow: WorkflowDefinition): string[] {
       }
     }
 
+    // 检查 loop 配置
+    if (step.loop) {
+      if (!step.loop.back_to) {
+        errors.push(`step "${step.id}" 的 loop 缺少 back_to`);
+      } else if (!stepIds.has(step.loop.back_to)) {
+        errors.push(`step "${step.id}" 的 loop.back_to 引用不存在的 step: "${step.loop.back_to}"`);
+      }
+      if (!step.loop.max_iterations || step.loop.max_iterations < 1) {
+        errors.push(`step "${step.id}" 的 loop.max_iterations 必须 >= 1`);
+      }
+      if (step.loop.max_iterations > 10) {
+        errors.push(`step "${step.id}" 的 loop.max_iterations 不能超过 10`);
+      }
+      if (!step.loop.exit_condition) {
+        errors.push(`step "${step.id}" 的 loop 缺少 exit_condition`);
+      }
+    }
+
     // 检查 {{变量}} 引用
     const varRefs = step.task?.match(/\{\{(\w+)\}\}/g) || [];
     for (const ref of varRefs) {
@@ -85,7 +103,7 @@ export function validateWorkflow(workflow: WorkflowDefinition): string[] {
       // 变量要么来自 inputs，要么来自某个 step 的 output
       const inputDef = workflow.inputs?.find(i => i.name === varName);
       const isOutput = workflow.steps.some(s => s.output === varName);
-      if (!inputDef && !isOutput) {
+      if (!inputDef && !isOutput && varName !== '_loop_iteration') {
         errors.push(`step "${step.id}" 引用了未定义的变量: {{${varName}}}`);
       }
       // 可选输入无默认值用在模板中 → 警告

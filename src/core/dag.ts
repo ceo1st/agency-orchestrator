@@ -39,6 +39,20 @@ export function buildDAG(workflow: WorkflowDefinition): DAG {
   // 拓扑排序 — 按层分组（同层可并行）
   const levels = topologicalLevels(nodes);
 
+  // 验证 loop.back_to 指向祖先节点
+  for (const step of workflow.steps) {
+    if (step.loop?.back_to) {
+      const backToLevel = levels.findIndex(l => l.includes(step.loop!.back_to));
+      const currentLevel = levels.findIndex(l => l.includes(step.id));
+      if (backToLevel < 0 || currentLevel < 0) {
+        throw new Error(`loop 验证失败: "${step.id}" 或 "${step.loop.back_to}" 不在 DAG 中`);
+      }
+      if (backToLevel >= currentLevel) {
+        throw new Error(`step "${step.id}" 的 loop.back_to "${step.loop.back_to}" 必须在其之前的层级（当前层 ${currentLevel + 1}，back_to 层 ${backToLevel + 1}）`);
+      }
+    }
+  }
+
   return { nodes, levels };
 }
 
@@ -108,6 +122,12 @@ export function formatDAG(dag: DAG): string {
 
       if (node.dependencies.length > 0) {
         lines.push(`         依赖: ${node.dependencies.join(', ')}`);
+      }
+      if (step.condition) {
+        lines.push(`         条件: ${step.condition}`);
+      }
+      if (step.loop) {
+        lines.push(`         循环: → ${step.loop.back_to} (最多 ${step.loop.max_iterations} 次)`);
       }
     }
     if (i < dag.levels.length - 1) lines.push('  │');
