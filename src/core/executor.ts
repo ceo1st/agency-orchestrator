@@ -11,6 +11,7 @@ import type {
 } from '../types.js';
 import type { DAG } from './dag.js';
 import { renderTemplate } from './template.js';
+import { evaluateCondition } from './condition.js';
 import { loadAgent } from '../agents/loader.js';
 import { createInterface } from 'node:readline';
 
@@ -95,10 +96,15 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
         const result = results[j];
 
         if (result.status === 'fulfilled') {
-          node.status = 'completed';
-          node.result = result.value;
-          if (node.step.output) {
-            context.set(node.step.output, result.value);
+          if (node.status === 'skipped') {
+            // 条件不满足跳过
+            markDownstreamSkipped(dag, node.step.id);
+          } else {
+            node.status = 'completed';
+            node.result = result.value;
+            if (node.step.output) {
+              context.set(node.step.output, result.value);
+            }
           }
         } else {
           node.status = 'failed';
@@ -161,6 +167,15 @@ async function executeStep(
   node.status = 'running';
   node.startTime = Date.now();
   opts.onStepStart?.(node);
+
+  // 条件检查
+  if (node.step.condition) {
+    const conditionMet = evaluateCondition(node.step.condition, opts.context);
+    if (!conditionMet) {
+      node.status = 'skipped';
+      return '';  // 返回空，调用方会处理 skipped 状态
+    }
+  }
 
   // 人工审批节点
   if (node.step.type === 'approval') {
@@ -229,10 +244,19 @@ function markDownstreamSkipped(dag: DAG, failedId: string): void {
   if (!node) return;
   for (const depId of node.dependents) {
     const depNode = dag.nodes.get(depId);
-    if (depNode && depNode.status === 'pending') {
-      depNode.status = 'skipped';
-      markDownstreamSkipped(dag, depId);
+    if (!depNode || depNode.status !== 'pending') continue;
+
+    if (depNode.step.depends_on_mode === 'any_completed') {
+      // 只有当所有依赖都是 skipped 或 failed 时才跳过
+      const allDepsSkippedOrFailed = depNode.dependencies.every(d => {
+        const dNode = dag.nodes.get(d);
+        return dNode && (dNode.status === 'skipped' || dNode.status === 'failed');
+      });
+      if (!allDepsSkippedOrFailed) continue; // 还有依赖未决或已完成，暂不跳过
     }
+
+    depNode.status = 'skipped';
+    markDownstreamSkipped(dag, depId);
   }
 }
 
