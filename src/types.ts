@@ -35,6 +35,13 @@ export interface StepDefinition {
   depends_on?: string[];      // 依赖的步骤 id
   type?: 'normal' | 'approval'; // 节点类型
   prompt?: string;            // approval 类型的提示文本
+  condition?: string;           // 如 "{{category}} contains bug"
+  depends_on_mode?: 'all' | 'any_completed';  // 默认 'all'（任一跳过→跳过），'any_completed' = 只要有一个完成就执行
+  loop?: {
+    back_to: string;            // 跳回的步骤 id
+    max_iterations: number;     // 最大循环次数，必填，上限 10
+    exit_condition: string;     // 退出条件，同 condition 语法
+  };
 }
 
 /** DAG 执行相关类型 */
@@ -93,4 +100,5 @@ export interface StepResult {
   error?: string;
   duration: number;
   tokens: { input: number; output: number };
+  iterations?: number;          // 该步骤实际执行次数（循环场景 > 1）
 }
