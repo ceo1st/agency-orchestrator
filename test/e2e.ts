@@ -10,6 +10,12 @@ import { executeDAG, type ExecutorOptions } from '../src/core/executor.js';
 import { saveResults } from '../src/output/reporter.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../src/types.js';
 
+const agentsDir = [
+  resolve(import.meta.dirname!, '../node_modules/agency-agents-zh'),
+  resolve(import.meta.dirname!, '../agency-agents-zh'),
+  resolve(import.meta.dirname!, '../../agency-agents-zh'),
+].find(d => existsSync(d)) || resolve(import.meta.dirname!, '../../agency-agents-zh');
+
 let passed = 0;
 let failed = 0;
 
@@ -84,7 +90,7 @@ await test('执行完整工作流（Mock LLM）', async () => {
 
   const result = await executeDAG(dag, {
     connector: mock,
-    agentsDir: resolve(import.meta.dirname!, '../../agency-agents-zh'),
+    agentsDir,
     llmConfig: wf.llm,
     concurrency: wf.concurrency || 2,
     inputs,
@@ -110,7 +116,7 @@ await test('变量传递: analyze 输出被 tech_review 和 design_review 接收
 
   await executeDAG(dag, {
     connector: mock,
-    agentsDir: resolve(import.meta.dirname!, '../../agency-agents-zh'),
+    agentsDir,
     llmConfig: wf.llm,
     concurrency: 2,
     inputs,
@@ -140,7 +146,7 @@ await test('并行: tech_review 和 design_review 在同一批执行', async () 
 
   await executeDAG(dag, {
     connector: mock,
-    agentsDir: resolve(import.meta.dirname!, '../../agency-agents-zh'),
+    agentsDir,
     llmConfig: wf.llm,
     concurrency: 2,
     inputs: new Map([['prd_content', 'Test']]),
@@ -159,7 +165,7 @@ await test('结果保存到文件', async () => {
 
   const result = await executeDAG(dag, {
     connector: mock,
-    agentsDir: resolve(import.meta.dirname!, '../../agency-agents-zh'),
+    agentsDir,
     llmConfig: wf.llm,
     concurrency: 2,
     inputs: new Map([['prd_content', 'Test PRD']]),
@@ -205,7 +211,7 @@ await test('某步失败时下游被跳过', async () => {
 
   const result = await executeDAG(dag, {
     connector: failingMock,
-    agentsDir: resolve(import.meta.dirname!, '../../agency-agents-zh'),
+    agentsDir,
     llmConfig: { ...wf.llm, retry: 0 }, // 禁用重试
     concurrency: 2,
     inputs: new Map([['prd_content', 'Test']]),
@@ -235,7 +241,7 @@ await test('重试机制：第 1 次失败第 2 次成功', async () => {
 
   const result = await executeDAG(dag, {
     connector: flakyMock,
-    agentsDir: resolve(import.meta.dirname!, '../../agency-agents-zh'),
+    agentsDir,
     llmConfig: { ...wf.llm, retry: 2 },
     concurrency: 1,
     inputs: new Map([['prd_content', 'Test']]),
@@ -253,7 +259,7 @@ await test('缺少必填输入时模板引擎报错', async () => {
 
   const result = await executeDAG(dag, {
     connector: mock,
-    agentsDir: resolve(import.meta.dirname!, '../../agency-agents-zh'),
+    agentsDir,
     llmConfig: wf.llm,
     concurrency: 1,
     inputs: new Map(), // 空输入！
@@ -283,7 +289,7 @@ await test('content-pipeline 完整执行', async () => {
 
   const result = await executeDAG(dag, {
     connector: mock,
-    agentsDir: resolve(import.meta.dirname!, '../../agency-agents-zh'),
+    agentsDir,
     llmConfig: wf.llm,
     concurrency: wf.concurrency || 2,
     inputs,
@@ -308,7 +314,7 @@ await test('onStepStart 和 onStepComplete 被正确调用', async () => {
 
   await executeDAG(dag, {
     connector: mock,
-    agentsDir: resolve(import.meta.dirname!, '../../agency-agents-zh'),
+    agentsDir,
     llmConfig: wf.llm,
     concurrency: 2,
     inputs: new Map([['prd_content', 'Test']]),

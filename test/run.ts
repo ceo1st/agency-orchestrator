@@ -3,6 +3,7 @@
  * 测试核心逻辑（解析、DAG、模板），不调用 LLM
  */
 import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
 import { buildDAG, formatDAG } from '../src/core/dag.js';
 import { renderTemplate, extractVariables } from '../src/core/template.js';
@@ -166,7 +167,11 @@ test('无变量的模板原样返回', () => {
 // ─── Agent Loader ───
 console.log('\n=== Agent Loader ===');
 
-const agentsDir = resolve(import.meta.dirname!, '../../agency-agents-zh');
+const agentsDir = [
+  resolve(import.meta.dirname!, '../node_modules/agency-agents-zh'),
+  resolve(import.meta.dirname!, '../agency-agents-zh'),
+  resolve(import.meta.dirname!, '../../agency-agents-zh'),
+].find(d => existsSync(d)) || resolve(import.meta.dirname!, '../../agency-agents-zh');
 
 test('加载 engineering/engineering-software-architect', () => {
   const agent = loadAgent(agentsDir, 'engineering/engineering-software-architect');
