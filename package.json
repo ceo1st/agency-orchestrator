@@ -1,7 +1,7 @@
 {
   "name": "agency-orchestrator",
   "version": "0.4.0",
-  "description": "Multi-agent workflow engine — describe a workflow in one sentence, AI assembles 186 expert roles into a ready-to-run YAML pipeline. Auto DAG parallelism, zero code.",
+  "description": "一句话编排 AI 工作流 — 186 个专业角色、自动 DAG 并行、YAML 零代码。支持 DeepSeek / Claude / OpenAI / Ollama",
   "keywords": [
     "multi-agent",
     "ai-agents",

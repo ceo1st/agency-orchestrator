@@ -70,4 +70,4 @@ ao run workflows/story-creation.yaml -i 'premise=时间旅行的故事'
 
 ## 自定义工作流
 
-参见 [工作流格式文档](../../README.zh-CN.md)。
+参见 [工作流格式文档](../../README.md)。

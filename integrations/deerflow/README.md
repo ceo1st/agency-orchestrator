@@ -64,4 +64,4 @@ ao run workflows/product-review.yaml -i prd_content=@prd.md
 
 ## 自定义工作流
 
-参见 [工作流格式文档](../../README.zh-CN.md)。
+参见 [工作流格式文档](../../README.md)。
