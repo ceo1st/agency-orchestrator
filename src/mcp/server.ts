@@ -9,8 +9,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { resolve, relative } from 'node:path';
+import { resolve, relative, dirname } from 'node:path';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import * as yaml from 'js-yaml';
 
 import { run } from '../index.js';
@@ -23,14 +24,14 @@ import { composeWorkflow } from '../cli/compose.js';
 function findAgentsDir(hint?: string): string {
   if (hint && existsSync(resolve(hint))) return resolve(hint);
   const candidates = [
-    './agency-agents-zh',
-    '../agency-agents-zh',
-    './agents',
-    'node_modules/agency-agents-zh',
+    resolve('agency-agents-zh'),
+    resolve('../agency-agents-zh'),
+    resolve('agents'),
+    resolve('node_modules/agency-agents-zh'),
+    resolve(dirname(new URL(import.meta.url).pathname), '../../node_modules/agency-agents-zh'),
   ];
   for (const dir of candidates) {
-    const full = resolve(dir);
-    if (existsSync(full)) return full;
+    if (existsSync(dir)) return dir;
   }
   return resolve(hint || './agency-agents-zh');
 }
@@ -71,23 +72,37 @@ function discoverWorkflows(): Array<{ file: string; name: string; description: s
 }
 
 /**
- * 静默执行函数 — 临时屏蔽 stdout 输出
+ * 静默执行函数 — 临时屏蔽 stdout 输出（引用计数，并发安全）
  * composeWorkflow 等函数内部有 console.log，会污染 MCP 协议通道
  */
+let suppressCount = 0;
+let origStdoutWrite: typeof process.stdout.write | null = null;
+
 async function silentCall<T>(fn: () => Promise<T>): Promise<T> {
-  const origWrite = process.stdout.write;
-  process.stdout.write = () => true;
+  if (suppressCount === 0) {
+    origStdoutWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = () => true;
+  }
+  suppressCount++;
   try {
     return await fn();
   } finally {
-    process.stdout.write = origWrite;
+    suppressCount--;
+    if (suppressCount === 0 && origStdoutWrite) {
+      process.stdout.write = origStdoutWrite;
+      origStdoutWrite = null;
+    }
   }
 }
 
 export async function startServer(verbose = false): Promise<void> {
+  const require = createRequire(import.meta.url);
+  const pkgPath = require.resolve('../../package.json');
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+
   const server = new McpServer({
     name: 'agency-orchestrator',
-    version: '0.4.0',
+    version: pkg.version || '0.0.0',
   });
 
   // ─── Tool 1: run_workflow ───
@@ -251,7 +266,13 @@ export async function startServer(verbose = false): Promise<void> {
       try {
         const agentsDir = findAgentsDir();
         const llmProvider = provider || 'deepseek';
-        const llmModel = model || (llmProvider === 'deepseek' ? 'deepseek-chat' : llmProvider === 'claude' ? 'claude-sonnet-4-20250514' : 'gpt-4o');
+        const defaultModels: Record<string, string> = {
+          deepseek: 'deepseek-chat',
+          claude: 'claude-sonnet-4-20250514',
+          openai: 'gpt-4o',
+          ollama: 'llama3',
+        };
+        const llmModel = model || defaultModels[llmProvider] || 'gpt-4o';
 
         const result = await silentCall(() =>
           composeWorkflow({
