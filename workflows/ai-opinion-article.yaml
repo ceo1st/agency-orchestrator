@@ -23,7 +23,7 @@ inputs:
 
 steps:
   - id: trend_research
-    role: "marketing/marketing-trend-researcher"
+    role: "product/product-trend-researcher"
     task: |
       针对以下主题，做深度趋势调研：
       主题：{{topic}}
@@ -38,7 +38,7 @@ steps:
     output: trend_report
 
   - id: narrative_design
-    role: "marketing/marketing-narrative-scholar"
+    role: "academic/academic-narratologist"
     task: |
       基于趋势调研，设计文章的叙事结构：
 
@@ -59,7 +59,7 @@ steps:
     depends_on: [trend_research]
 
   - id: depth_thinking
-    role: "marketing/marketing-narrative-scholar"
+    role: "academic/academic-narratologist"
     task: |
       作为一个深度思考者，针对这个主题提供独到的思考角度：
 
