@@ -3,15 +3,33 @@
  */
 import type { LLMConfig, LLMConnector } from '../types.js';
 import { ClaudeConnector } from './claude.js';
+import { ClaudeCodeConnector } from './claude-code.js';
+import { GeminiCLIConnector } from './gemini-cli.js';
+import { CopilotCLIConnector } from './copilot-cli.js';
+import { CodexCLIConnector } from './codex-cli.js';
+import { OpenClawCLIConnector } from './openclaw-cli.js';
 import { OllamaConnector } from './ollama.js';
 import { OpenAICompatibleConnector } from './openai-compatible.js';
 
 export function createConnector(config: LLMConfig): LLMConnector {
   switch (config.provider) {
-    case 'claude':
-      return new ClaudeConnector(config.api_key);
+    // ── 免 API key（用订阅 / 免费额度）──
+    case 'claude-code':
+      return new ClaudeCodeConnector();
+    case 'gemini-cli':
+      return new GeminiCLIConnector();
+    case 'copilot-cli':
+      return new CopilotCLIConnector();
+    case 'codex-cli':
+      return new CodexCLIConnector();
+    case 'openclaw-cli':
+      return new OpenClawCLIConnector();
     case 'ollama':
       return new OllamaConnector(config.base_url);
+
+    // ── 需要 API key ──
+    case 'claude':
+      return new ClaudeConnector(config.api_key);
     case 'deepseek':
       return new OpenAICompatibleConnector({
         apiKey: config.api_key || process.env.DEEPSEEK_API_KEY,
@@ -23,6 +41,10 @@ export function createConnector(config: LLMConfig): LLMConnector {
         baseUrl: config.base_url || 'https://api.openai.com/v1',
       });
     default:
-      throw new Error(`暂不支持 provider: ${config.provider}（支持 claude / deepseek / openai / ollama）`);
+      throw new Error(
+        `暂不支持 provider: ${config.provider}\n` +
+        '免 API key: claude-code / gemini-cli / copilot-cli / codex-cli / openclaw-cli / ollama\n' +
+        '需 API key: claude / deepseek / openai'
+      );
   }
 }

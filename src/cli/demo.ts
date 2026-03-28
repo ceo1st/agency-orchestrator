@@ -12,7 +12,7 @@ import { createInterface } from 'node:readline';
 // ─── Types ───
 
 export interface DetectedLLM {
-  provider: 'deepseek' | 'claude' | 'openai' | 'ollama';
+  provider: 'deepseek' | 'claude' | 'openai' | 'ollama' | 'claude-code' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli';
   name: string;
   available: boolean;
   envVar?: string;
@@ -140,33 +140,29 @@ const MOCK_STEPS = [
 // ─── LLM Detection ───
 
 export async function detectAvailableLLMs(): Promise<DetectedLLM[]> {
-  const results: DetectedLLM[] = [
-    {
-      provider: 'deepseek',
-      name: 'DeepSeek',
-      available: !!process.env.DEEPSEEK_API_KEY,
-      envVar: 'DEEPSEEK_API_KEY',
-    },
-    {
-      provider: 'claude',
-      name: 'Claude',
-      available: !!process.env.ANTHROPIC_API_KEY,
-      envVar: 'ANTHROPIC_API_KEY',
-    },
-    {
-      provider: 'openai',
-      name: 'OpenAI',
-      available: !!process.env.OPENAI_API_KEY,
-      envVar: 'OPENAI_API_KEY',
-    },
-    {
-      provider: 'ollama',
-      name: 'Ollama (local)',
-      available: false, // will be updated below
-    },
+  const results: DetectedLLM[] = [];
+
+  // ── 免 API key（检测 CLI 是否安装）──
+  const cliTools: Array<{ provider: DetectedLLM['provider']; name: string; cmd: string }> = [
+    { provider: 'claude-code', name: 'Claude Code (Max/Pro 会员)', cmd: 'claude' },
+    { provider: 'gemini-cli', name: 'Gemini CLI (Google 免费)', cmd: 'gemini' },
+    { provider: 'copilot-cli', name: 'Copilot CLI (GitHub 会员)', cmd: 'copilot' },
+    { provider: 'codex-cli', name: 'Codex CLI (ChatGPT Plus)', cmd: 'codex' },
+    { provider: 'openclaw-cli', name: 'OpenClaw CLI', cmd: 'openclaw' },
   ];
 
-  // Check Ollama with 2-second timeout
+  for (const tool of cliTools) {
+    let available = false;
+    try {
+      const { execSync } = await import('node:child_process');
+      execSync(`which ${tool.cmd}`, { stdio: 'ignore' });
+      available = true;
+    } catch { /* not installed */ }
+    results.push({ provider: tool.provider, name: tool.name, available });
+  }
+
+  // ── Ollama（本地） ──
+  let ollamaAvailable = false;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2000);
@@ -174,12 +170,16 @@ export async function detectAvailableLLMs(): Promise<DetectedLLM[]> {
       signal: controller.signal,
     });
     clearTimeout(timeout);
-    if (res.ok) {
-      results.find(r => r.provider === 'ollama')!.available = true;
-    }
-  } catch {
-    // Ollama not running — leave as unavailable
-  }
+    if (res.ok) ollamaAvailable = true;
+  } catch { /* not running */ }
+  results.push({ provider: 'ollama', name: 'Ollama (本地)', available: ollamaAvailable });
+
+  // ── 需 API key ──
+  results.push(
+    { provider: 'deepseek', name: 'DeepSeek', available: !!process.env.DEEPSEEK_API_KEY, envVar: 'DEEPSEEK_API_KEY' },
+    { provider: 'claude', name: 'Claude API', available: !!process.env.ANTHROPIC_API_KEY, envVar: 'ANTHROPIC_API_KEY' },
+    { provider: 'openai', name: 'OpenAI', available: !!process.env.OPENAI_API_KEY, envVar: 'OPENAI_API_KEY' },
+  );
 
   return results;
 }

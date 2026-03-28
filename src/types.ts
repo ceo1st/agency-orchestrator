@@ -11,7 +11,7 @@ export interface WorkflowDefinition {
 }
 
 export interface LLMConfig {
-  provider: 'claude' | 'openai' | 'ollama' | 'deepseek';
+  provider: 'claude' | 'openai' | 'ollama' | 'deepseek' | 'claude-code' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli';
   base_url?: string;          // 自定义 API 地址（DeepSeek、智谱等）
   api_key?: string;           // 可在 YAML 中配置，也可用环境变量
   model: string;

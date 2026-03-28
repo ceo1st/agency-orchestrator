@@ -2,7 +2,7 @@
 
 **English** | [中文](./README.md)
 
-> **Multi-agent workflows in YAML — 186 ready-to-use AI roles, zero code required**
+> **Multi-agent workflows in YAML — 186 AI roles, no API key needed (use your existing subscription)**
 
 [![CI](https://github.com/jnMetaCode/agency-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/jnMetaCode/agency-orchestrator/actions)
 [![npm version](https://img.shields.io/npm/v/agency-orchestrator)](https://www.npmjs.com/package/agency-orchestrator)
@@ -38,8 +38,9 @@ steps:
 |---|--------|-----------|---------------------|
 | Language | Python | Python | **YAML (zero code)** |
 | Roles | Write your own | Write your own | **186 ready-to-use** |
+| API Key | **Required** | **Required** | **6 providers need no API key** |
 | Dependencies | pip + LiteLLM + dozens | pip + LangChain | **npm + 2 deps** |
-| Models | LiteLLM | LangChain | **Native: DeepSeek, Claude, OpenAI, Ollama** |
+| Models | LiteLLM | LangChain | **9 native LLM providers** |
 | Parallelism | Manager mode | Manual graph | **Auto DAG detection** |
 | Branching | None | Manual | **Condition expressions** |
 | Loops | None | Manual | **Declarative loop/exit** |
@@ -70,11 +71,17 @@ git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 
 Then tell your AI: `Run workflows/story-creation.yaml with premise="A time travel story"`
 
-### Option B: CLI Mode (API key required)
+### Option B: CLI Mode
 
 ```bash
 npm install agency-orchestrator
 npx ao init                    # download 186 AI roles
+
+# ⭐ Use Claude Max subscription directly (no API key!)
+npx ao run workflows/story-creation.yaml --input premise="A time travel story"
+# Just set provider: "claude-code" in your YAML
+
+# Or use an API (DeepSeek / Claude / OpenAI)
 export DEEPSEEK_API_KEY=your-key
 npx ao run workflows/story-creation.yaml --input premise="A time travel story"
 ```
@@ -251,16 +258,30 @@ Each round creates a new timestamped output directory. All versions are preserve
 | Re-run only failed steps | `ao run workflow.yaml --resume last` |
 | Resume specific version | `ao run workflow.yaml --resume ao-output/<dir>/ --from <step-id>` |
 
-## Supported LLMs
+## Supported LLMs — 9 Providers, 6 Need No API Key
+
+### ⭐ No API Key Needed (use subscription / free quota)
+
+| Provider | Config | Install | Notes |
+|----------|--------|---------|-------|
+| **Claude Code** | `provider: "claude-code"` | `npm i -g @anthropic-ai/claude-code` | Uses Claude Max/Pro subscription |
+| **Gemini CLI** | `provider: "gemini-cli"` | `npm i -g @google/gemini-cli` | **Free with Google account** (1000 req/day, Gemini 2.5 Pro) |
+| **Copilot CLI** | `provider: "copilot-cli"` | `npm i -g @github/copilot` | Uses GitHub Copilot subscription |
+| **Codex CLI** | `provider: "codex-cli"` | `npm i -g @openai/codex` | Uses ChatGPT Plus/Pro subscription |
+| **OpenClaw CLI** | `provider: "openclaw-cli"` | `npm i -g openclaw` | Multi-model gateway with OAuth + API key auth |
+| **Ollama** | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | Local models, completely free |
+
+### API Key Required
 
 | Provider | Config | Env Variable |
 |----------|--------|-------------|
 | **DeepSeek** | `provider: "deepseek"` | `DEEPSEEK_API_KEY` |
-| **Claude** | `provider: "claude"` | `ANTHROPIC_API_KEY` |
+| **Claude API** | `provider: "claude"` | `ANTHROPIC_API_KEY` |
 | **OpenAI** | `provider: "openai"` | `OPENAI_API_KEY` |
-| **Ollama** (local) | `provider: "ollama"` | None needed |
 
-All providers support custom `base_url` and `api_key`, compatible with any OpenAI-compatible API (Zhipu, Moonshot, etc.).
+> **⭐ Industry first: Got a subscription? Just use it!** Every other framework (CrewAI / LangGraph / AutoGen / Dify / n8n) requires API keys. Agency Orchestrator is the only one that lets you bring your existing subscription — Claude Max, ChatGPT Plus, GitHub Copilot, or even a free Google account.
+
+All API providers support custom `base_url` and `api_key`, compatible with any OpenAI-compatible API (Zhipu, Moonshot, etc.).
 
 ## CLI Reference
 
@@ -332,7 +353,7 @@ Cursor (`.cursor/mcp.json`):
 |-------|------|----------|-------------|
 | `name` | string | Yes | Workflow name |
 | `agents_dir` | string | Yes | Path to role definitions directory |
-| `llm.provider` | string | Yes | `claude` / `deepseek` / `openai` / `ollama` |
+| `llm.provider` | string | Yes | `claude-code` / `gemini-cli` / `copilot-cli` / `codex-cli` / `openclaw-cli` / `ollama` / `claude` / `deepseek` / `openai` |
 | `llm.model` | string | Yes | Model name |
 | `llm.max_tokens` | number | No | Default 4096 |
 | `llm.timeout` | number | No | Step timeout in ms (default 120000) |
@@ -483,7 +504,7 @@ ao-output/product-review-2026-03-22/
 - [x] **v0.1** — YAML workflows, DAG engine, 4 LLM connectors, CLI, streaming output
 - [x] **v0.2** — Condition branching, loop iteration, human approval, Resume, 5 department-collab templates
 - [x] **v0.3** — 9 AI tool integrations, 20+ workflow templates, `ao explain`, `ao init --workflow`, `--watch` mode
-- [x] **v0.4** — MCP Server mode (`ao serve`), 14 AI tool integrations, one-command installer, 29 workflow templates
+- [x] **v0.4** — MCP Server mode (`ao serve`), 14 AI tool integrations, one-command installer, 30 workflow templates, **9 LLM providers (6 need no API key: Claude Code / Gemini / Copilot / Codex / OpenClaw / Ollama)**
 - [ ] **v0.5** — Web UI, visual DAG editor, English role support, workflow marketplace
 
 ## Contributing

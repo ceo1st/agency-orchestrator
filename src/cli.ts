@@ -12,6 +12,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
+import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { listAgents } from './agents/loader.js';
 import { run } from './index.js';
@@ -202,7 +203,7 @@ async function handleCompose(): Promise<void> {
     process.exit(1);
   }
 
-  const provider = (getArgValue('--provider') || 'deepseek') as 'deepseek' | 'openai' | 'claude' | 'ollama';
+  const provider = (getArgValue('--provider') || 'deepseek') as LLMConfig['provider'];
   const model = getArgValue('--model') || (provider === 'deepseek' ? 'deepseek-chat' : provider === 'claude' ? 'claude-sonnet-4-20250514' : 'gpt-4o');
   const agentsDir = getArgValue('--agents-dir') || resolveAgentsDir();
 

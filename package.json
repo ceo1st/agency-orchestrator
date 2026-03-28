@@ -1,7 +1,7 @@
 {
   "name": "agency-orchestrator",
   "version": "0.4.0",
-  "description": "一句话编排 AI 工作流 — 186 个专业角色、自动 DAG 并行、YAML 零代码。支持 14 个 AI 编程工具 + DeepSeek / Claude / OpenAI / Ollama",
+  "description": "YAML 编排 AI 工作流 — 186 个专业角色、自动 DAG 并行、零代码。9 种 LLM（6 种免 API key：Claude Code / Gemini / Copilot / Codex / OpenClaw / Ollama）+ 14 个 AI 编程工具集成",
   "keywords": [
     "multi-agent",
     "ai-agents",
@@ -17,7 +17,12 @@
     "ollama",
     "crewai-alternative",
     "langgraph-alternative",
+    "autogen-alternative",
     "no-code",
+    "no-api-key",
+    "subscription-based",
+    "copilot-cli",
+    "codex-cli",
     "ai-roles",
     "chinese-ai",
     "copilot",
