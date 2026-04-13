@@ -11,7 +11,7 @@
 
 **One sentence → full plan · 179 expert AI roles · Zero-code YAML · 9 LLM providers · 6 need no API key**
 
-> **Note:** The built-in 179 roles and 30 workflow templates are currently in **Chinese**. `ao compose --run` works with English input (the LLM understands both languages), but role prompts and generated workflows will be in Chinese. English role library coming in v0.6.
+> **Note:** `ao compose --run` auto-detects your language. For English input, it uses [agency-agents](https://github.com/msitarzewski/agency-agents) (217 English roles). Use `ao init --lang en` to download the English role library. The 32 built-in workflow templates are currently in Chinese — English templates coming in v0.6.
 
 > If you find this useful, please **Star** it — helps others discover the project.
 
@@ -47,6 +47,19 @@ ao compose "I'm a programmer looking to start a side hustle with AI content, tar
 ```
 
 **No code. No config. No role selection.** One sentence → AI auto-decomposes the task → matches roles from 179 experts → executes as DAG → outputs a complete plan.
+
+### What Can You Build
+
+```bash
+ao compose "Analyze the feasibility of building an AI budgeting app" --run        # Startup feasibility
+ao compose "Compare Cursor, Windsurf, and Copilot — give me a recommendation" --run  # Tech comparison
+ao compose "Write a deep-dive article on AI Agent trends" --run                    # Long-form writing
+ao compose "Plan an AI education startup with $15K budget" --run                   # Business plan
+ao compose "PR code review covering security and performance" --run                # Code review
+ao compose "Design a pricing strategy for a SaaS product" --run                    # Pricing analysis
+```
+
+Each scenario auto-matches a different combination of AI roles.
 
 ---
 
@@ -84,23 +97,18 @@ export DEEPSEEK_API_KEY="your-key"
 ao compose "Analyze the feasibility of building an AI budgeting app" --run
 ```
 
-### Step 3: Use built-in templates or compose your own
+### Step 3: Use built-in templates or integrate with AI coding tools
 
 ```bash
-# Compose generates a workflow from your description — works with English input
-ao compose "Compare Cursor, Windsurf, and Copilot — give me a recommendation" --run
-ao compose "Plan an AI education startup with $15K budget" --run
-
-# Or run built-in templates (note: templates are in Chinese, output will be in Chinese)
-ao run workflows/story-creation.yaml --input premise="A programmer discovers AI knows things it shouldn't"
-ao run workflows/dev/pr-review.yaml --input code="your code here"
+# 32 built-in workflow templates
+ao run workflows/一人公司全员大会.yaml --input idea="AI-powered resume builder for job seekers"
+ao run workflows/dev/pr-review.yaml --input code=@src/main.ts
+ao run workflows/story-creation.yaml -i premise="A programmer discovers AI knows things it shouldn't"
 ```
 
 Also works inside Cursor / Claude Code — just say "run a workflow." Supports **14 AI coding tools** ([integration guides](./integrations/)).
 
-## Real Demos
-
-### One sentence → complete business plan
+## More Real Demos
 
 ```
 $ ao compose "Analyze startup opportunities in short-form video" --run
@@ -122,26 +130,7 @@ $ ao compose "Analyze startup opportunities in short-form video" --run
 ==================================================
 ```
 
-### 4 AI roles write a complete story
-
-```
-$ ao run workflows/story-creation.yaml -i "premise=A programmer discovers AI replies with things it shouldn't know"
-
-  Workflow: Short Story Creation
-  Steps: 4 | Concurrency: 2 | Model: deepseek-chat
-──────────────────────────────────────────────────
-
-  ✅ Narratologist     14.9s   → Core conflict & three-act structure
-  ✅ Psychologist      65.5s   → Character psychological profiles     ← parallel
-  ✅ Narrative Designer 65.5s   → Conflict scene design               ← parallel
-  ✅ Content Creator   33.9s   → Complete suspense short story
-
-==================================================
-  Done: 4/4 steps | 114.3s | 14,872 tokens
-==================================================
-```
-
-Steps 2 and 3 **run in parallel** (auto-detected from DAG dependencies).
+Of the 6 roles, Market Researcher and User Researcher **run in parallel** (auto-detected from DAG dependencies).
 
 ## How It Works
 
@@ -225,7 +214,8 @@ All API providers support custom `base_url` and `api_key`, compatible with any O
 
 ```bash
 ao demo                              # Zero-config multi-agent demo
-ao init                              # Download 179 AI roles
+ao init                              # Download 179 Chinese AI roles
+ao init --lang en                    # Download 217 English AI roles
 ao init --workflow                    # Interactive workflow creator
 ao compose "description"             # AI-powered workflow generation
 ao compose "description" --run       # Generate AND execute in one command
@@ -403,7 +393,7 @@ Works with **14 AI coding tools** — install with one command:
 | **Antigravity** | `AGENTS.md` | `--tool antigravity` | [Guide](./integrations/antigravity/) |
 | **OpenClaw** | Skill mode | `--tool openclaw` | [Guide](./integrations/openclaw/) |
 
-## Workflow Templates (30)
+## Workflow Templates (32)
 
 ### Dev Workflows (7)
 
@@ -445,7 +435,7 @@ Works with **14 AI coding tools** — install with one command:
 | `legal/contract-review.yaml` | Contract Reviewer, Legal Compliance | **Contract review** (clause analysis → compliance → opinion) |
 | `hr/interview-questions.yaml` | Recruiter, Psychologist, Backend Architect | **Interview questions** (dimensions → parallel design → scorecard) |
 
-### General Workflows (10)
+### General Workflows (12)
 
 | Template | Roles | Description |
 |----------|-------|-------------|
@@ -459,6 +449,8 @@ Works with **14 AI coding tools** — install with one command:
 | `department-collab/incident-response.yaml` | SRE, Security Engineer, Backend Architect | Incident response |
 | `department-collab/marketing-campaign.yaml` | Strategist, Creator, Approver | Marketing campaign (human approval) |
 | `department-collab/ceo-org-delegation.yaml` | CEO, Engineering/Marketing/Product/HR Leads | **CEO org delegation** (decide → parallel depts → summary) |
+| `一人公司全员大会.yaml` | CEO, Market Researcher, User Researcher, PM, Marketing Lead, CFO | **One-person company all-hands** (CEO → 6 depts parallel → decision) |
+| `ai-startup-launch.yaml` | CEO, PM, Architect, Marketing Lead, Finance Advisor | **SaaS product launch decision** (CEO → 4 depts parallel → launch plan) |
 
 ## Output Structure
 
@@ -499,9 +491,9 @@ Your AI subscription ──→ agency-orchestrator ──→ 179 expert roles co
 - [x] **v0.1** — YAML workflows, DAG engine, 4 LLM connectors, CLI, streaming output
 - [x] **v0.2** — Condition branching, loop iteration, human approval, Resume, 5 department-collab templates
 - [x] **v0.3** — 9 AI tool integrations, 20+ workflow templates, `ao explain`, `ao init --workflow`, `--watch` mode
-- [x] **v0.4** — MCP Server mode (`ao serve`), 14 AI tool integrations, one-command installer, 30 workflow templates, **9 LLM providers (6 need no API key: Claude Code / Gemini / Copilot / Codex / OpenClaw / Ollama)**
+- [x] **v0.4** — MCP Server mode (`ao serve`), 14 AI tool integrations, one-command installer, 32 workflow templates, **9 LLM providers (6 need no API key: Claude Code / Gemini / Copilot / Codex / OpenClaw / Ollama)**
 - [x] **v0.5** — `ao compose --run` one-sentence-to-result, real-time streaming, smart retry (exponential backoff), per-step model override, agent identity
-- [ ] **v0.6** — Web UI, visual DAG editor, English role support, workflow marketplace
+- [ ] **v0.6** — Web UI, visual DAG editor, English workflow templates, workflow marketplace
 
 ## Contributing
 

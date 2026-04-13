@@ -596,7 +596,7 @@ git commit -m "feat: add 6 dev workflow templates (pr-review, tech-debt, api-doc
 - Create: `workflows/ops/incident-postmortem.yaml`
 - Create: `workflows/ops/sre-health-check.yaml`
 
-**Context:** 覆盖非纯开发场景的高频需求。角色均已存在于 agency-agents-zh 186 个角色中。
+**Context:** 覆盖非纯开发场景的高频需求。角色均已存在于 agency-agents-zh 179 个角色中。
 
 - [ ] **Step 1: 创建 data-pipeline-review.yaml**
 
