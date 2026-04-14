@@ -75,8 +75,8 @@ await test('available list filters correctly', async () => {
   const llms = await detectAvailableLLMs();
   const available = llms.filter(l => l.available);
   const unavailable = llms.filter(l => !l.available);
-  assert(llms.length === 9, 'should always list 9 providers');
-  assert(available.length + unavailable.length === 9, 'available + unavailable should equal 9');
+  assert(llms.length === 10, 'should always list 10 providers');
+  assert(available.length + unavailable.length === 10, 'available + unavailable should equal 10');
 });
 
 await test('each provider has correct fields', async () => {
@@ -86,7 +86,7 @@ await test('each provider has correct fields', async () => {
     assert(typeof llm.name === 'string', `name should be string: ${llm.name}`);
     assert(typeof llm.available === 'boolean', `available should be boolean: ${llm.provider}`);
     // CLI-based providers and Ollama don't have envVar
-    const noEnvVarProviders = ['ollama', 'claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli'];
+    const noEnvVarProviders = ['ollama', 'claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
     if (!noEnvVarProviders.includes(llm.provider)) {
       assert(typeof llm.envVar === 'string', `envVar should be string for ${llm.provider}`);
     }

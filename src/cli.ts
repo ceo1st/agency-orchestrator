@@ -102,7 +102,7 @@ async function handleRun(): Promise<void> {
 
   try {
     // --provider / --model: 命令行覆盖 YAML 中的 LLM 配置
-    const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli'];
+    const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
     const llmOverride = provider ? {
       provider,
       // CLI provider 不指定 model 时清空（避免 YAML 里的 deepseek-chat 传给 claude CLI）
@@ -231,7 +231,7 @@ async function handleCompose(): Promise<void> {
   }
 
   const provider = (getArgValue('--provider') || 'deepseek') as LLMConfig['provider'];
-  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli'];
+  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
   const model = getArgValue('--model') || (
     cliProviders.includes(provider) ? '' :
     provider === 'deepseek' ? 'deepseek-chat' :

@@ -12,7 +12,7 @@ import { createInterface } from 'node:readline';
 // ─── Types ───
 
 export interface DetectedLLM {
-  provider: 'deepseek' | 'claude' | 'openai' | 'ollama' | 'claude-code' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli';
+  provider: 'deepseek' | 'claude' | 'openai' | 'ollama' | 'claude-code' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli' | 'hermes-cli';
   name: string;
   available: boolean;
   envVar?: string;
@@ -149,6 +149,7 @@ export async function detectAvailableLLMs(): Promise<DetectedLLM[]> {
     { provider: 'copilot-cli', name: 'Copilot CLI (GitHub 会员)', cmd: 'copilot' },
     { provider: 'codex-cli', name: 'Codex CLI (ChatGPT Plus)', cmd: 'codex' },
     { provider: 'openclaw-cli', name: 'OpenClaw CLI', cmd: 'openclaw' },
+    { provider: 'hermes-cli', name: 'Hermes Agent', cmd: 'hermes' },
   ];
 
   for (const tool of cliTools) {

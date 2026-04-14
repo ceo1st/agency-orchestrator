@@ -8,6 +8,7 @@ import { GeminiCLIConnector } from './gemini-cli.js';
 import { CopilotCLIConnector } from './copilot-cli.js';
 import { CodexCLIConnector } from './codex-cli.js';
 import { OpenClawCLIConnector } from './openclaw-cli.js';
+import { HermesCLIConnector } from './hermes-cli.js';
 import { OllamaConnector } from './ollama.js';
 import { OpenAICompatibleConnector } from './openai-compatible.js';
 
@@ -24,6 +25,8 @@ export function createConnector(config: LLMConfig): LLMConnector {
       return new CodexCLIConnector();
     case 'openclaw-cli':
       return new OpenClawCLIConnector();
+    case 'hermes-cli':
+      return new HermesCLIConnector();
     case 'ollama':
       return new OllamaConnector(config.base_url);
 
@@ -57,7 +60,7 @@ export function createConnector(config: LLMConfig): LLMConnector {
         '    api_key: "your-key"\n' +
         '    model: "model-name"\n\n' +
         '内置 provider:\n' +
-        '  免 API key: claude-code / gemini-cli / copilot-cli / codex-cli / openclaw-cli / ollama\n' +
+        '  免 API key: claude-code / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / ollama\n' +
         '  需 API key: claude / deepseek / openai'
       );
   }

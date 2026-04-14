@@ -9,7 +9,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-**One sentence → full plan · 211 expert AI roles · Zero-code YAML · 9 LLM providers · 6 need no API key**
+**One sentence → full plan · 211 expert AI roles · Zero-code YAML · 10 LLM providers · 7 need no API key**
 
 > **Note:** `ao compose --run` auto-detects your language. For English input, it uses [agency-agents](https://github.com/msitarzewski/agency-agents) (170+ English roles). Use `ao init --lang en` to download the English role library. The 32 built-in workflow templates are currently in Chinese — English templates coming in v0.6.
 
@@ -73,7 +73,7 @@ Chatting with one AI gives you one perspective. But any real decision needs prod
 |---|--------|-----------|---------------------|
 | Roles | 1 generalist | Write your own | **211 expert roles** |
 | Usage | Chat | Write Python | **One sentence / YAML** |
-| API key | — | Required | **6 providers need none** |
+| API key | — | Required | **7 providers need none** |
 | Dependencies | — | pip + dozens of packages | **npm + 2 deps** |
 | Parallelism | — | Manual graph | **Auto DAG detection** |
 | Price | Subscription | Open-source + API fees | **Completely free** |
@@ -187,7 +187,7 @@ analyze ──→ tech_review  ──→ summary
           (parallel)
 ```
 
-## 9 LLM Providers — 6 Need No API Key
+## 10 LLM Providers — 7 Need No API Key
 
 **Already paying for one of these? You're ready to go:**
 
@@ -198,6 +198,7 @@ analyze ──→ tech_review  ──→ summary
 | GitHub Copilot ($10/mo) | `provider: "copilot-cli"` | `npm i -g @github/copilot` | **$0 extra** |
 | ChatGPT Plus/Pro ($20/mo) | `provider: "codex-cli"` | `npm i -g @openai/codex` | **$0 extra** |
 | OpenClaw account | `provider: "openclaw-cli"` | `npm i -g openclaw` | **$0 extra** |
+| Hermes Agent | `provider: "hermes-cli"` | [Install guide](https://github.com/NousResearch/hermes-agent) | **Free** |
 | A computer | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | **Free** (local models) |
 
 **Or use traditional API keys:**
@@ -322,7 +323,7 @@ Cursor (`.cursor/mcp.json`):
 |-------|------|----------|-------------|
 | `name` | string | Yes | Workflow name |
 | `agents_dir` | string | Yes | Path to role definitions directory |
-| `llm.provider` | string | Yes | `claude-code` / `gemini-cli` / `copilot-cli` / `codex-cli` / `openclaw-cli` / `ollama` / `claude` / `deepseek` / `openai` |
+| `llm.provider` | string | Yes | `claude-code` / `gemini-cli` / `copilot-cli` / `codex-cli` / `openclaw-cli` / `hermes-cli` / `ollama` / `claude` / `deepseek` / `openai` |
 | `llm.model` | string | Yes | Model name |
 | `llm.max_tokens` | number | No | Default 4096 |
 | `llm.timeout` | number | No | Step timeout in ms (default 120000) |
@@ -487,7 +488,7 @@ Your AI subscription ──→ agency-orchestrator ──→ 380+ expert roles c
 - [x] **v0.1** — YAML workflows, DAG engine, 4 LLM connectors, CLI, streaming output
 - [x] **v0.2** — Condition branching, loop iteration, human approval, Resume, 5 department-collab templates
 - [x] **v0.3** — 9 AI tool integrations, 20+ workflow templates, `ao explain`, `ao init --workflow`, `--watch` mode
-- [x] **v0.4** — MCP Server mode (`ao serve`), 14 AI tool integrations, one-command installer, 32 workflow templates, **9 LLM providers (6 need no API key: Claude Code / Gemini / Copilot / Codex / OpenClaw / Ollama)**
+- [x] **v0.4** — MCP Server mode (`ao serve`), 14 AI tool integrations, one-command installer, 32 workflow templates, **10 LLM providers (7 need no API key: Claude Code / Gemini / Copilot / Codex / OpenClaw / Ollama)**
 - [x] **v0.5** — `ao compose --run` one-sentence-to-result, real-time streaming, smart retry (exponential backoff), per-step model override, agent identity
 - [ ] **v0.6** — Web UI, visual DAG editor, English workflow templates, workflow marketplace
 
