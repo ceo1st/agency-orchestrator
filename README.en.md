@@ -9,9 +9,9 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-**One sentence → full plan · 179 expert AI roles · Zero-code YAML · 9 LLM providers · 6 need no API key**
+**One sentence → full plan · 211 expert AI roles · Zero-code YAML · 9 LLM providers · 6 need no API key**
 
-> **Note:** `ao compose --run` auto-detects your language. For English input, it uses [agency-agents](https://github.com/msitarzewski/agency-agents) (217 English roles). Use `ao init --lang en` to download the English role library. The 32 built-in workflow templates are currently in Chinese — English templates coming in v0.6.
+> **Note:** `ao compose --run` auto-detects your language. For English input, it uses [agency-agents](https://github.com/msitarzewski/agency-agents) (170+ English roles). Use `ao init --lang en` to download the English role library. The 32 built-in workflow templates are currently in Chinese — English templates coming in v0.6.
 
 > If you find this useful, please **Star** it — helps others discover the project.
 
@@ -46,7 +46,7 @@ ao compose "I'm a programmer looking to start a side hustle with AI content, tar
 ==================================================
 ```
 
-**No code. No config. No role selection.** One sentence → AI auto-decomposes the task → matches roles from 179 experts → executes as DAG → outputs a complete plan.
+**No code. No config. No role selection.** One sentence → AI auto-decomposes the task → matches roles from 211 experts → executes as DAG → outputs a complete plan.
 
 ### What Can You Build
 
@@ -71,7 +71,7 @@ Chatting with one AI gives you one perspective. But any real decision needs prod
 
 | | ChatGPT / Claude | CrewAI / LangGraph | **Agency Orchestrator** |
 |---|--------|-----------|---------------------|
-| Roles | 1 generalist | Write your own | **179 expert roles** |
+| Roles | 1 generalist | Write your own | **211 expert roles** |
 | Usage | Chat | Write Python | **One sentence / YAML** |
 | API key | — | Required | **6 providers need none** |
 | Dependencies | — | pip + dozens of packages | **npm + 2 deps** |
@@ -214,8 +214,8 @@ All API providers support custom `base_url` and `api_key`, compatible with any O
 
 ```bash
 ao demo                              # Zero-config multi-agent demo
-ao init                              # Download 179 Chinese AI roles
-ao init --lang en                    # Download 217 English AI roles
+ao init                              # Download 211 Chinese AI roles
+ao init --lang en                    # Download 170+ English AI roles
 ao init --workflow                    # Interactive workflow creator
 ao compose "description"             # AI-powered workflow generation
 ao compose "description" --run       # Generate AND execute in one command
@@ -246,7 +246,7 @@ ao compose "PR code review covering security and performance"
 ```
 
 The AI will:
-1. Select matching roles from 179 available (e.g., Code Reviewer, Security Engineer, Performance Benchmarker)
+1. Select matching roles from 211 available (e.g., Code Reviewer, Security Engineer, Performance Benchmarker)
 2. Design the DAG (3-way parallel → summary)
 3. Generate complete YAML with variable passing and task descriptions
 4. Save to `workflows/` — ready to `ao run`
@@ -465,8 +465,8 @@ ao-output/product-review-2026-03-22/
 ## Ecosystem
 
 ```
-Your AI subscription ──→ agency-orchestrator ──→ 396 expert roles collaborate ──→ quality output
-                              │                  (179 Chinese + 217 English)
+Your AI subscription ──→ agency-orchestrator ──→ 380+ expert roles collaborate ──→ quality output
+                              │                  (211 Chinese + 170+ English)
              ┌────────────────┼────────────────┐
              ▼                ▼                ▼
       14 AI Coding Tools    CLI Mode        MCP Server
@@ -476,8 +476,8 @@ Your AI subscription ──→ agency-orchestrator ──→ 396 expert roles co
 
 | Project | Description |
 |---------|-------------|
-| [agency-agents](https://github.com/msitarzewski/agency-agents) | 217 English AI role definitions by [@msitarzewski](https://github.com/msitarzewski) — the English role library for this engine |
-| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 179 Chinese AI role definitions — the Chinese role library for this engine |
+| [agency-agents](https://github.com/msitarzewski/agency-agents) | 170+ English AI role definitions by [@msitarzewski](https://github.com/msitarzewski) — the English role library for this engine |
+| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 211 Chinese AI role definitions — the Chinese role library for this engine |
 | [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | AI coding tools field guide — 66 Claude Code tips + 9 tools best practices + copyable config templates |
 | [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | AI coding superpowers — 20 skills for Claude Code / Cursor |
 | [shellward](https://github.com/jnMetaCode/shellward) | AI agent security middleware — prompt injection detection, DLP, command safety |

@@ -4,7 +4,7 @@
 
 ## 1. Hacker News — Show HN (English)
 
-**Title:** Show HN: Agency Orchestrator – Multi-agent workflows in YAML, 179 roles, zero code
+**Title:** Show HN: Agency Orchestrator – Multi-agent workflows in YAML, 211 roles, zero code
 
 **Body:**
 
@@ -17,7 +17,7 @@ I built an open-source multi-agent orchestrator where you define AI collaboratio
 **What it does:**
 
 - Define multi-agent workflows in YAML — roles, tasks, dependencies, conditions, loops
-- 179 ready-to-use AI role definitions (product manager, architect, UX researcher, SRE, content creator, etc.)
+- 211 ready-to-use AI role definitions (product manager, architect, UX researcher, SRE, content creator, etc.)
 - Auto DAG parallelism — the engine detects which steps can run concurrently
 - Condition branching (`contains`, `equals`, etc.) and declarative loops with exit conditions
 - Resume any workflow from any step: `ao run workflow.yaml --resume last --from step_id`
@@ -29,7 +29,7 @@ I built an open-source multi-agent orchestrator where you define AI collaboratio
 | | CrewAI | LangGraph | Agency Orchestrator |
 |---|--------|-----------|---------------------|
 | Language | Python | Python | YAML (zero code) |
-| Roles | Write your own | Write your own | 179 ready-to-use |
+| Roles | Write your own | Write your own | 211 ready-to-use |
 | Dependencies | pip + LiteLLM + dozens | pip + LangChain | npm + 2 deps |
 | Parallelism | Manager mode | Manual graph | Auto DAG detection |
 | Branching | None | Manual | Condition expressions |
@@ -124,7 +124,7 @@ npx ao run review.yaml --input code=@myfile.py
 
 The `review` and `security` steps run in parallel (auto-detected from the DAG). No data leaves your machine.
 
-**179 built-in roles** cover product, engineering, design, marketing, academic, and more. You don't write agent definitions — just reference them.
+**211 built-in roles** cover product, engineering, design, marketing, academic, and more. You don't write agent definitions — just reference them.
 
 GitHub: https://github.com/jnMetaCode/agency-orchestrator
 
@@ -178,7 +178,7 @@ It reuses all upstream outputs and only re-runs from the step you specify. Every
 **Why this is useful in Claude Code / Cursor:**
 - No API key management
 - No extra costs
-- 179 pre-built roles covering product, engineering, design, marketing
+- 211 pre-built roles covering product, engineering, design, marketing
 - YAML workflows live in your repo — version controlled, shareable
 - Works with the Claude model your tool already has access to
 
@@ -225,7 +225,7 @@ steps:
     depends_on: [tech_review, design_review]
 ```
 
-The engine runs the tech review and design review in parallel, then produces a summary. Each "role" is a specialized AI persona with domain knowledge baked in — there are 179 of them included.
+The engine runs the tech review and design review in parallel, then produces a summary. Each "role" is a specialized AI persona with domain knowledge baked in — there are 211 of them included.
 
 **What makes this different from just chatting with ChatGPT:**
 
@@ -246,7 +246,7 @@ GitHub: https://github.com/jnMetaCode/agency-orchestrator
 **Tweet 1:**
 I built an open-source multi-agent orchestrator where you define AI team workflows in YAML.
 
-No Python. No framework boilerplate. 179 ready-to-use roles.
+No Python. No framework boilerplate. 211 ready-to-use roles.
 
 Here's what it looks like vs CrewAI and LangGraph:
 
@@ -261,7 +261,7 @@ The problem with CrewAI/LangGraph:
 
 Agency Orchestrator:
 - YAML only
-- 179 built-in roles
+- 211 built-in roles
 - npm + 2 deps
 - Completely free
 
@@ -297,7 +297,7 @@ What else it does:
 The ecosystem:
 
 - agency-orchestrator — the engine (31★)
-- agency-agents-zh — 179 AI role definitions (2,182★)
+- agency-agents-zh — 211 AI role definitions (2,182★)
 - superpowers-zh — 20 AI coding skills for Claude Code (140★)
 - shellward — AI agent security middleware (48★)
 
@@ -337,7 +337,7 @@ Your tool's built-in LLM does the rest.
 
 ## 6. V2EX (Chinese)
 
-**标题:** 开源了一个零代码 AI 多智能体编排引擎，YAML 定义工作流，内置 179 个中文角色
+**标题:** 开源了一个零代码 AI 多智能体编排引擎，YAML 定义工作流，内置 211 个中文角色
 
 **正文:**
 
@@ -354,7 +354,7 @@ Your tool's built-in LLM does the rest.
 ```yaml
 steps:
   - id: analyze
-    role: "product/product-manager"          # 从 179 个内置角色里选
+    role: "product/product-manager"          # 从 211 个内置角色里选
     task: "分析这个需求：{{prd_content}}"
     output: requirements
 
@@ -368,7 +368,7 @@ steps:
 
 **核心特性：**
 
-- **179 个中文 AI 角色**（产品、工程、设计、营销、学术等），直接引用，不用自己写 prompt
+- **211 个中文 AI 角色**（产品、工程、设计、营销、学术等），直接引用，不用自己写 prompt
 - **自动 DAG 并行**——引擎自己判断哪些步骤可以同时跑
 - **条件分支**——`condition: "{{type}} contains technical"`
 - **循环迭代**——写作→审核→不通过→重写，声明式
@@ -381,7 +381,7 @@ steps:
 | | CrewAI | LangGraph | Agency Orchestrator |
 |---|--------|-----------|---------------------|
 | 语言 | Python | Python | YAML（零代码） |
-| 角色 | 自己写 | 自己写 | 179 个现成的 |
+| 角色 | 自己写 | 自己写 | 211 个现成的 |
 | 依赖 | pip + 一堆 | pip + LangChain | npm + 2 个依赖 |
 | 并行 | Manager 模式 | 手动图 | 自动 DAG |
 | 价格 | OSS + $25-99/月 | OSS | 完全免费 |
@@ -399,7 +399,7 @@ npx superpowers-zh
 
 **相关项目：**
 
-- [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh)（2182★）——179 个中文 AI 角色定义
+- [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh)（2182★）——211 个中文 AI 角色定义
 - [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh)（140★）——Claude Code 20 个增强技能
 - [shellward](https://github.com/jnMetaCode/shellward)（48★）——AI Agent 安全中间件
 
@@ -411,9 +411,9 @@ Apache-2.0 开源，欢迎 PR 和反馈。
 
 ## 7. 掘金文章大纲 (Chinese)
 
-**标题:** 替代 CrewAI 的零代码 AI 多智能体方案：用 YAML 编排 179 个 AI 角色
+**标题:** 替代 CrewAI 的零代码 AI 多智能体方案：用 YAML 编排 211 个 AI 角色
 
-**摘要:** CrewAI 和 LangGraph 虽然强大，但上手成本高、依赖多、需要大量 Python 代码。本文介绍一个纯 YAML 驱动的替代方案：Agency Orchestrator，内置 179 个中文角色，自动 DAG 并行，支持 DeepSeek/Ollama 本地模型。
+**摘要:** CrewAI 和 LangGraph 虽然强大，但上手成本高、依赖多、需要大量 Python 代码。本文介绍一个纯 YAML 驱动的替代方案：Agency Orchestrator，内置 211 个中文角色，自动 DAG 并行，支持 DeepSeek/Ollama 本地模型。
 
 ### 文章结构
 
@@ -512,7 +512,7 @@ ao run story.yaml --resume last --from write_story
 - 输出结果展示
 - 成本分析：DeepSeek ~15K tokens，不到 1 分钱
 
-**六、179 个内置角色一览（约 400 字）**
+**六、211 个内置角色一览（约 400 字）**
 
 - 角色分类：产品、工程、设计、营销、学术、游戏开发等
 - 角色定义格式：Markdown frontmatter + system prompt
@@ -533,18 +533,18 @@ ao run story.yaml --resume last --from write_story
 
 ## 8. Product Hunt Launch Copy (English)
 
-**Tagline:** Multi-agent AI workflows in YAML — 179 roles, zero code, free forever
+**Tagline:** Multi-agent AI workflows in YAML — 211 roles, zero code, free forever
 
 **Description:**
 
-Agency Orchestrator lets you build multi-agent AI workflows by writing a simple YAML file. Pick from 179 built-in AI roles (product manager, architect, UX researcher, content creator...), define the task order, and the engine handles the rest — parallel execution, variable passing, conditional branching, loops, and resume.
+Agency Orchestrator lets you build multi-agent AI workflows by writing a simple YAML file. Pick from 211 built-in AI roles (product manager, architect, UX researcher, content creator...), define the task order, and the engine handles the rest — parallel execution, variable passing, conditional branching, loops, and resume.
 
 No Python. No framework boilerplate. Just YAML.
 
 Works with DeepSeek (cheapest), Claude, OpenAI, and Ollama (100% local). Also runs inside Claude Code and Cursor without an API key.
 
 **Key features:**
-- 179 ready-to-use AI role definitions
+- 211 ready-to-use AI role definitions
 - Auto DAG parallelism — steps that can run concurrently do so automatically
 - Condition branching and declarative loops
 - Resume from any step without re-running the entire workflow
@@ -559,7 +559,7 @@ I built this because I was frustrated with existing multi-agent frameworks. Crew
 
 I wanted something where a non-programmer could look at the workflow file and understand exactly what's happening. YAML felt like the natural choice.
 
-The 179 built-in roles come from the agency-agents-zh project (2,100+ stars on GitHub). Each role is a carefully crafted system prompt covering product management, software engineering, UX design, marketing, academic research, and more.
+The 211 built-in roles come from the agency-agents-zh project (2,100+ stars on GitHub). Each role is a carefully crafted system prompt covering product management, software engineering, UX design, marketing, academic research, and more.
 
 A few things I'm particularly proud of:
 - **Auto DAG detection**: You just declare `depends_on`, and the engine figures out what can run in parallel. No manual graph construction.
@@ -577,7 +577,7 @@ I'd love feedback on what workflows you'd build with this. Happy to answer any q
 **Entry:**
 
 ```markdown
-- [Agency Orchestrator](https://github.com/jnMetaCode/agency-orchestrator) - YAML-first multi-agent workflow engine with 179 built-in AI roles, auto DAG parallelism, condition branching, loops, and resume. Supports DeepSeek, Claude, OpenAI, Ollama. Zero code required.
+- [Agency Orchestrator](https://github.com/jnMetaCode/agency-orchestrator) - YAML-first multi-agent workflow engine with 211 built-in AI roles, auto DAG parallelism, condition branching, loops, and resume. Supports DeepSeek, Claude, OpenAI, Ollama. Zero code required.
 ```
 
 **PR Title:** Add Agency Orchestrator — YAML-based multi-agent workflow engine
@@ -588,7 +588,7 @@ Adding Agency Orchestrator, an open-source multi-agent orchestration engine wher
 
 Key differentiators:
 - YAML-only workflow definition (no Python/code required)
-- 179 built-in AI role definitions covering product, engineering, design, marketing, and academic domains
+- 211 built-in AI role definitions covering product, engineering, design, marketing, and academic domains
 - Automatic DAG-based parallel execution
 - Declarative condition branching and loop iteration
 - Built-in resume/checkpoint support
@@ -604,7 +604,7 @@ GitHub: 31+ stars, Apache-2.0 license, actively maintained.
 **Entry:**
 
 ```markdown
-- [Agency Orchestrator](https://github.com/jnMetaCode/agency-orchestrator) - Define multi-agent LLM workflows in YAML with 179 ready-to-use roles, auto parallel execution, and native DeepSeek/Claude/OpenAI/Ollama support. No code required.
+- [Agency Orchestrator](https://github.com/jnMetaCode/agency-orchestrator) - Define multi-agent LLM workflows in YAML with 211 ready-to-use roles, auto parallel execution, and native DeepSeek/Claude/OpenAI/Ollama support. No code required.
 ```
 
 **PR Title:** Add Agency Orchestrator — zero-code multi-agent LLM workflows
@@ -615,7 +615,7 @@ Adding Agency Orchestrator, a YAML-driven multi-agent workflow engine for LLM ap
 
 What it does:
 - Users define collaboration workflows between AI agents in YAML files
-- 179 pre-built AI role definitions (system prompts) are included
+- 211 pre-built AI role definitions (system prompts) are included
 - The engine parses the YAML into a DAG, runs steps in parallel where possible, passes outputs between steps via template variables, and handles retries
 - Supports condition branching, loop iteration, and resume from any checkpoint
 - Works with DeepSeek, Claude, OpenAI, Ollama, and any OpenAI-compatible API
@@ -630,14 +630,14 @@ Tech stack: TypeScript, Node.js, npm (2 dependencies). Apache-2.0 license.
 **Entry:**
 
 ```markdown
-- [Agency Orchestrator](https://github.com/jnMetaCode/agency-orchestrator) - Orchestrate multi-agent workflows with OpenAI/ChatGPT models using YAML. 179 built-in roles, auto parallelism, condition branching, loops. Zero code.
+- [Agency Orchestrator](https://github.com/jnMetaCode/agency-orchestrator) - Orchestrate multi-agent workflows with OpenAI/ChatGPT models using YAML. 211 built-in roles, auto parallelism, condition branching, loops. Zero code.
 ```
 
 **PR Title:** Add Agency Orchestrator — YAML multi-agent orchestrator with OpenAI support
 
 **PR Description:**
 
-Adding Agency Orchestrator, an open-source tool that orchestrates multi-agent workflows using OpenAI models (and others). Users define workflows in YAML with 179 built-in role definitions. The engine handles parallel execution, variable passing, conditional logic, loops, and checkpointing.
+Adding Agency Orchestrator, an open-source tool that orchestrates multi-agent workflows using OpenAI models (and others). Users define workflows in YAML with 211 built-in role definitions. The engine handles parallel execution, variable passing, conditional logic, loops, and checkpointing.
 
 Supports `provider: "openai"` with any OpenAI model, plus custom `base_url` for Azure OpenAI or compatible endpoints. Also supports DeepSeek, Claude, and Ollama.
 
@@ -650,7 +650,7 @@ Apache-2.0 licensed, npm installable, 2 runtime dependencies.
 **Entry:**
 
 ```markdown
-- [Agency Orchestrator](https://github.com/jnMetaCode/agency-orchestrator) - Multi-agent AI workflow engine. Define complex AI collaboration in YAML with 179 built-in roles, automatic DAG parallelism, conditional branching, loops, and resume. Supports multiple LLM providers.
+- [Agency Orchestrator](https://github.com/jnMetaCode/agency-orchestrator) - Multi-agent AI workflow engine. Define complex AI collaboration in YAML with 211 built-in roles, automatic DAG parallelism, conditional branching, loops, and resume. Supports multiple LLM providers.
 ```
 
 **PR Title:** Add Agency Orchestrator — open-source multi-agent AI workflow engine
@@ -660,7 +660,7 @@ Apache-2.0 licensed, npm installable, 2 runtime dependencies.
 Adding Agency Orchestrator to the list.
 
 - **What:** A multi-agent workflow engine where AI collaboration is defined in YAML — no programming required
-- **Why it's notable:** Ships with 179 ready-to-use AI role definitions; auto-detects parallelism from declared dependencies; supports condition branching, loops, and resume from checkpoints
+- **Why it's notable:** Ships with 211 ready-to-use AI role definitions; auto-detects parallelism from declared dependencies; supports condition branching, loops, and resume from checkpoints
 - **Tech:** TypeScript/Node.js, npm package, 2 runtime dependencies
 - **LLM support:** DeepSeek, Claude (Anthropic), OpenAI, Ollama (local), any OpenAI-compatible API
 - **License:** Apache-2.0

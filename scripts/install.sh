@@ -313,7 +313,7 @@ main() {
   printf "\n"
   ok "完成！已安装 $installed 个工具的 workflow-runner。"
   printf "\n"
-  dim "  接下来安装 179 个 AI 角色:"
+  dim "  接下来安装 211 个 AI 角色:"
   dim "    git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git"
   dim "  然后复制工作流模板:"
   dim "    cp -r workflows/ your-project/workflows/"
