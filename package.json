@@ -72,6 +72,7 @@
     "workflows/",
     "examples/",
     "integrations/",
+    "agency-agents/",
     "LICENSE",
     "README.md"
   ],
