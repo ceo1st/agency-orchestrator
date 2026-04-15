@@ -163,6 +163,7 @@ const dict: Dict = {
     demo                              零配置体验多智能体协作（mock + 真实 AI）
     init                              下载/更新角色库 (--lang en 下载英文版)
     init --workflow                   交互式创建新工作流
+    init --provider <p> --model <m>   写入 .env 默认配置（支持 --base-url, --api-key）
     compose "描述"                    AI 智能编排工作流（一句话生成 YAML）
     compose "描述" --run              生成并立即运行（一句话出结果）
     serve                             启动 MCP Server（供 Claude Code / Cursor 调用）
@@ -215,6 +216,7 @@ const dict: Dict = {
     demo                              Zero-config demo (mock + real AI)
     init                              Download/update role library (--lang en for English)
     init --workflow                   Interactively create a new workflow
+    init --provider <p> --model <m>   Write default config to .env (supports --base-url, --api-key)
     compose "desc"                    AI-compose a workflow from one sentence
     compose "desc" --run              Compose and run immediately
     serve                             Start MCP server (for Claude Code / Cursor)

@@ -18,6 +18,10 @@ import { listAgents } from './agents/loader.js';
 import { run } from './index.js';
 import { scheduleUpdateCheck } from './utils/version-check.js';
 import { t, detectLang } from './i18n.js';
+import { loadEnvFile, writeEnvFile, ensureEnvGitignored } from './utils/env-loader.js';
+
+// Auto-load ./.env (shell env wins; no overwrite)
+loadEnvFile();
 
 // Suppress Node's DEP0190 warning from legitimate shell:true on Windows (.cmd shims).
 const origEmit = process.emit.bind(process);
@@ -99,8 +103,9 @@ async function handleRun(): Promise<void> {
   const watch = args.includes('--watch');
   let resumeDir = getArgValue('--resume');
   const fromStep = getArgValue('--from');
-  const provider = getArgValue('--provider') as LLMConfig['provider'] | undefined;
-  const model = getArgValue('--model');
+  // Precedence: CLI flag > .env (AO_PROVIDER/AO_MODEL) > YAML
+  const provider = (getArgValue('--provider') || process.env.AO_PROVIDER) as LLMConfig['provider'] | undefined;
+  const model = getArgValue('--model') || process.env.AO_MODEL;
 
   // --resume last: 自动找最近一次的输出目录
   if (resumeDir === 'last') {
@@ -356,6 +361,53 @@ async function handleInit(): Promise<void> {
   if (args.includes('--workflow')) {
     const { interactiveInitWorkflow } = await import('./cli/init-workflow.js');
     await interactiveInitWorkflow();
+    return;
+  }
+
+  // ao init --provider X --model Y --base-url Z --api-key K → write ./.env
+  const cfgProvider = getArgValue('--provider');
+  const cfgModel = getArgValue('--model');
+  const cfgBaseUrl = getArgValue('--base-url') || getArgValue('--baseurl');
+  const cfgApiKey = getArgValue('--api-key') || getArgValue('--apikey');
+
+  if (cfgProvider || cfgModel || cfgBaseUrl || cfgApiKey) {
+    const updates: Record<string, string> = {};
+    if (cfgProvider) updates.AO_PROVIDER = cfgProvider;
+    if (cfgModel) updates.AO_MODEL = cfgModel;
+    if (cfgBaseUrl) {
+      // Route to the env var the matching connector already reads
+      const p = (cfgProvider || '').toLowerCase();
+      const urlVar =
+        p === 'ollama' ? 'OLLAMA_BASE_URL' :
+        'OPENAI_BASE_URL';
+      updates[urlVar] = cfgBaseUrl;
+    }
+    if (cfgApiKey) {
+      // Route api key to the provider-specific var the connectors already read
+      const p = (cfgProvider || process.env.AO_PROVIDER || '').toLowerCase();
+      const keyVar =
+        p === 'deepseek' ? 'DEEPSEEK_API_KEY' :
+        p === 'openai' ? 'OPENAI_API_KEY' :
+        p === 'anthropic' || p === 'claude' ? 'ANTHROPIC_API_KEY' :
+        p === 'zhipu' || p === 'glm' ? 'ZHIPU_API_KEY' :
+        p === 'qwen' || p === 'dashscope' ? 'DASHSCOPE_API_KEY' :
+        p === 'moonshot' || p === 'kimi' ? 'MOONSHOT_API_KEY' :
+        'AO_API_KEY';
+      updates[keyVar] = cfgApiKey;
+    }
+
+    const envPath = resolve(process.cwd(), '.env');
+    writeEnvFile(updates);
+    const gitignoreUpdated = ensureEnvGitignored();
+
+    console.log(`  ✅ 已写入 ${envPath}`);
+    for (const [k, v] of Object.entries(updates)) {
+      const shown = /KEY|TOKEN|SECRET/i.test(k) ? v.slice(0, 6) + '…' : v;
+      console.log(`     ${k}=${shown}`);
+    }
+    if (gitignoreUpdated) console.log(`  🔒 已将 .env 加入 .gitignore`);
+    console.log(`\n  下次运行 ao 时会自动加载这些配置。`);
+    console.log(`  也可手动编辑 .env 或复制到其他项目复用。`);
     return;
   }
 
