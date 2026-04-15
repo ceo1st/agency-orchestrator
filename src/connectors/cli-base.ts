@@ -48,7 +48,7 @@ export class CLIBaseConnector implements LLMConnector {
       ? (this.cfg.buildStdinArgs?.(config) ?? this.cfg.buildArgs('-', config))
       : this.cfg.buildArgs(fullPrompt, config);
 
-    const timeout = config.timeout || 300_000;  // 默认 5 分钟，effort=low 正常 1-3 分钟内响应
+    const timeout = config.timeout || 600_000;  // 默认 10 分钟（gateway/MiniMax 等 CLI provider 可能单步 5+ 分钟）
 
     return new Promise<LLMResult>((resolve, reject) => {
       const child = spawn(this.cfg.command, args, {

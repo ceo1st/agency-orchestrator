@@ -382,20 +382,54 @@ export async function composeWorkflow(options: {
 
   console.log(`  Token 用量: 输入 ${result.usage.input_tokens}, 输出 ${result.usage.output_tokens}`);
 
-  // 6. 校验生成的 YAML
+  // 6. 校验生成的 YAML（含角色路径真实性校验，防 LLM 幻觉）
   const warnings: string[] = [];
-  try {
+  const validRolePaths = new Set(roles.map(r => r.path));
+
+  async function validateGenerated(path: string): Promise<{ errors: string[]; invalidRoles: string[] }> {
     const { parseWorkflow, validateWorkflow } = await import('../core/parser.js');
-    const workflow = parseWorkflow(savedPath);
-    const errors = validateWorkflow(workflow);
-    if (errors.length > 0) {
-      for (const e of errors) {
-        warnings.push(e);
+    const errors: string[] = [];
+    const invalidRoles: string[] = [];
+    try {
+      const workflow = parseWorkflow(path);
+      errors.push(...validateWorkflow(workflow));
+      for (const step of workflow.steps) {
+        if (step.role && !validRolePaths.has(step.role)) {
+          invalidRoles.push(step.role);
+          errors.push(`step "${step.id}" 的 role "${step.role}" 不存在于角色库中`);
+        }
       }
+    } catch (err) {
+      errors.push(`YAML 解析失败: ${err instanceof Error ? err.message : err}`);
     }
-  } catch (err) {
-    warnings.push(`YAML 解析失败: ${err instanceof Error ? err.message : err}`);
+    return { errors, invalidRoles };
   }
 
+  const first = await validateGenerated(savedPath);
+
+  // 发现幻觉角色 → 让 LLM 修一次
+  if (first.invalidRoles.length > 0) {
+    console.log(`  检测到 ${first.invalidRoles.length} 个不存在的角色，自动重新生成...`);
+    const retryPrompt = lang === 'en'
+      ? `The following role paths in your previous YAML do NOT exist in the catalog: ${first.invalidRoles.join(', ')}.\n\nRegenerate the FULL YAML. Use ONLY role paths from the catalog above. Do not invent new paths.`
+      : `你上次生成的 YAML 里有不存在的 role 路径：${first.invalidRoles.join('、')}。\n\n请重新生成完整 YAML，role 必须严格使用上方角色目录中列出的路径，不要编造。`;
+    try {
+      const retryResult = await connector.chat(systemPrompt, `${userPrompt}\n\n${retryPrompt}`, {
+        ...llmConfig,
+        max_tokens: llmConfig.max_tokens || 4096,
+      });
+      const retryYaml = extractYamlFromResponse(retryResult.content);
+      if (retryYaml && retryYaml.includes('steps:')) {
+        writeFileSync(savedPath, retryYaml + '\n', 'utf-8');
+        const second = await validateGenerated(savedPath);
+        warnings.push(...second.errors);
+        return { yaml: retryYaml, savedPath, relativePath, warnings };
+      }
+    } catch (err) {
+      warnings.push(`自动修正失败（保留原始输出）: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  warnings.push(...first.errors);
   return { yaml, savedPath, relativePath, warnings };
 }

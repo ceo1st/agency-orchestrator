@@ -50,7 +50,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
   const stepResults: StepResult[] = [];
 
   const isCLI = llmConfig.provider.endsWith('-cli') || llmConfig.provider === 'claude-code';
-  const timeout = llmConfig.timeout || (isCLI ? 300_000 : 120_000);  // CLI 5分钟，API 2分钟
+  const timeout = llmConfig.timeout || (isCLI ? 600_000 : 120_000);  // CLI 10分钟（gateway/MiniMax 等可能单步 5+ 分钟），API 2分钟
   const maxRetry = llmConfig.retry ?? 5;
 
   // CLI provider 强制串行：共享同一账户额度，并发会触发限速反而更慢
