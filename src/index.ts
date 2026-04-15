@@ -283,9 +283,11 @@ function resolveAgentsDir(agentsDir: string, workflowPath: string): string {
     resolve(baseName),
     resolve('..', baseName),
     resolve('node_modules', baseName),
-    resolve(scriptDir, '../../node_modules', baseName),
     // 包内置：agency-agents/ 与 dist/ 同级（随 npm 包一起分发）
     resolve(scriptDir, '..', baseName),
+    // 包依赖：agency-agents-zh 等通过 dependencies 装到 node_modules
+    resolve(scriptDir, '..', 'node_modules', baseName),
+    resolve(scriptDir, '../../node_modules', baseName),
   ];
   for (const dir of sameNameCandidates) {
     if (existsSync(dir)) return dir;
