@@ -89,11 +89,12 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
   writeFileSync(join(dir, 'summary.md'), summaryLines.join('\n'), 'utf-8');
 
   // 保存元数据（含 output 变量名，用于 resume）
-  const metadata = {
+  const metadata: Record<string, unknown> = {
     name: result.name,
     success: result.success,
     totalDuration: `${(result.totalDuration / 1000).toFixed(1)}s`,
     totalTokens: result.totalTokens,
+    inputs: result.inputs,
     steps: result.steps.map(s => ({
       id: s.id,
       role: s.role,
@@ -200,6 +201,13 @@ export function loadPreviousContext(outputDir: string): Map<string, string> {
 
   const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
   const stepsDir = join(outputDir, 'steps');
+
+  // 先恢复原始用户输入（如 topic、audience 等）
+  if (metadata.inputs && typeof metadata.inputs === 'object') {
+    for (const [k, v] of Object.entries(metadata.inputs as Record<string, unknown>)) {
+      if (typeof v === 'string') context.set(k, v);
+    }
+  }
 
   for (const step of metadata.steps) {
     if (step.status === 'completed' && step.output_var) {

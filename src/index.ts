@@ -83,6 +83,18 @@ export async function run(
   // 构建输入
   const inputMap = new Map(Object.entries(inputs));
 
+  // Resume: 先把上一次运行的原始输入 + 步骤输出恢复到 inputMap，
+  // 这样 --resume --from 不需要用户重复传 -i
+  const resumeDir = options?.resumeDir;
+  const fromStep = options?.fromStep;
+  if (resumeDir) {
+    const prevContext = loadPreviousContext(resumeDir);
+    for (const [key, value] of prevContext) {
+      // 命令行显式传入的 -i 优先，只补全没有的
+      if (!inputMap.has(key)) inputMap.set(key, value);
+    }
+  }
+
   // 检查必填输入 + 注入默认值
   const missingInputs = (workflow.inputs || []).filter(
     def => def.required && !inputMap.has(def.name)
@@ -112,17 +124,10 @@ export async function run(
     }
   }
 
-  // Resume: 加载上一次运行的输出到 context
+  // Resume: 计算 skipStepIds + 兼容旧 output 变量名
   let skipStepIds: Set<string> | undefined;
-  const resumeDir = options?.resumeDir;
-  const fromStep = options?.fromStep;
 
   if (resumeDir) {
-    const prevContext = loadPreviousContext(resumeDir);
-    for (const [key, value] of prevContext) {
-      inputMap.set(key, value);
-    }
-
     // 兼容变量重命名：如果旧 metadata 的 output_var 和新 YAML 的 output 不同，
     // 按 step id 匹配，把旧内容也映射到新变量名
     const metadata = JSON.parse(readFileSync(join(resumeDir, 'metadata.json'), 'utf-8'));
@@ -239,6 +244,12 @@ export async function run(
   } satisfies ExecutorOptions);
 
   result.name = workflow.name;
+  // 保存原始用户输入，便于 --resume 下次恢复
+  result.inputs = Object.fromEntries(
+    Array.from(inputMap.entries()).filter(([k]) =>
+      (workflow.inputs || []).some(i => i.name === k)
+    )
+  );
 
   // 保存结果
   const outputDir = options?.outputDir || 'ao-output';

@@ -97,6 +97,8 @@ export interface WorkflowResult {
   steps: StepResult[];
   totalDuration: number;
   totalTokens: { input: number; output: number };
+  /** 原始用户输入（用于 --resume 时恢复） */
+  inputs?: Record<string, string>;
 }
 
 export interface StepResult {
