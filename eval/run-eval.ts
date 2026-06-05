@@ -29,8 +29,35 @@ const llm: LLMConfig = { provider: PROVIDER, model: MODEL, max_tokens: 2048, tim
 const JUDGE_TRUNC = 3500; // 每份产出喂给 judge 前截断，避免超 judge 上下文
 const trunc = (s: string) => (s.length > JUDGE_TRUNC ? s.slice(0, JUDGE_TRUNC) + '\n…[截断]' : s);
 
+/**
+ * 旗舰模板的示例输入（required 无默认的字段在这里给）。覆盖 5 类任务，
+ * 用于看多智能体在"哪类任务"上稳赢、哪类不如 one-shot。
+ */
+const FIXTURES: Record<string, Record<string, string>> = {
+  'story-creation.yaml': {}, // 用默认 premise 即可
+  'tech-blog.yaml': { topic: '用 Rust 重写 Python 数据处理热点函数：从 12 秒到 0.8 秒的实战与踩坑' },
+  'xiaohongshu-viral-post.yaml': { topic: '职场新人前 3 个月避坑指南' },
+  'douyin-script.yaml': { topic: '30 岁转行做程序员还来得及吗' },
+  'ai-opinion-article.yaml': { topic: '为什么大多数人用不好 AI：不是模型不行，是不会提问' },
+  'pitch-deck-outline.yaml': { startup_idea: '用 AI 帮跨境电商中小卖家自动生成多语言商品详情页，降低本地化成本' },
+  'okr-decomposition.yaml': { annual_goal: '让 SaaS 产品年度经常性收入 ARR 从 200 万做到 1000 万' },
+  'investment-analysis.yaml': { target: '纳斯达克100指数ETF' },
+  'product-review.yaml': {
+    prd_content: [
+      '# PRD：工作流执行结果一键分享',
+      '## 背景：用户跑完多智能体工作流后想把成果分享给同事/客户，目前只能复制粘贴文本，排版丢失、不美观。',
+      '## 目标：让用户一键把某次运行结果生成一个可分享的网页链接（含各步骤产出、可折叠）。',
+      '## 范围：1) 运行结束后 CLI 给出"生成分享链接"提示；2) 上传到对象存储生成短链；3) 网页端只读展示，支持按步骤折叠、复制单步。',
+      '## 非目标：不做评论/协作编辑；不做权限系统（链接即访问）。',
+      '## 指标：分享转化率（跑完→生成链接）>20%；被分享链接的人均打开数。',
+    ].join('\n'),
+  },
+};
+
 const workflows = process.argv.slice(2);
-if (workflows.length === 0) workflows.push('workflows/story-creation.yaml');
+if (workflows.length === 0) {
+  for (const name of Object.keys(FIXTURES)) workflows.push(`workflows/${name}`);
+}
 
 /** 用 inputs 的 default 补全（与 run() 的注入一致），得到评测用的实际输入值 */
 function resolveInputs(defs: InputDefinition[] | undefined): Record<string, string> {
@@ -69,8 +96,16 @@ async function judge(taskDesc: string, outA: string, outB: string) {
     '评判维度：完整性、具体性、可用性、是否直接可交付。',
     '只输出一行 JSON，不要任何额外文字：{"scoreA": 1-10, "scoreB": 1-10, "reason": "一句话理由"}',
   ].join('\n');
-  const res = await conn.chat('你是严格客观的评审，只输出 JSON。', prompt, { ...llm, max_tokens: 400 });
-  return parseJudge(res.content);
+  // 解析失败重试一次（judge 偶尔会包代码块/加解释）——避免整条评测因格式问题丢失
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const sys = attempt === 0
+      ? '你是严格客观的评审，只输出 JSON。'
+      : '你必须只输出一行纯 JSON，绝对不要代码块标记、前言或任何解释文字。';
+    const res = await conn.chat(sys, prompt, { ...llm, max_tokens: 400 });
+    const parsed = parseJudge(res.content);
+    if (parsed) return parsed;
+  }
+  return null;
 }
 
 function finalOutput(result: WorkflowResult): string {
@@ -92,7 +127,7 @@ async function evalOne(wfPath: string): Promise<EvalRow> {
   const row: EvalRow = { workflow: name, multiScore: 0, baseScore: 0, winner: 'tie', reasons: [], multiLen: 0, baseLen: 0, consistent: false };
   try {
     const wf = parseWorkflow(resolve(wfPath));
-    const inputs = resolveInputs(wf.inputs);
+    const inputs = { ...resolveInputs(wf.inputs), ...(FIXTURES[name] || {}) };
     const baselineTask = buildBaselineTask(wf.name, wf.description, inputs);
 
     console.log(`\n▶ ${name}`);
