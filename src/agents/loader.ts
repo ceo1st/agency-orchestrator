@@ -111,3 +111,79 @@ export function listAgents(agentsDir: string): AgentDefinition[] {
 
   return agents;
 }
+
+/**
+ * 轻量列出所有角色路径（如 "engineering/engineering-sre"），不解析文件内容。
+ * 用于 validate 报错时给"你是不是想用 X"建议，避免 listAgents 全量解析的开销。
+ */
+export function listRolePaths(agentsDir: string): string[] {
+  const dir = resolve(agentsDir);
+  if (!existsSync(dir)) return [];
+  const paths: string[] = [];
+  for (const dept of readdirSync(dir, { withFileTypes: true })) {
+    if (!dept.isDirectory()) continue;
+    if (dept.name.startsWith('.') || dept.name === 'node_modules' || dept.name === 'scripts' ||
+        dept.name === 'integrations' || dept.name === 'examples') continue;
+    for (const file of readdirSync(join(dir, dept.name), { withFileTypes: true })) {
+      if (!file.isFile() || !file.name.endsWith('.md')) continue;
+      paths.push(`${dept.name}/${file.name.replace('.md', '')}`);
+    }
+  }
+  return paths;
+}
+
+/** Levenshtein 编辑距离（用于角色名模糊匹配） */
+function editDistance(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  let cur = new Array(n + 1);
+  for (let i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[n];
+}
+
+/**
+ * 在给定的候选路径集合里，找出最接近 badPath 的若干个（纯函数，不读盘）。
+ * 优先子串包含（按 leaf 名匹配），再按编辑距离兜底；只返回足够接近的。
+ * 供 compose 复用——它要在"实际提供给 LLM 的目录"里建议，而非全盘所有角色。
+ */
+export function suggestFromPaths(badPath: string, allPaths: string[], limit = 3): string[] {
+  if (allPaths.length === 0) return [];
+  const leaf = (badPath.split('/').pop() || badPath).toLowerCase();
+  const target = badPath.toLowerCase();
+
+  const scored = allPaths.map(p => {
+    const pl = p.toLowerCase();
+    const pleaf = (p.split('/').pop() || p).toLowerCase();
+    // 子串命中给大幅加分（排到前面）
+    const substr = pl.includes(leaf) || pleaf.includes(leaf) || leaf.includes(pleaf);
+    const dist = editDistance(target, pl);
+    return { p, dist, substr };
+  });
+
+  scored.sort((a, b) =>
+    (a.substr === b.substr ? 0 : a.substr ? -1 : 1) || a.dist - b.dist
+  );
+
+  // 只保留"够接近"的：子串命中，或编辑距离不超过 leaf 长度的一半 + 4
+  const threshold = Math.ceil(leaf.length / 2) + 4;
+  return scored
+    .filter(s => s.substr || s.dist <= threshold)
+    .slice(0, limit)
+    .map(s => s.p);
+}
+
+/**
+ * 给一个拼错的角色路径，返回最接近的若干真实角色（"你是不是想用…"）。
+ */
+export function suggestRoles(badPath: string, agentsDir: string, limit = 3): string[] {
+  return suggestFromPaths(badPath, listRolePaths(agentsDir), limit);
+}

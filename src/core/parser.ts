@@ -1,10 +1,11 @@
 /**
  * YAML → WorkflowDefinition 解析器
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import yaml from 'js-yaml';
 import type { WorkflowDefinition, StepDefinition } from '../types.js';
 import { t } from '../i18n.js';
+import { loadAgent, suggestRoles } from '../agents/loader.js';
 
 export function parseWorkflow(filePath: string): WorkflowDefinition {
   const raw = readFileSync(filePath, 'utf-8');
@@ -67,7 +68,7 @@ export function parseWorkflow(filePath: string): WorkflowDefinition {
 /**
  * 验证工作流定义（不执行），返回错误列表
  */
-export function validateWorkflow(workflow: WorkflowDefinition): string[] {
+export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: string): string[] {
   const errors: string[] = [];
   const stepIds = new Set(workflow.steps.map(s => s.id));
   const stepById = new Map(workflow.steps.map(s => [s.id, s]));
@@ -190,6 +191,32 @@ export function validateWorkflow(workflow: WorkflowDefinition): string[] {
         errors.push(`step "${step.id}" 引用了未定义的变量: {{${varName}}}`);
       }
       reportedVars.add(varName);
+    }
+  }
+
+  // 检查 role 是否真实存在（提前到 validate，而非等 run 到一半才崩）。
+  // 仅在传入了已解析的 agentsDir 且目录存在时校验：未下载角色库时静默跳过，
+  // 让 `ao validate` 在没有角色库的环境下仍可用（缺库由 run 路径单独报错）。
+  if (agentsDir && existsSync(agentsDir)) {
+    const roleErr = new Map<string, string | null>(); // rolePath → 错误信息（null=可加载）
+    for (const step of workflow.steps) {
+      if (!step.role) continue; // approval 等无 role 节点
+      if (!roleErr.has(step.role)) {
+        try {
+          loadAgent(agentsDir, step.role);
+          roleErr.set(step.role, null);
+        } catch (err) {
+          let msg = err instanceof Error ? err.message.split('\n')[0] : String(err);
+          // 拼错角色名时给"你是不是想用…"建议，把死胡同变成可操作的提示
+          const suggestions = suggestRoles(step.role, agentsDir);
+          if (suggestions.length > 0) {
+            msg += `\n        你是不是想用 / Did you mean: ${suggestions.join('  |  ')}`;
+          }
+          roleErr.set(step.role, msg);
+        }
+      }
+      const msg = roleErr.get(step.role);
+      if (msg) errors.push(`step "${step.id}" 的 role 无法加载: ${msg}`);
     }
   }
 

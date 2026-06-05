@@ -192,8 +192,13 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
         const loop = node.step.loop;
         const currentIter = (loopIterations.get(id) || 0) + 1;
 
-        // 检查退出条件
-        const shouldExit = evaluateCondition(loop.exit_condition, context);
+        // 检查退出条件（变量未定义等异常视为应退出，避免空耗 LLM 调用并崩溃）
+        let shouldExit = true;
+        try {
+          shouldExit = evaluateCondition(loop.exit_condition, context);
+        } catch {
+          process.stderr.write(`\n  ⚠️  ${id} 循环退出条件评估失败: ${loop.exit_condition}，结束循环\n`);
+        }
         const maxIter = Math.min(loop.max_iterations, 50); // 安全上限 50（防止无限循环）
 
         if (!shouldExit && currentIter < maxIter) {
