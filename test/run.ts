@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
 import { buildDAG, formatDAG } from '../src/core/dag.js';
 import { renderTemplate, extractVariables } from '../src/core/template.js';
-import { loadAgent, listAgents } from '../src/agents/loader.js';
+import { loadAgent, listAgents, suggestRoles, suggestFromPaths } from '../src/agents/loader.js';
 
 let passed = 0;
 let failed = 0;
@@ -274,6 +274,82 @@ test('不存在的角色抛错', () => {
 test('listAgents 能列出角色', () => {
   const agents = listAgents(agentsDir);
   assert(agents.length > 100, `应有 100+ 个角色，实际: ${agents.length}`);
+});
+
+// ─── Role 存在性校验（validateWorkflow 第二参数，提前到 validate 阶段） ───
+console.log('\n=== Role 存在性校验 ===');
+
+test('缺省 agentsDir 时不校验 role（向后兼容）', () => {
+  const wf = parseWorkflow(workflowPath);
+  wf.steps[0].role = 'engineering/totally-made-up-role';
+  const errors = validateWorkflow(wf); // 不传 agentsDir
+  assert(!errors.some(e => e.includes('无法加载')), `不传 agentsDir 不应报 role 错误: ${errors.join(';')}`);
+});
+
+test('传入不存在的 agentsDir 时静默跳过', () => {
+  const wf = parseWorkflow(workflowPath);
+  wf.steps[0].role = 'engineering/totally-made-up-role';
+  const errors = validateWorkflow(wf, resolve('/no/such/agents/dir'));
+  assert(!errors.some(e => e.includes('无法加载')), `目录不存在应跳过 role 校验: ${errors.join(';')}`);
+});
+
+test('真实角色通过校验', () => {
+  const wf = parseWorkflow(workflowPath);
+  const errors = validateWorkflow(wf, agentsDir);
+  assert(!errors.some(e => e.includes('无法加载')), `内置 workflow 的 role 应全部存在: ${errors.join(';')}`);
+});
+
+test('不存在的 role 被 validate 捕获', () => {
+  const wf = parseWorkflow(workflowPath);
+  const badId = wf.steps[0].id;
+  wf.steps[0].role = 'engineering/does-not-exist-xyz';
+  const errors = validateWorkflow(wf, agentsDir);
+  assert(errors.some(e => e.includes(badId) && e.includes('无法加载')), `应报 role 无法加载: ${errors.join(';')}`);
+});
+
+test('approval 节点无 role 不触发 role 校验', () => {
+  const wf = parseWorkflow(workflowPath);
+  wf.steps[0].type = 'approval';
+  wf.steps[0].role = undefined as any;
+  const errors = validateWorkflow(wf, agentsDir);
+  assert(!errors.some(e => e.includes('无法加载')), `approval 节点不应触发 role 校验: ${errors.join(';')}`);
+});
+
+// ─── 角色名"你是不是想用" 模糊建议 ───
+console.log('\n=== 角色名模糊建议 (suggestRoles) ===');
+
+test('漏掉冗余前缀的拼错能被建议', () => {
+  // 常见错误：写 engineering/backend-architect，实际是 engineering/engineering-backend-architect
+  const s = suggestRoles('engineering/backend-architect', agentsDir);
+  assert(s.includes('engineering/engineering-backend-architect'), `应建议正确角色，实际: ${s.join(', ')}`);
+});
+
+test('建议结果默认不超过 3 个', () => {
+  const s = suggestRoles('engineering/engineer', agentsDir);
+  assert(s.length <= 3, `最多 3 个建议，实际: ${s.length}`);
+});
+
+test('完全不相关的乱码不硬塞建议', () => {
+  const s = suggestRoles('zzz/qqqqwwwweeee-xxxxyyyy', agentsDir);
+  assert(s.length === 0, `离谱输入不应给建议，实际: ${s.join(', ')}`);
+});
+
+test('suggestFromPaths: 在给定目录内排序，子串命中优先', () => {
+  const catalog = ['eng/eng-backend-architect', 'eng/eng-frontend-dev', 'design/ux-researcher'];
+  const s = suggestFromPaths('eng/backend-architect', catalog);
+  assert(s[0] === 'eng/eng-backend-architect', `子串命中应排第一，实际: ${s.join(', ')}`);
+});
+
+test('suggestFromPaths: 空目录返回空', () => {
+  assert(suggestFromPaths('whatever/role', []).length === 0, '空候选应返回空');
+});
+
+test('validate 报错里带上建议文案', () => {
+  const wf = parseWorkflow(workflowPath);
+  wf.steps[0].role = 'engineering/backend-architect';
+  const errors = validateWorkflow(wf, agentsDir);
+  assert(errors.some(e => e.includes('你是不是想用') && e.includes('engineering-backend-architect')),
+    `报错应包含建议，实际: ${errors.join(' | ')}`);
 });
 
 // ─── 结果 ───
