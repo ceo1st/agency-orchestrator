@@ -201,5 +201,7 @@ steps:
 
       ## Pitch 演讲节奏建议
       （5 屏总共讲多久，哪几屏要重点停留）
+
+      ⚠️ 只输出上面这份 deck 大纲本身：不要开场白/寒暄、不要"我改了什么/复盘/修改说明"、不要向用户提问或请其拍板、不要建议 ao 命令或后续动作、不要"要我继续吗"之类收尾。
     output: pitch_deck
     depends_on: [market_analysis, solution_design, business_model, financial_projection]
