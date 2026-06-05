@@ -45,6 +45,20 @@ export function findMissingInputs(
   );
 }
 
+/**
+ * 弱模型档位提示：质量评测（EVAL_FINDINGS.md）显示多智能体的增益依赖模型能力——
+ * 本地小模型上交接链会放大漂移、产出可能不如单次。仅对 ollama（最常见的弱档来源）给一行
+ * 软提示，不阻断；返回 null 表示无需提示。设 AO_NO_MODEL_HINT=1 可关闭。
+ */
+export function modelCapabilityHint(provider: string): string | null {
+  if (provider === 'ollama') {
+    return '  💡 本地 Ollama：多智能体质量取决于模型能力，小模型(<~30B)可能不如单次 prompt。'
+      + '追求质量建议用 DeepSeek/Claude/Gemini 或 70B+ 本地模型（详见 EVAL_FINDINGS.md）。'
+      + '（AO_NO_MODEL_HINT=1 关闭）';
+  }
+  return null;
+}
+
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { executeDAG, type ExecutorOptions } from './core/executor.js';
@@ -187,6 +201,10 @@ export async function run(
     const isCLI = workflow.llm.provider.endsWith('-cli') || workflow.llm.provider === 'claude-code';
     const displayConcurrency = isCLI ? 1 : (workflow.concurrency || 2);
     console.log(`  步骤数: ${totalSteps} | 并发: ${displayConcurrency}${isCLI && (workflow.concurrency || 2) > 1 ? '（CLI 模式自动串行）' : ''} | 模型: ${workflow.llm.model || workflow.llm.provider}`);
+    if (!process.env.AO_NO_MODEL_HINT) {
+      const hint = modelCapabilityHint(workflow.llm.provider);
+      if (hint) console.log(hint);
+    }
 
     // 显示参与者阵容（步骤级 name/emoji 优先）
     const seen = new Map<string, string>();  // name → emoji

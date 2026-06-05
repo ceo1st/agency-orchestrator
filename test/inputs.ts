@@ -2,7 +2,7 @@
  * 必填输入解析测试：required 但带 default 的输入不应被判为"缺失"。
  * 回归用例——story-creation 等带 default 的旗舰模板要能 `ao run xxx.yaml` 开箱即跑。
  */
-import { findMissingInputs } from '../src/index.js';
+import { findMissingInputs, modelCapabilityHint } from '../src/index.js';
 import type { InputDefinition } from '../src/types.js';
 
 let passed = 0, failed = 0;
@@ -53,6 +53,21 @@ test('inputs 为 undefined → 空', () => {
 test('provided 用 Set 也能工作', () => {
   const m = findMissingInputs([{ name: 'a', required: true }], new Set(['a']));
   assert(m.length === 0, 'Set 提供也算已提供');
+});
+
+console.log('\n=== modelCapabilityHint ===');
+
+test('ollama → 给弱档提示', () => {
+  const h = modelCapabilityHint('ollama');
+  assert(!!h && h.includes('Ollama') && h.includes('不如单次'), `ollama 应提示: ${h}`);
+});
+
+test('deepseek（甜区）→ 不提示', () => {
+  assert(modelCapabilityHint('deepseek') === null, 'deepseek 不该提示');
+});
+
+test('强档/CLI → 不提示', () => {
+  assert(modelCapabilityHint('claude') === null && modelCapabilityHint('claude-code') === null, '强档不该提示');
 });
 
 console.log('\n' + '='.repeat(50));
