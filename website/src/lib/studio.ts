@@ -157,12 +157,13 @@ export const api = {
     postJSON<{ ok: boolean }>("/config", body),
   testProvider: (provider: string) =>
     postJSON<{ ok: boolean; latencyMs?: number; error?: string; note?: string }>("/test-provider", { provider }),
-  roles: () => getJSON<Role[]>("/roles"),
-  role: (category: string, id: string) => getJSON<Role>(`/roles/${category}/${id}`),
-  workflows: () => getJSON<Workflow[]>("/workflows"),
+  roles: (lang?: string) => getJSON<Role[]>(`/roles${lang === "en" ? "?lang=en" : ""}`),
+  role: (category: string, id: string, lang?: string) =>
+    getJSON<Role>(`/roles/${category}/${id}${lang === "en" ? "?lang=en" : ""}`),
+  workflows: (lang?: string) => getJSON<Workflow[]>(`/workflows${lang === "en" ? "?lang=en" : ""}`),
   runs: () => getJSON<RunSummary[]>("/runs"),
   run: (id: string) => getJSON<RunSummary>(`/runs/${encodeURIComponent(id)}`),
-  compose: (body: { description: string; roles: string[]; name?: string; provider?: string }) =>
+  compose: (body: { description: string; roles: string[]; name?: string; provider?: string; lang?: string }) =>
     postJSON<ComposeResult>("/compose", body),
   // 把人工输入写回正在等待的运行（human_input / approval 节点暂停时）
   runInput: (runId: string, text: string) =>
@@ -237,22 +238,24 @@ export function runWorkflow(
 }
 
 export function runRole(
-  body: { role: string; task: string; provider?: string },
+  body: { role: string; task: string; provider?: string; lang?: string },
   onEvent: SseHandler,
   signal?: AbortSignal,
 ) {
   return streamSse("/run-role", body, onEvent, signal);
 }
 
-export const PROVIDERS = ["", "deepseek", "openai", "claude", "claude-code", "gemini-cli", "openclaw-cli", "ollama"];
+export const PROVIDERS = ["", "deepseek", "compshare", "openai", "claude", "claude-code", "gemini-cli", "openclaw-cli", "ollama"];
 
+// 仅品牌名（语言无关）；"" 默认项与本地标注在下拉框里用 t 渲染，避免英文站露中文。
 export const PROVIDER_LABELS: Record<string, string> = {
-  "": "默认 (DeepSeek)",
+  "": "DeepSeek",
   deepseek: "DeepSeek",
+  compshare: "CompShare",
   openai: "OpenAI",
   claude: "Claude",
   "claude-code": "Claude Code CLI",
   "gemini-cli": "Gemini CLI",
   "openclaw-cli": "OpenClaw CLI",
-  ollama: "Ollama (本地)",
+  ollama: "Ollama",
 };

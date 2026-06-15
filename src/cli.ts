@@ -15,7 +15,7 @@ import { execSync, spawn } from 'node:child_process';
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
-import { listAgents } from './agents/loader.js';
+import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir } from './index.js';
 import { formatValidationReport, buildValidationReport } from './cli/validate-report.js';
 import { scheduleUpdateCheck, fetchLatestVersion, isNewer, detectUpgradeCommand, PKG } from './utils/version-check.js';
@@ -528,6 +528,7 @@ async function handleInit(): Promise<void> {
       const urlVar =
         p === 'ollama' ? 'OLLAMA_BASE_URL' :
         p === 'deepseek' ? 'DEEPSEEK_BASE_URL' :
+        p === 'compshare' ? 'COMPSHARE_BASE_URL' :
         'OPENAI_BASE_URL';
       updates[urlVar] = cfgBaseUrl;
     }
@@ -540,6 +541,7 @@ async function handleInit(): Promise<void> {
       const keyVar =
         p === 'deepseek' ? 'DEEPSEEK_API_KEY' :
         p === 'anthropic' || p === 'claude' ? 'ANTHROPIC_API_KEY' :
+        p === 'compshare' ? 'COMPSHARE_API_KEY' :
         'OPENAI_API_KEY';
       updates[keyVar] = cfgApiKey;
     }
@@ -644,18 +646,37 @@ async function handleInit(): Promise<void> {
   // 显示角色数量
   const agents = listAgents(targetDir);
   console.log(`  共 ${agents.length} 个角色可用\n`);
-  console.log('  接下来你可以:');
-  console.log('    ao roles                              查看所有角色');
-  console.log('    ao plan workflows/product-review.yaml  查看执行计划');
-  console.log('    ao run workflows/story-creation.yaml   运行工作流');
+
+  // 首跑向导：按检测到的 provider 给个性化的下一步（就绪→直接 demo/compose；没有→最省事的获取路径）
+  const { detectAvailableLLMs, buildFirstRunGuidance } = await import('./cli/demo.js');
+  const llms = await detectAvailableLLMs();
+  for (const line of buildFirstRunGuidance(llms, lang).split('\n')) console.log(`  ${line}`);
+  console.log('');
+  console.log(lang === 'en' ? '  More:' : '  更多：');
+  console.log(lang === 'en'
+    ? '    ao roles                               list all roles'
+    : '    ao roles                               查看所有角色');
 }
 
 function handleRoles(): void {
   const agentsDir = getArgValue('--agents-dir') || resolveAgentsDir();
+  // 关键词：--search <kw> 或第一个非 flag 位置参数（ao roles seo）
+  const keyword = getArgValue('--search')
+    || (args[1] && !args[1].startsWith('-') ? args[1] : '');
 
   try {
-    const agents = listAgents(resolve(agentsDir));
-    console.log(`\n  共 ${agents.length} 个角色 (${agentsDir}):\n`);
+    const all = listAgents(resolve(agentsDir));
+    const agents = keyword ? filterAgentsByKeyword(all, keyword) : all;
+
+    if (keyword) {
+      console.log(`\n  搜索 "${keyword}"：匹配 ${agents.length} / ${all.length} 个角色 (${agentsDir})\n`);
+      if (agents.length === 0) {
+        console.log('  没有匹配的角色。换个关键词，或用 `ao roles` 查看全部。\n');
+        return;
+      }
+    } else {
+      console.log(`\n  共 ${agents.length} 个角色 (${agentsDir}):\n`);
+    }
 
     // 按分类分组
     const byCategory = new Map<string, typeof agents>();
