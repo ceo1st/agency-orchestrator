@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-06-16
+
+### Changed
+- 英文工作流模板统一到 `workflows/en/`（10 个），移除重复的 `workflows-en/` 目录（web/server.js、package.json、README.en 同步更新）。
+
+### Fixed
+- 补提交英文库 `agency-agents/marketing/` 的 30 个角色——此前随 npm 包分发但因历史 `.gitignore` 规则从未纳入 git，fresh clone / CI 会缺这些角色。
+
 ## [0.7.3] - 2026-06-16
 
 ### Fixed
