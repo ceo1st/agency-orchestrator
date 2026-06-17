@@ -86,7 +86,7 @@ function InputsDialog({ wf, provider, onClose, onRun }: { wf: Workflow; provider
   );
 }
 
-export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (r: RunRequest) => void }) {
+export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { provider: string; onRun: (r: RunRequest) => void; demo?: boolean; onInstallPrompt?: () => void }) {
   const { t, lang } = useLanguage();
   const [wfs, setWfs] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,12 +98,20 @@ export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (
 
   useEffect(() => {
     setLoading(true);
+    if (demo) {
+      // 演示模式：用静态模板快照，可浏览、看步骤，但运行时引导安装
+      import("@/lib/demo")
+        .then((m) => setWfs(m.demoWorkflows(lang)))
+        .catch(() => setWfs([]))
+        .finally(() => setLoading(false));
+      return;
+    }
     api
       .workflows(lang)
       .then(setWfs)
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
-  }, [lang]);
+  }, [lang, demo]);
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
@@ -121,6 +129,7 @@ export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (
     });
 
   const runOne = (w: Workflow) => {
+    if (demo) return onInstallPrompt?.();
     if (w.inputs && w.inputs.length) setInputsFor(w);
     else onRun({ kind: "workflow", title: w.name, file: w.file, provider: provider || undefined, cast: w.steps });
   };
@@ -201,7 +210,7 @@ export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (
               <button onClick={() => setPicked({})} className="text-xs text-muted-foreground hover:text-foreground">
                 {t.studio.workflows.clear}
               </button>
-              <Button onClick={() => setCompare(pickedList)}>
+              <Button onClick={() => (demo ? onInstallPrompt?.() : setCompare(pickedList))}>
                 <GitCompare className="size-4" />
                 {t.studio.workflows.compareRun}
               </Button>

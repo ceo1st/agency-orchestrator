@@ -166,26 +166,22 @@ function StudioInner() {
                   {t.studio.demo.bannerInstall}
                 </Button>
               </div>
-              {/* 演示模式也按 tab 切换内容，否则点哪个 tab 都只显示角色 demo、看起来像卡死 */}
-              {tab === "prompt" ? (
+              {/* 演示模式也按 tab 显示真实内容（可浏览，只是不能真跑）；运行类操作引导安装 */}
+              {tab === "workflows" ? (
+                <WorkflowsPanel provider={provider} onRun={start} demo onInstallPrompt={() => setInstallOpen(true)} />
+              ) : tab === "prompt" ? (
                 <PromptLab provider={provider} demo onInstallPrompt={() => setInstallOpen(true)} />
-              ) : tab === "roles" ? (
+              ) : tab === "runs" || tab === "usage" ? (
+                <p className="py-16 text-center text-sm text-muted-foreground">
+                  {lang === "en"
+                    ? "Nothing here in demo mode yet — run a workflow locally and it'll show up."
+                    : "演示模式下这里还没有数据，本地实际跑过工作流后就会出现。"}
+                </p>
+              ) : (
                 <>
                   <RolesPicker provider={provider} onRun={() => setInstallOpen(true)} demo onInstallPrompt={() => setInstallOpen(true)} />
                   <StudioDemo />
                 </>
-              ) : (
-                <div className="py-16 text-center">
-                  <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                    {lang === "en"
-                      ? "This needs the local engine. Install the desktop app or run `ao web` locally to use it."
-                      : "这个功能需要本地引擎。安装桌面端、或本地跑 `ao web` 后即可使用。"}
-                  </p>
-                  <Button className="mt-4" size="sm" onClick={() => setInstallOpen(true)}>
-                    <Download className="size-4" />
-                    {t.studio.demo.bannerInstall}
-                  </Button>
-                </div>
               )}
             </>
           ) : tab === "roles" ? (
