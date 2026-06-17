@@ -579,6 +579,7 @@ Your AI subscription ──→ agency-orchestrator ──→ 400+ expert roles c
 | [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | AI coding tools field guide (Chinese) — 66 Claude Code tips + 9 tools best practices |
 | [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | AI coding superpowers (Chinese) — 20 skills for Claude Code / Cursor |
 | [shellward](https://github.com/jnMetaCode/shellward) | AI agent security middleware — prompt injection detection, DLP, command safety |
+| [codepet](https://github.com/jnMetaCode/codepet) | Desktop pet that levels up as you code / use Claude Code — Electron, reads metadata only, local-first |
 
 ## Roadmap
 
