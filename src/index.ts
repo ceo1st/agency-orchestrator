@@ -68,6 +68,7 @@ import { saveResults, printStepResult, printStepRunning, clearRunningLine, print
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { defaultOutputDir } from './utils/paths.js';
 
 /**
  * 一行运行工作流（高级 API）
@@ -291,8 +292,8 @@ export async function run(
     )
   );
 
-  // 保存结果
-  const outputDir = options?.outputDir || 'ao-output';
+  // 保存结果（默认目录支持 AO_HOME / AO_OUTPUT_DIR，见 utils/paths）
+  const outputDir = options?.outputDir || defaultOutputDir();
   const outputPath = saveResults(result, outputDir);
 
   if (!quiet) {

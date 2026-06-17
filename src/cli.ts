@@ -22,6 +22,7 @@ import { scheduleUpdateCheck, fetchLatestVersion, isNewer, detectUpgradeCommand,
 import { t, detectLang } from './i18n.js';
 import { loadEnvFile, writeEnvFile, ensureEnvGitignored } from './utils/env-loader.js';
 import { parseDuration } from './utils/duration.js';
+import { defaultOutputDir, defaultWorkflowsDir } from './utils/paths.js';
 
 // Auto-load ./.env (shell env wins; no overwrite)
 loadEnvFile();
@@ -122,7 +123,7 @@ async function handleRun(): Promise<void> {
   }
 
   const inputs = parseInputArgs();
-  const outputDir = getArgValue('--output') || 'ao-output';
+  const outputDir = getArgValue('--output') || defaultOutputDir();
   const quiet = args.includes('--quiet') || args.includes('-q');
   const watch = args.includes('--watch');
   let resumeDir = getArgValue('--resume');
@@ -363,6 +364,7 @@ async function handleCompose(): Promise<void> {
       autoRun,
       lang: composeLang,
       timeoutMs: composeTimeoutMs,
+      saveDir: defaultWorkflowsDir('workflows'),
     });
 
     console.log(`\n  ${t('compose.generated', { path: relativePath })}\n`);
@@ -539,7 +541,7 @@ async function runWithTeam(teamRef: string): Promise<void> {
       autoRun: true,
       lang,
       timeoutMs,
-      saveDir: 'ao-workflows',
+      saveDir: defaultWorkflowsDir('ao-workflows'),
     });
     console.log(`  ${t('compose.generated', { path: relativePath })}\n`);
 
@@ -565,7 +567,7 @@ async function runWithTeam(teamRef: string): Promise<void> {
     const result = await run(resolve(savedPath), {}, {
       quiet: args.includes('--quiet') || args.includes('-q'),
       watch: args.includes('--watch'),
-      outputDir: getArgValue('--output') || 'ao-output',
+      outputDir: getArgValue('--output') || defaultOutputDir(),
       llmOverride: {
         provider,
         model: model || undefined,

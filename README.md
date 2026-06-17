@@ -326,6 +326,8 @@ ao team show 技术博客组  # 查看阵容构成
 `ao run --team` 的本质 = compose 时把可选角色**锁定**为团队那几个，所以既不会漏人、也不会幻觉出别的角色。团队存在 `~/.ao/teams/*.team.yaml`（纯 YAML，可直接拷贝分享），**命令行和网页 Studio 共用同一份**——Studio 里勾选角色后点「存为团队」，命令行立刻 `ao run --team` 可用，反之亦然。
 
 > 自带私有专家：设环境变量 `AO_AGENTS_DIR=/你的角色目录`，`run / compose / roles / web` 全部改用你自己的角色库。
+>
+> 固定全局目录：设 `AO_HOME=~/.ao`（或任意目录），运行产物 `ao-output`、`compose`/`--team` 生成的工作流都落到那里，不再随执行目录散落（#20）。也可用 `AO_OUTPUT_DIR` / `AO_WORKFLOWS_DIR` 单独指定。不设则维持原行为（写到当前目录）。
 
 ### 提示词优化（Prompt Lab）
 

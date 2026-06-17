@@ -316,6 +316,8 @@ ao team show blog-crew # Inspect the line-up
 `ao run --team` simply **locks** the compose role catalog down to the team's roles — so nobody is dropped and no role is hallucinated. Teams live in `~/.ao/teams/*.team.yaml` (plain YAML, copy-to-share) and are **shared between the CLI and the web Studio** — pick roles in Studio, hit "Save as team", and `ao run --team` can use it immediately, and vice versa.
 
 > Bring your own experts: set `AO_AGENTS_DIR=/your/roles/dir` and `run / compose / roles / web` all switch to your own role library.
+>
+> Fixed global dir: set `AO_HOME=~/.ao` (or any dir) so run outputs (`ao-output`) and generated workflows (`compose` / `--team`) land there instead of scattering across the CWD (#20). Or set `AO_OUTPUT_DIR` / `AO_WORKFLOWS_DIR` individually. Unset = unchanged (writes to current dir).
 
 ### Prompt Lab
 

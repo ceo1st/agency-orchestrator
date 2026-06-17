@@ -213,6 +213,8 @@ const dict: Dict = {
     upgrade [--check]                 自我升级到最新版（--check 只检查不安装）
 
   自带私有角色：设 AO_AGENTS_DIR=/你的角色目录，run/compose/roles/web 全局生效。
+  固定全局目录：设 AO_HOME=~/.ao（或任意目录），产物 ao-output / 生成的工作流都落到那里，
+              不再散在执行目录；也可单独用 AO_OUTPUT_DIR / AO_WORKFLOWS_DIR 指定。
 
   选项:
     --input, -i key=value    传入输入变量
@@ -276,6 +278,8 @@ const dict: Dict = {
     upgrade [--check]                 Self-update to the latest version (--check: check only)
 
   Bring your own roles: set AO_AGENTS_DIR=/your/roles/dir — applies to run/compose/roles/web.
+  Fixed global dir: set AO_HOME=~/.ao (or any dir) so outputs / generated workflows land there
+              instead of scattering across CWD; or set AO_OUTPUT_DIR / AO_WORKFLOWS_DIR individually.
 
   Options:
     --input, -i key=value    Pass an input variable

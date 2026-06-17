@@ -13,6 +13,7 @@
 - **`ao prompt` 文档补齐**：Prompt Lab 合入后 `ao prompt` 一直没进 `ao --help` / README / CLAUDE.md，用户无从发现；现已补上（中英）。
 
 ### Added
+- **固定全局目录 `AO_HOME`**（#20）：设 `AO_HOME=~/.ao`（或任意目录）后，运行产物 `ao-output` 与 `compose`/`--team` 生成的工作流统一落到该目录，不再随执行目录散落；也可用 `AO_OUTPUT_DIR` / `AO_WORKFLOWS_DIR` 单独指定。**默认不设时维持原行为**（写到当前目录），向后兼容。团队 / 提示词 / 版本检查一直在 `~/.ao`。
 - **团队 / Loadout（可复用角色阵容）**：把跑得好的角色阵容存下来，套到任意新任务上。
   - CLI：`ao team save <workflow.yaml>` 从工作流抽出阵容存为团队；`ao team list / show / rm` 管理；`ao run --team <名字> "新任务"` 用固定阵容跑新活（本质 = compose 时把可选角色锁定为团队那几个，不漏人也不幻觉）。团队存为 `~/.ao/teams/*.team.yaml`（纯 YAML 可分享，`AO_TEAMS_DIR` 可覆盖）。
   - Web Studio：「我的团队」一排可一键载入整队；选 ≥2 角色后「存为团队」，合成预览里也能「存为团队」。后端 `GET/POST/DELETE /api/teams`，**与 CLI 共用同一份存储**，两端互通。
