@@ -70,7 +70,9 @@ function createWindow() {
     shell.openExternal(url);
     return { action: "deny" };
   });
-  win.loadURL(`${BASE}studio`);
+  // 按操作系统语言给 Studio 一个首启默认语言（用户在界面里切换后由 localStorage 记住）。
+  const lang = String(app.getLocale() || "").toLowerCase().startsWith("zh") ? "zh" : "en";
+  win.loadURL(`${BASE}studio?lang=${lang}`);
 }
 
 app.whenReady().then(async () => {

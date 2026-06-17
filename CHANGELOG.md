@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Studio 语言显示**：网页端 / 桌面端的 Studio 此前可能默认英文且**没有切换入口**——用户被困在英文界面。现在 Studio 头部加了中/英一键切换；桌面端按操作系统语言（`app.getLocale()`）选首启语言、`ao web` 按 CLI 界面语言（`--lang`/`AO_LANG`/`LANG`）带上 `?lang=`，用户切换后由 localStorage 记住。语言判定优先级：URL 路径 `/en` > 用户已切换的持久化选择 > launcher 的 `?lang=` > 浏览器语言。
+
 ## [0.7.5] - 2026-06-17
 
 ### Fixed

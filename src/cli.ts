@@ -485,7 +485,8 @@ async function handleWeb(): Promise<void> {
     env: { ...process.env, PORT: String(port), HOST: host },
   });
 
-  if (!noOpen) setTimeout(() => openBrowser(url), 1500);
+  // 让 Studio 默认跟随 CLI 的界面语言（用户在界面里切换后由 localStorage 记住）
+  if (!noOpen) setTimeout(() => openBrowser(`${url}/?lang=${detectLang()}`), 1500);
 
   const stop = () => { try { child.kill('SIGINT'); } catch { /* noop */ } };
   process.on('SIGINT', stop);

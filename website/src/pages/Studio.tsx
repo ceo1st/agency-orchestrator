@@ -1,4 +1,4 @@
-import { BarChart3, Boxes, Download, History, KeyRound, Plug, TriangleAlert, Users } from "lucide-react";
+import { BarChart3, Boxes, Download, History, KeyRound, Languages, Plug, TriangleAlert, Users } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -34,7 +34,7 @@ const TAB_META: { id: Tab; icon: typeof Users }[] = [
 ];
 
 function StudioInner() {
-  const { t } = useLanguage();
+  const { t, lang, toggle } = useLanguage();
   const { status, version } = useBackend();
   const TABS = TAB_META.map((tb) => ({
     ...tb,
@@ -125,6 +125,10 @@ function StudioInner() {
                 {status === "online" ? t.studio.shell.statusOnline : status === "offline" ? t.studio.shell.statusOffline : t.studio.shell.statusChecking}
               </span>
               <ProviderSelect value={provider} onChange={setProvider} />
+              <Button size="sm" variant="ghost" onClick={toggle} title={lang === "zh" ? "Switch to English" : "切换到中文"}>
+                <Languages className="size-4" />
+                <span className="hidden sm:inline">{lang === "zh" ? "EN" : "中文"}</span>
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setTab("providers")}>
                 <KeyRound className="size-4" />
                 <span className="hidden sm:inline">{t.studio.shell.keys}</span>
