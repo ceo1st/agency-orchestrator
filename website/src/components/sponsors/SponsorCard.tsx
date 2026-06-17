@@ -7,6 +7,46 @@ export function SponsorCard({ sponsor }: { sponsor: Sponsor }) {
   const { lang } = useLanguage();
   const s = sponsor;
 
+  // 旗舰 + 有 banner：全宽大屏卡片，图片在上、文字在下
+  if (s.banner) {
+    return (
+      <a
+        href={s.url}
+        target="_blank"
+        rel="noreferrer"
+        className="group relative flex flex-col overflow-hidden rounded-2xl border border-gold/40 bg-card/60 transition-all hover:-translate-y-0.5 hover:border-gold/70 md:col-span-2 lg:col-span-3"
+      >
+        <ArrowUpRight className="absolute right-4 top-4 z-10 size-4 text-white/80 transition-colors group-hover:text-white" />
+
+        <img
+          src={s.banner}
+          alt={s.name}
+          className="aspect-[1269/337] w-full object-cover"
+        />
+
+        <div className="flex flex-col gap-3 p-6">
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-bold">{s.name}</h3>
+            <span className="rounded-full bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold">
+              {s.tagline[lang]}
+            </span>
+          </div>
+
+          <p className="text-sm leading-relaxed text-muted-foreground">{s.description[lang]}</p>
+
+          {s.perk && (
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-gold/10 px-2.5 py-1.5 text-xs font-medium text-gold">
+                <Sparkles className="size-3.5" />
+                {s.perk[lang]}
+              </span>
+            </div>
+          )}
+        </div>
+      </a>
+    );
+  }
+
   return (
     <a
       href={s.url}
