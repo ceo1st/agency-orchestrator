@@ -677,6 +677,92 @@ app.post('/api/workflows/save', (req, res) => {
   res.json({ file });
 });
 
+// ── Prompt Lab: 优化 / 测试 / 多结果评估 / 沉淀（与 `ao prompt` CLI 共用 ~/.ao/prompts）──
+app.post('/api/prompt/optimize', async (req, res) => {
+  const { rawPrompt, mode, provider, lang } = req.body || {};
+  if (!rawPrompt || typeof rawPrompt !== 'string') return res.status(400).json({ error: 'rawPrompt required' });
+  try {
+    const { optimizePrompt } = await import('../dist/cli/prompt.js');
+    const optimized = await optimizePrompt({
+      rawPrompt, mode: mode === 'system' ? 'system' : 'user',
+      llmConfig: buildLLMConfig(provider), lang: lang === 'en' ? 'en' : lang === 'zh' ? 'zh' : undefined,
+    });
+    res.json({ optimized });
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+
+app.post('/api/prompt/test', async (req, res) => {
+  const { prompt, mode, testInput, provider } = req.body || {};
+  if (!prompt || typeof prompt !== 'string') return res.status(400).json({ error: 'prompt required' });
+  try {
+    const { testPrompt } = await import('../dist/cli/prompt.js');
+    const output = await testPrompt({
+      prompt, mode: mode === 'system' ? 'system' : 'user',
+      testInput: String(testInput || ''), llmConfig: buildLLMConfig(provider),
+    });
+    res.json({ output });
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+
+app.post('/api/prompt/score', async (req, res) => {
+  const { testInput, candidates, provider, lang } = req.body || {};
+  if (!Array.isArray(candidates) || candidates.length < 2) return res.status(400).json({ error: 'need >=2 candidates' });
+  try {
+    const { scoreOutputs } = await import('../dist/cli/prompt.js');
+    const result = await scoreOutputs({
+      testInput: String(testInput || ''),
+      candidates: candidates.map(c => ({ label: String(c.label), output: String(c.output) })),
+      llmConfig: buildLLMConfig(provider), lang: lang === 'en' ? 'en' : 'zh',
+    });
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+
+app.get('/api/prompts', async (_req, res) => {
+  try {
+    const { listPrompts } = await import('../dist/cli/prompt.js');
+    res.json({ prompts: listPrompts().map(p => p.record) });
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+
+app.post('/api/prompts', async (req, res) => {
+  const { name, mode, versions, favorite } = req.body || {};
+  if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name required' });
+  if (!Array.isArray(versions) || versions.length === 0) return res.status(400).json({ error: 'versions required' });
+  try {
+    const { savePrompt, slugify } = await import('../dist/cli/prompt.js');
+    const rec = {
+      kind: 'prompt', name: String(name).trim(), mode: mode === 'system' ? 'system' : 'user',
+      favorite: !!favorite,
+      versions: versions.map(v => ({
+        content: String(v.content || ''),
+        ...(v.note ? { note: String(v.note) } : {}),
+        ...(v.source ? { source: String(v.source) } : {}),
+        created: v.created || new Date().toISOString(),
+      })),
+      created: new Date().toISOString(),
+    };
+    const file = savePrompt(rec);
+    res.json({ ok: true, slug: slugify(rec.name), file });
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+
+app.delete('/api/prompts/:slug', async (req, res) => {
+  try {
+    const { removePrompt } = await import('../dist/cli/prompt.js');
+    const removed = removePrompt(req.params.slug);
+    if (!removed) return res.status(404).json({ error: 'prompt not found' });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+
+app.get('/api/prompt/garden', async (_req, res) => {
+  try {
+    const { PROMPT_GARDEN } = await import('../dist/cli/prompt.js');
+    res.json({ seeds: PROMPT_GARDEN });
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+
 // ── Usage / cost stats: aggregate token usage from ao-output metadata ──
 app.get('/api/usage', (_req, res) => {
   const byDay = {};

@@ -132,6 +132,35 @@ export async function testPrompt(options: {
   return result.content.trim();
 }
 
+/**
+ * 多结果评估：让 LLM 当裁判，给同一任务下的多个输出打分排序（「多结果对比」）。
+ * 返回 ranking（含分数 + 一句话理由）和 best 标签。裁判 JSON 解析失败时回退为「均分、无定论」。
+ */
+export async function scoreOutputs(options: {
+  testInput: string;
+  candidates: { label: string; output: string }[];
+  llmConfig: LLMConfig;
+  lang?: 'zh' | 'en';
+}): Promise<{ ranking: { label: string; score: number; reason: string }[]; best: string | null }> {
+  const { testInput, candidates, llmConfig } = options;
+  if (candidates.length < 2) throw new Error('至少需要 2 个候选输出才能对比');
+  const lang = options.lang ?? 'zh';
+  const system = lang === 'en'
+    ? `You are a strict, fair evaluator. Given a task/input and several AI outputs (labeled), score each output 0-10 on how well it fulfills the intent (correctness, clarity, usefulness). Output ONLY JSON: {"ranking":[{"label":"...","score":N,"reason":"one line"}],"best":"label"}. No prose, no fences.`
+    : `你是严格公正的评委。给定一个任务/输入和若干个带标签的 AI 输出，按「是否准确达成意图、清晰、有用」给每个输出打 0-10 分。只输出 JSON：{"ranking":[{"label":"...","score":数字,"reason":"一句话理由"}],"best":"标签"}。不要其它文字、不要代码围栏。`;
+  const user = `${lang === 'en' ? 'Task/Input' : '任务/输入'}:\n${testInput || '(none)'}\n\n` +
+    candidates.map(c => `### ${c.label}\n${c.output}`).join('\n\n');
+  const connector = createConnector(llmConfig);
+  const result = await connector.chat(system, user, { ...llmConfig, max_tokens: llmConfig.max_tokens || 1024 });
+  try {
+    const json = JSON.parse(cleanOptimizedOutput(result.content).replace(/^[^{]*/, '').replace(/[^}]*$/, ''));
+    if (Array.isArray(json.ranking)) {
+      return { ranking: json.ranking, best: json.best ?? json.ranking[0]?.label ?? null };
+    }
+  } catch { /* fall through */ }
+  return { ranking: candidates.map(c => ({ label: c.label, score: 0, reason: '裁判输出无法解析' })), best: null };
+}
+
 // ── 存储：~/.ao/prompts/<slug>.prompt.json ───────────────────────────────────
 
 export function serializePrompt(rec: PromptRecord): string {
