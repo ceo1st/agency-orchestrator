@@ -11,7 +11,6 @@ import { RunProvider, useRunManager } from "@/components/studio/RunManager";
 import { RunViewer } from "@/components/studio/RunViewer";
 import { RunsPanel } from "@/components/studio/RunsPanel";
 import { StudioDemo } from "@/components/studio/StudioDemo";
-import { StudioSponsorSlot } from "@/components/studio/StudioSponsorSlot";
 import { InstallPrompt } from "@/components/studio/InstallPrompt";
 import { WorkflowsPanel } from "@/components/studio/WorkflowsPanel";
 import { useBackend } from "@/components/studio/useBackend";
@@ -210,7 +209,6 @@ function StudioInner() {
       />
       <RunDock />
       {installOpen && <InstallPrompt onClose={() => setInstallOpen(false)} />}
-      <StudioSponsorSlot />
       <SiteFooter />
     </>
   );
