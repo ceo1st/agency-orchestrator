@@ -1,6 +1,7 @@
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import type { Sponsor } from "@/content/sponsors";
+import { PerkText } from "./PerkText";
 import { cn } from "@/lib/utils";
 
 export function SponsorCard({ sponsor }: { sponsor: Sponsor }) {
@@ -23,17 +24,22 @@ export function SponsorCard({ sponsor }: { sponsor: Sponsor }) {
 
           <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
             {s.perk && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-gold/10 px-2.5 py-1.5 text-xs font-medium text-gold">
-                <Sparkles className="size-3.5" />
-                {s.perk[lang]}
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-gold/10 px-2.5 py-1.5 text-sm font-medium text-gold">
+                <Sparkles className="size-4 shrink-0" />
+                <PerkText text={s.perk[lang]} code={s.couponCode} />
               </span>
             )}
             <a
               href={s.url}
               target="_blank"
               rel="noreferrer"
-              className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-gold px-5 py-2.5 text-sm font-semibold text-gold-foreground transition-opacity hover:opacity-90"
+              className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-2.5 text-sm font-semibold text-gold-foreground transition-opacity hover:opacity-90"
             >
+              {s.couponCode && (
+                <span className="rounded-md bg-gold-foreground/15 px-1.5 py-0.5 text-sm font-bold tracking-wide">
+                  {s.couponCode}
+                </span>
+              )}
               {s.perkCta?.[lang] ?? s.tagline[lang]}
               <ArrowUpRight className="size-4" />
             </a>

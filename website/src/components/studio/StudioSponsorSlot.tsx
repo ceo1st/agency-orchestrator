@@ -1,6 +1,7 @@
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { sponsorsByTier } from "@/content/sponsors";
+import { PerkText } from "@/components/sponsors/PerkText";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,7 +40,7 @@ export function StudioSponsorSlot() {
 
         {sponsor.perk && (
           <span className="hidden shrink-0 items-center gap-1.5 text-xs font-medium text-gold sm:inline-flex">
-            {sponsor.perk[lang]}
+            <PerkText text={sponsor.perk[lang]} code={sponsor.couponCode} />
           </span>
         )}
         <ArrowUpRight className="size-4 shrink-0 text-gold/70 transition-colors group-hover:text-gold" />
