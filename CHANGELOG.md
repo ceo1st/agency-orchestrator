@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **Studio 演示模式下切 tab 不响应**：引擎离线 / 公开演示站（无后端）时，「角色组队 / 工作流 / 提示词 / 运行历史 / 用量」点了内容都不变（一律显示角色 demo），看起来像卡死。现在演示模式也**按 tab 切换内容**（提示词→Prompt Lab 演示、角色→角色 demo、其余→「需本地引擎」提示 + 安装入口）。另加防御：任一 tab 文案缺失也不再让整个 Studio 渲染崩溃。
 - **Azure OpenAI 兼容**（#38）：Azure 的 gpt 模型只认 `max_completion_tokens`（不认 `max_tokens`），且用 `api-key` header 鉴权。OpenAI 兼容连接器现在检测到 `base_url` 含 `azure` 时自动切换；非 Azure 的 OpenAI o 系列推理模型可用 `AO_OPENAI_TOKENS_PARAM=max_completion_tokens` 显式覆盖（含回归测试 `test/azure-compat.ts`）。
 - **`ao prompt` 文档补齐**：Prompt Lab 合入后 `ao prompt` 一直没进 `ao --help` / README / CLAUDE.md，用户无从发现；现已补上（中英）。
 

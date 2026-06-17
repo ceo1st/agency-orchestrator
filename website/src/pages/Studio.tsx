@@ -38,12 +38,13 @@ const TAB_META: { id: Tab; icon: typeof Users }[] = [
 ];
 
 function StudioInner() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { status, version } = useBackend();
+  // 防御：任一 tab 文案缺失也不要让整个 Studio 渲染崩溃（否则所有 tab 都点不动）
   const TABS = TAB_META.map((tb) => ({
     ...tb,
-    label: t.studio.shell.tabs[tb.id].label,
-    hint: t.studio.shell.tabs[tb.id].hint,
+    label: t.studio.shell.tabs[tb.id]?.label ?? tb.id,
+    hint: t.studio.shell.tabs[tb.id]?.hint ?? "",
   }));
   const { start, open } = useRunManager();
   const [tab, setTabState] = useState<Tab>("roles");
@@ -165,8 +166,27 @@ function StudioInner() {
                   {t.studio.demo.bannerInstall}
                 </Button>
               </div>
-              <RolesPicker provider={provider} onRun={() => setInstallOpen(true)} demo onInstallPrompt={() => setInstallOpen(true)} />
-              <StudioDemo />
+              {/* 演示模式也按 tab 切换内容，否则点哪个 tab 都只显示角色 demo、看起来像卡死 */}
+              {tab === "prompt" ? (
+                <PromptLab provider={provider} demo onInstallPrompt={() => setInstallOpen(true)} />
+              ) : tab === "roles" ? (
+                <>
+                  <RolesPicker provider={provider} onRun={() => setInstallOpen(true)} demo onInstallPrompt={() => setInstallOpen(true)} />
+                  <StudioDemo />
+                </>
+              ) : (
+                <div className="py-16 text-center">
+                  <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                    {lang === "en"
+                      ? "This needs the local engine. Install the desktop app or run `ao web` locally to use it."
+                      : "这个功能需要本地引擎。安装桌面端、或本地跑 `ao web` 后即可使用。"}
+                  </p>
+                  <Button className="mt-4" size="sm" onClick={() => setInstallOpen(true)}>
+                    <Download className="size-4" />
+                    {t.studio.demo.bannerInstall}
+                  </Button>
+                </div>
+              )}
             </>
           ) : tab === "roles" ? (
             <RolesPicker provider={provider} onRun={start} onGoToWorkflows={() => setTab("workflows")} />
