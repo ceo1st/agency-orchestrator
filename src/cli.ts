@@ -68,6 +68,9 @@ async function main(): Promise<void> {
     case 'compose':
       await handleCompose();
       break;
+    case 'prompt':
+      await handlePrompt();
+      break;
     case 'demo':
       await handleDemo();
       break;
@@ -87,7 +90,7 @@ async function main(): Promise<void> {
       break;
     default: {
       // 容错：用户可能漏了空格，如 "planworkflows/x.yaml"
-      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'demo', 'roles', 'init', 'serve', 'web', 'upgrade'];
+      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'prompt', 'demo', 'roles', 'init', 'serve', 'web', 'upgrade'];
       const match = knownCmds.find(c => command.startsWith(c) && command.length > c.length);
       if (match) {
         console.error(`看起来少了个空格？试试:\n  ao ${match} ${command.slice(match.length)}\n`);
@@ -436,6 +439,150 @@ async function handleCompose(): Promise<void> {
     console.log(`    ao plan ${relativePath}       ${t('compose.next.plan')}`);
     console.log(`    ao run ${relativePath}        ${t('compose.next.run')}`);
     console.log('');
+  } catch (err) {
+    console.error(`\n${t('error.prefix')}: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+}
+
+/** ao prompt — 提示词优化 / 测试 / 沉淀（Prompt Lab 的 CLI 入口）。 */
+async function handlePrompt(): Promise<void> {
+  const sub = args[1];
+  const P = await import('./cli/prompt.js');
+
+  if (!sub || sub === '--help' || sub === '-h') {
+    console.log(`
+  ao prompt — 提示词优化 / 测试 / 沉淀
+
+  ao prompt optimize "<原始提示词>" [--mode system|user] [--save 名字]
+                                  LLM 一键优化提示词（默认 user 模式）
+  ao prompt test "<提示词>" --input "<样例输入>" [--mode system|user]
+                                  用样例输入实跑这段提示词，看真实输出
+  ao prompt list                  列出已保存的提示词
+  ao prompt show <名字>           查看某条提示词（含版本历史）
+  ao prompt rm <名字>             删除
+  ao prompt garden                查看内置起手模板（Prompt Garden）
+
+  存储在 ${P.promptsDir()}（与网页 Studio 共用）
+`);
+    return;
+  }
+
+  const mode = (getArgValue('--mode') === 'system' ? 'system' : 'user') as 'system' | 'user';
+
+  // 本地位置参数解析（跳过命令名、子命令、所有带值 flag），避免依赖其它分支的辅助函数
+  const positional = (): string | undefined => {
+    const valueFlags = new Set(['--mode', '--save', '--input', '--provider', '--model', '--lang', '--base-url', '--baseurl', '--api-key', '--apikey']);
+    for (let i = 2; i < args.length; i++) {
+      const a = args[i];
+      if (a.startsWith('-')) { if (valueFlags.has(a)) i++; continue; }
+      return a;
+    }
+    return undefined;
+  };
+  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+  const provider = (getArgValue('--provider') || process.env.AO_PROVIDER || 'deepseek') as LLMConfig['provider'];
+  const model = getArgValue('--model') || process.env.AO_MODEL || (
+    cliProviders.includes(provider) ? '' :
+    provider === 'deepseek' ? 'deepseek-chat' :
+    provider === 'claude' ? 'claude-sonnet-4-20250514' :
+    provider === 'openai' ? 'gpt-4o' : ''
+  );
+
+  try {
+    switch (sub) {
+      case 'optimize': {
+        const raw = positional();
+        if (!raw) { console.error('用法: ao prompt optimize "<原始提示词>" [--mode system|user] [--save 名字]'); process.exit(1); }
+        const lang = (getArgValue('--lang') as 'zh' | 'en' | undefined) ?? (/[一-鿿]/.test(raw) ? 'zh' : 'en');
+        const baseUrl = getArgValue('--base-url') || getArgValue('--baseurl');
+        const apiKey = getArgValue('--api-key') || getArgValue('--apikey');
+        console.log(`\n  ✨ 正在优化提示词（${mode} 模式 · ${provider}）...\n`);
+        const optimized = await P.optimizePrompt({
+          rawPrompt: raw, mode, lang,
+          llmConfig: { provider, model, ...(baseUrl ? { base_url: baseUrl } : {}), ...(apiKey ? { api_key: apiKey } : {}) },
+        });
+        console.log('─'.repeat(50));
+        console.log(optimized);
+        console.log('─'.repeat(50));
+        const saveName = getArgValue('--save');
+        if (saveName) {
+          const now = new Date().toISOString();
+          const rec = {
+            kind: 'prompt' as const, name: saveName, mode, created: now,
+            versions: [
+              { content: raw, source: 'original' as const, created: now },
+              { content: optimized, source: 'optimize' as const, created: now, note: '一键优化' },
+            ],
+          };
+          const path = P.savePrompt(rec);
+          console.log(`\n  💾 已保存为「${saveName}」(2 个版本) → ${path}`);
+        } else {
+          console.log(`\n  想存下来? 加 --save <名字>`);
+        }
+        break;
+      }
+      case 'test': {
+        const prompt = positional();
+        const input = getArgValue('--input') || '';
+        if (!prompt) { console.error('用法: ao prompt test "<提示词>" --input "<样例输入>" [--mode system|user]'); process.exit(1); }
+        const baseUrl = getArgValue('--base-url') || getArgValue('--baseurl');
+        const apiKey = getArgValue('--api-key') || getArgValue('--apikey');
+        console.log(`\n  🧪 实跑测试（${mode} 模式 · ${provider}）...\n`);
+        const out = await P.testPrompt({
+          prompt, mode, testInput: input,
+          llmConfig: { provider, model, ...(baseUrl ? { base_url: baseUrl } : {}), ...(apiKey ? { api_key: apiKey } : {}) },
+        });
+        console.log('─'.repeat(50));
+        console.log(out);
+        console.log('─'.repeat(50));
+        break;
+      }
+      case 'list': {
+        const all = P.listPrompts();
+        if (all.length === 0) { console.log(`\n  还没有保存的提示词。试试 ao prompt optimize "..." --save 名字\n`); return; }
+        console.log(`\n  共 ${all.length} 条提示词 (${P.promptsDir()}):\n`);
+        for (const { record: r } of all) {
+          console.log(`  ${r.favorite ? '⭐' : '📝'} ${r.name}  [${r.mode}] · ${r.versions.length} 版`);
+        }
+        console.log('');
+        break;
+      }
+      case 'show': {
+        const ref = args[2];
+        if (!ref) { console.error('用法: ao prompt show <名字>'); process.exit(1); }
+        const r = P.loadPrompt(ref);
+        console.log(`\n  ${r.favorite ? '⭐' : '📝'} ${r.name}  [${r.mode}]  ${r.versions.length} 个版本\n`);
+        r.versions.forEach((v, i) => {
+          console.log(`  ── v${i + 1}${v.source ? ` (${v.source})` : ''}${v.note ? ` · ${v.note}` : ''} ──`);
+          console.log(v.content.split('\n').map(l => `    ${l}`).join('\n'));
+          console.log('');
+        });
+        break;
+      }
+      case 'rm':
+      case 'remove':
+      case 'delete': {
+        const ref = args[2];
+        if (!ref) { console.error('用法: ao prompt rm <名字>'); process.exit(1); }
+        const removed = P.removePrompt(ref);
+        if (removed) console.log(`  🗑️  已删除提示词 "${ref}"`);
+        else { console.error(`  找不到提示词 "${ref}"`); process.exit(1); }
+        break;
+      }
+      case 'garden': {
+        console.log(`\n  🌱 Prompt Garden — 内置起手模板:\n`);
+        for (const s of P.PROMPT_GARDEN) {
+          console.log(`  [${s.mode}] ${s.name}  (${s.tags.join(', ')})`);
+          console.log(`    ${s.content.split('\n')[0].slice(0, 60)}...`);
+        }
+        console.log('');
+        break;
+      }
+      default:
+        console.error(`未知子命令: prompt ${sub}\n用 \`ao prompt\` 查看用法`);
+        process.exit(1);
+    }
   } catch (err) {
     console.error(`\n${t('error.prefix')}: ${err instanceof Error ? err.message : err}`);
     process.exit(1);
