@@ -198,6 +198,9 @@ const dict: Dict = {
     init --provider <p> --model <m>   写入 .env 默认配置（支持 --base-url, --api-key）
     compose "描述"                    AI 智能编排工作流（一句话生成 YAML）
     compose "描述" --run              生成并立即运行（一句话出结果）
+    team save <workflow.yaml>         把角色阵容存成可复用团队 (Loadout)
+    team list / show / rm             管理已保存的团队
+    run --team <名字> "任务"           用已保存的团队跑新任务（锁定阵容）
     serve                             启动 MCP Server（供 Claude Code / Cursor 调用）
     web                               启动可视化 Web Studio（浏览器里勾角色组队、跑工作流）
     run <workflow.yaml>               执行工作流
@@ -206,6 +209,8 @@ const dict: Dict = {
     explain <workflow.yaml>           用自然语言解释执行计划
     roles [关键词] [--agents-dir path] 列出可用角色（带关键词则按 路径/名称/描述 搜索）
     upgrade [--check]                 自我升级到最新版（--check 只检查不安装）
+
+  自带私有角色：设 AO_AGENTS_DIR=/你的角色目录，run/compose/roles/web 全局生效。
 
   选项:
     --input, -i key=value    传入输入变量
@@ -254,6 +259,9 @@ const dict: Dict = {
     init --provider <p> --model <m>   Write default config to .env (supports --base-url, --api-key)
     compose "desc"                    AI-compose a workflow from one sentence
     compose "desc" --run              Compose and run immediately
+    team save <workflow.yaml>         Save a role line-up as a reusable team (Loadout)
+    team list / show / rm             Manage saved teams
+    run --team <name> "task"          Run a new task with a saved team (locked line-up)
     serve                             Start MCP server (for Claude Code / Cursor)
     web                               Launch the visual Web Studio (pick roles & run in the browser)
     run <workflow.yaml>               Execute a workflow
@@ -262,6 +270,8 @@ const dict: Dict = {
     explain <workflow.yaml>           Explain the plan in natural language
     roles [keyword] [--agents-dir path] List roles (with a keyword: search path/name/description)
     upgrade [--check]                 Self-update to the latest version (--check: check only)
+
+  Bring your own roles: set AO_AGENTS_DIR=/your/roles/dir — applies to run/compose/roles/web.
 
   Options:
     --input, -i key=value    Pass an input variable

@@ -63,6 +63,24 @@ export interface ComposeResult {
   warnings?: string[];
 }
 
+export interface TeamRole {
+  role: string;
+  name?: string;
+  emoji?: string;
+  note?: string;
+}
+
+export interface Team {
+  slug: string;
+  name: string;
+  description?: string;
+  roles: TeamRole[];
+  lang?: string;
+  provider?: string;
+  source?: string;
+  created?: string;
+}
+
 export type SseHandler = (event: string, data: any) => void;
 
 const API = "/api";
@@ -79,6 +97,21 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    let msg = `${res.status}`;
+    try {
+      const j = await res.json();
+      msg = j.error || msg;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+async function delJSON<T>(path: string): Promise<T> {
+  const res = await fetch(`${API}${path}`, { method: "DELETE" });
   if (!res.ok) {
     let msg = `${res.status}`;
     try {
@@ -166,6 +199,11 @@ export const api = {
   run: (id: string) => getJSON<RunSummary>(`/runs/${encodeURIComponent(id)}`),
   compose: (body: { description: string; roles: string[]; name?: string; provider?: string; lang?: string }) =>
     postJSON<ComposeResult>("/compose", body),
+  // 团队 / Loadout：可复用角色阵容，与 `ao team` CLI 共用 ~/.ao/teams
+  teams: () => getJSON<{ teams: Team[] }>("/teams").then((r) => r.teams),
+  saveTeam: (body: { name: string; description?: string; roles: TeamRole[]; lang?: string; provider?: string }) =>
+    postJSON<{ ok: boolean; slug: string; file: string }>("/teams", body),
+  deleteTeam: (slug: string) => delJSON<{ ok: boolean }>(`/teams/${encodeURIComponent(slug)}`),
   // 把人工输入写回正在等待的运行（human_input / approval 节点暂停时）
   runInput: (runId: string, text: string) =>
     postJSON<{ ok: boolean }>("/run-input", { runId, text }),

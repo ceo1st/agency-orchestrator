@@ -68,6 +68,9 @@ async function main(): Promise<void> {
     case 'compose':
       await handleCompose();
       break;
+    case 'team':
+      await handleTeam();
+      break;
     case 'demo':
       await handleDemo();
       break;
@@ -87,7 +90,7 @@ async function main(): Promise<void> {
       break;
     default: {
       // 容错：用户可能漏了空格，如 "planworkflows/x.yaml"
-      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'demo', 'roles', 'init', 'serve', 'web', 'upgrade'];
+      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'team', 'demo', 'roles', 'init', 'serve', 'web', 'upgrade'];
       const match = knownCmds.find(c => command.startsWith(c) && command.length > c.length);
       if (match) {
         console.error(`看起来少了个空格？试试:\n  ao ${match} ${command.slice(match.length)}\n`);
@@ -101,9 +104,17 @@ async function main(): Promise<void> {
 }
 
 async function handleRun(): Promise<void> {
+  // ao run --team <名字> "<任务>"：把固定团队套到新任务上（compose 锁定阵容后直接运行）
+  const teamRef = getArgValue('--team');
+  if (teamRef) {
+    await runWithTeam(teamRef);
+    return;
+  }
+
   const filePath = args[1];
   if (!filePath) {
     console.error('用法: ao run <workflow.yaml> [--input key=value ...]');
+    console.error('  或: ao run --team <名字> "你的任务"   # 用已保存的团队跑新任务');
     process.exit(1);
   }
 
@@ -442,6 +453,222 @@ async function handleCompose(): Promise<void> {
   }
 }
 
+/** run/team-run 的第一个位置参数（任务文本）：跳过命令名、所有 --flag 及其取值。 */
+function firstPositional(): string | undefined {
+  const valueFlags = new Set([
+    '--team', '--provider', '--model', '--agents-dir', '--lang', '--name', '--desc',
+    '--base-url', '--baseurl', '--api-key', '--apikey', '--timeout', '--output',
+    '--resume', '--from', '--feedback', '--input', '-i', '--port',
+  ]);
+  for (let i = 1; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith('-')) {
+      if (valueFlags.has(a)) i++;   // 跳过该 flag 的取值
+      continue;
+    }
+    return a;
+  }
+  return undefined;
+}
+
+/** 解析 provider/model（CLI flag > env > 兜底默认），team 可提供默认 provider/model。 */
+function resolveProviderModel(teamProvider?: string, teamModel?: string): { provider: LLMConfig['provider']; model: string } {
+  const provider = (getArgValue('--provider') || process.env.AO_PROVIDER || teamProvider || 'deepseek') as LLMConfig['provider'];
+  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+  const model = getArgValue('--model') || process.env.AO_MODEL || teamModel || (
+    cliProviders.includes(provider) ? '' :
+    provider === 'deepseek' ? 'deepseek-chat' :
+    provider === 'claude' ? 'claude-sonnet-4-20250514' :
+    provider === 'openai' ? 'gpt-4o' :
+    ''
+  );
+  return { provider, model };
+}
+
+/** ao run --team <名字> "<任务>"：加载团队 → compose 锁定阵容 → 直接运行。 */
+async function runWithTeam(teamRef: string): Promise<void> {
+  const task = firstPositional();
+  if (!task) {
+    console.error('用法: ao run --team <名字> "你想让这个团队做的任务"');
+    console.error('  例: ao run --team 自媒体副业实战组 "帮我规划一个读书博主账号"');
+    console.error('  查看已有团队: ao team list');
+    process.exit(1);
+  }
+
+  let team;
+  try {
+    const { loadTeamByRef } = await import('./cli/team.js');
+    team = loadTeamByRef(teamRef);
+  } catch (err) {
+    console.error(`\n错误: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+
+  const lang = (getArgValue('--lang') as 'zh' | 'en' | undefined) ?? team.lang ?? 'zh';
+  const agentsDir = getArgValue('--agents-dir') || resolveAgentsDir(lang);
+  const { provider, model } = resolveProviderModel(team.provider, team.model);
+  const baseUrl = getArgValue('--base-url') || getArgValue('--baseurl');
+  const apiKey = getArgValue('--api-key') || getArgValue('--apikey');
+  const timeoutRaw = getArgValue('--timeout');
+  let timeoutMs: number | undefined;
+  if (timeoutRaw !== undefined) {
+    const parsed = parseDuration(timeoutRaw);
+    if (parsed === null) { console.error(`--timeout 值无效: "${timeoutRaw}"`); process.exit(1); }
+    timeoutMs = parsed;
+  }
+  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+
+  console.log(`\n  🎭 团队「${team.name}」(${team.roles.length} 位专家) 接到新任务\n`);
+  for (const r of team.roles) console.log(`    ${r.emoji || '•'} ${r.name || r.role}`);
+  console.log('');
+
+  try {
+    const { composeWorkflow } = await import('./cli/compose.js');
+    const { savedPath, relativePath, warnings } = await composeWorkflow({
+      description: task,
+      agentsDir: resolve(agentsDir),
+      llmConfig: {
+        provider, model,
+        ...(baseUrl ? { base_url: baseUrl } : {}),
+        ...(apiKey ? { api_key: apiKey } : {}),
+      },
+      pinnedRoles: team.roles.map(r => r.role),
+      autoRun: true,
+      lang,
+      timeoutMs,
+      saveDir: 'ao-workflows',
+    });
+    console.log(`  ${t('compose.generated', { path: relativePath })}\n`);
+
+    // compose 出现致命问题（解析失败/未定义变量/幻觉角色）→ 不进入运行
+    const fatal = warnings.some(w =>
+      w.includes('解析失败') || w.includes('未定义的变量') || w.includes('不存在于角色库') ||
+      w.toLowerCase().includes('parse failed') || w.toLowerCase().includes('undefined variable')
+    );
+    if (fatal) {
+      console.error(`  ${t('compose.retry_yaml_bad')}`);
+      for (const w of warnings) console.error(`    - ${w}`);
+      console.error(`\n  可手动修改后运行: ao run ${relativePath}`);
+      process.exit(1);
+    }
+    if (warnings.length > 0) {
+      console.log(`  ${t('compose.warnings_header')}`);
+      for (const w of warnings) console.log(`    - ${w}`);
+      console.log('');
+    }
+
+    console.log('─'.repeat(50));
+    console.log(`  ${t('compose.auto_running')}\n`);
+    const result = await run(resolve(savedPath), {}, {
+      quiet: args.includes('--quiet') || args.includes('-q'),
+      watch: args.includes('--watch'),
+      outputDir: getArgValue('--output') || 'ao-output',
+      llmOverride: {
+        provider,
+        model: model || undefined,
+        timeout: timeoutMs !== undefined ? timeoutMs : (cliProviders.includes(provider) ? 600_000 : 300_000),
+        ...(baseUrl ? { base_url: baseUrl } : {}),
+        ...(apiKey ? { api_key: apiKey } : {}),
+      },
+    });
+    process.exit(result.success ? 0 : 1);
+  } catch (err) {
+    console.error(`\n${t('error.prefix')}: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+}
+
+/** ao team — 管理可复用角色阵容（save / list / show / rm）。 */
+async function handleTeam(): Promise<void> {
+  const sub = args[1];
+  const team = await import('./cli/team.js');
+
+  if (!sub || sub === '--help' || sub === '-h') {
+    console.log(`
+  ao team — 团队 / Loadout：把跑得好的角色阵容存下来，套到任意新任务上
+
+  ao team save <workflow.yaml> [--name 名字] [--desc 说明]
+                                  从一个 workflow 抽出角色阵容，存成可复用团队
+  ao team list                    列出已保存的团队
+  ao team show <名字>             查看某个团队的角色构成
+  ao team rm <名字>               删除团队
+
+  存好后，一句话让整队人接新活：
+  ao run --team <名字> "你的新任务"
+
+  团队文件存在 ${team.teamsDir()}（纯 YAML，可直接拷贝分享）
+`);
+    return;
+  }
+
+  try {
+    switch (sub) {
+      case 'save': {
+        const wfPath = args[2];
+        if (!wfPath || wfPath.startsWith('-')) {
+          console.error('用法: ao team save <workflow.yaml> [--name 名字] [--desc 说明]');
+          process.exit(1);
+        }
+        const def = team.extractTeamFromWorkflow(resolve(wfPath), {
+          name: getArgValue('--name'),
+          description: getArgValue('--desc'),
+        });
+        const saved = team.saveTeam(def);
+        console.log(`\n  ✅ 已保存团队「${def.name}」(${def.roles.length} 位专家)`);
+        for (const r of def.roles) console.log(`    ${r.emoji || '•'} ${r.name || r.role}  ${r.role}`);
+        console.log(`\n  位置: ${saved}`);
+        console.log(`  套新任务: ao run --team ${team.slugify(def.name)} "你的任务"\n`);
+        break;
+      }
+      case 'list': {
+        const all = team.listTeams();
+        if (all.length === 0) {
+          console.log(`\n  还没有保存的团队。先跑一次 compose，再 \`ao team save <workflow.yaml>\`。\n`);
+          return;
+        }
+        console.log(`\n  共 ${all.length} 个团队 (${team.teamsDir()}):\n`);
+        for (const { team: tm } of all) {
+          const emojis = tm.roles.map(r => r.emoji || '•').slice(0, 8).join('');
+          console.log(`  🎭 ${tm.name}  (${tm.roles.length} 位) ${emojis}`);
+          if (tm.description) console.log(`     ${tm.description}`);
+          console.log(`     ao run --team ${team.slugify(tm.name)} "..."`);
+        }
+        console.log('');
+        break;
+      }
+      case 'show': {
+        const ref = args[2];
+        if (!ref) { console.error('用法: ao team show <名字>'); process.exit(1); }
+        const tm = team.loadTeamByRef(ref);
+        console.log(`\n  🎭 ${tm.name}${tm.description ? ` — ${tm.description}` : ''}`);
+        console.log(`  语言: ${tm.lang || 'zh'}${tm.provider ? ` · 默认 provider: ${tm.provider}` : ''}${tm.source ? ` · 来源: ${tm.source}` : ''}\n`);
+        for (const r of tm.roles) {
+          console.log(`  ${r.emoji || '•'} ${r.name || r.role}  ${r.role}`);
+          if (r.note) console.log(`     ${r.note}`);
+        }
+        console.log(`\n  套新任务: ao run --team ${team.slugify(tm.name)} "你的任务"\n`);
+        break;
+      }
+      case 'rm':
+      case 'remove':
+      case 'delete': {
+        const ref = args[2];
+        if (!ref) { console.error('用法: ao team rm <名字>'); process.exit(1); }
+        const removed = team.removeTeam(ref);
+        if (removed) console.log(`  🗑️  已删除团队 "${ref}"`);
+        else { console.error(`  找不到团队 "${ref}"`); process.exit(1); }
+        break;
+      }
+      default:
+        console.error(`未知子命令: team ${sub}\n用 \`ao team\` 查看用法`);
+        process.exit(1);
+    }
+  } catch (err) {
+    console.error(`\n错误: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+}
+
 async function handleServe(): Promise<void> {
   const verbose = args.includes('--verbose');
   try {
@@ -757,6 +984,12 @@ function parseInputArgs(): Record<string, string> {
  * @param preferLang 优先语言，影响搜索顺序
  */
 function resolveAgentsDir(preferLang?: 'zh' | 'en'): string {
+  // 自定义角色目录（自带私有专家）：AO_AGENTS_DIR 优先于内置查找，存在才采用。
+  // loader 已支持任意 agentsDir，这里只是把它暴露成无需每次 --agents-dir 的全局配置。
+  if (process.env.AO_AGENTS_DIR) {
+    const custom = resolve(process.env.AO_AGENTS_DIR);
+    if (existsSync(custom)) return custom;
+  }
   // scriptDir = dist/ inside the installed package
   // Windows: 必须用 fileURLToPath，不能用 new URL(url).pathname，
   // 否则会得到 "/C:/Users/..." 非法路径，包内置 / node_modules 候选都失效

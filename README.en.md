@@ -259,6 +259,9 @@ ao init --lang en                    # (Optional) Copy 184 English roles locally
 ao init --workflow                    # Interactive workflow creator
 ao compose "description"             # AI-powered workflow generation
 ao compose "description" --run       # Generate AND execute in one command
+ao team save <workflow.yaml>         # Save a role line-up as a reusable team (Loadout)
+ao team list / show / rm             # Manage saved teams
+ao run --team <name> "new task"      # Run a new task with a saved team (locked line-up)
 ao run <workflow.yaml> [options]      # Execute workflow
 ao validate <workflow.yaml>          # Validate without running
 ao plan <workflow.yaml>              # Show execution plan (DAG)
@@ -292,6 +295,25 @@ The AI will:
 4. Save to `workflows/` — ready to `ao run`
 
 Add `--run` to generate and execute in one command. Supports `--provider` and `--model` flags (default: DeepSeek).
+
+### Teams / Loadouts (save a winning line-up and reuse it)
+
+Every `compose` builds an ad-hoc team. When a line-up works well, **save it as a team** and apply it to any new task — a team stores only the *roles*, decoupled from any specific task:
+
+```bash
+# Extract the line-up from a workflow that worked well, save it as a team
+ao team save workflows/tech-blog.yaml --name blog-crew
+
+# Put the whole crew on a new task (re-designs the steps for those roles and runs)
+ao run --team blog-crew "Write an explainer on the RISC-V architecture"
+
+ao team list           # List saved teams
+ao team show blog-crew # Inspect the line-up
+```
+
+`ao run --team` simply **locks** the compose role catalog down to the team's roles — so nobody is dropped and no role is hallucinated. Teams live in `~/.ao/teams/*.team.yaml` (plain YAML, copy-to-share) and are **shared between the CLI and the web Studio** — pick roles in Studio, hit "Save as team", and `ao run --team` can use it immediately, and vice versa.
+
+> Bring your own experts: set `AO_AGENTS_DIR=/your/roles/dir` and `run / compose / roles / web` all switch to your own role library.
 
 ### Resume & Iterate
 

@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Added
+- **团队 / Loadout（可复用角色阵容）**：把跑得好的角色阵容存下来，套到任意新任务上。
+  - CLI：`ao team save <workflow.yaml>` 从工作流抽出阵容存为团队；`ao team list / show / rm` 管理；`ao run --team <名字> "新任务"` 用固定阵容跑新活（本质 = compose 时把可选角色锁定为团队那几个，不漏人也不幻觉）。团队存为 `~/.ao/teams/*.team.yaml`（纯 YAML 可分享，`AO_TEAMS_DIR` 可覆盖）。
+  - Web Studio：「我的团队」一排可一键载入整队；选 ≥2 角色后「存为团队」，合成预览里也能「存为团队」。后端 `GET/POST/DELETE /api/teams`，**与 CLI 共用同一份存储**，两端互通。
+- **自带私有角色**：环境变量 `AO_AGENTS_DIR=/你的角色目录` 让 `run / compose / roles / web` 全部改用自定义角色库。
+
 ### Fixed
 - **桌面端连不上本地 CLI（claude/codex/gemini）**（#41）：从 Finder/Dock 启动的 GUI 应用只继承 launchd 的精简 PATH（`/usr/bin:/bin:...`），找不到装在 homebrew / `~/.local/bin` / npm-global 里的 CLI provider 二进制，表现为「找不到 claude / 连不上本地 cli」。桌面壳现在在拉起引擎前重建可用 PATH（登录 shell 的 PATH + 常见 bin 目录），子进程继承之；终端里 `ao run` 不受影响。
 - **Studio 默认语言不跟随环境**：导航栏本来就有中/英切换，但**首启默认语言**走 `navigator.language`，桌面端 Electron 常判成英文 → 中文用户一进来看到英文。现在桌面端按操作系统语言（`app.getLocale()`）、`ao web` 按 CLI 界面语言（`--lang`/`AO_LANG`/`LANG`）带上 `?lang=` 决定首启语言；用户在导航栏切换后由 localStorage 记住。判定优先级：URL 路径 `/en` > 用户已切换的持久化选择 > launcher 的 `?lang=` > 浏览器语言。

@@ -33,7 +33,10 @@ const COMPOSED_DIR = join(DATA_DIR, 'ao-workflows');
 const AGENTS_DIR = join(ROOT, 'node_modules', 'agency-agents-zh');
 // 英文角色库（随包发布的 agency-agents）。英文站按语言加载它，避免 /en 显示中文角色。
 const AGENTS_DIR_EN = join(ROOT, 'agency-agents');
+// 自定义角色目录（自带私有专家）：AO_AGENTS_DIR 存在时覆盖内置库，CLI 与 Studio 共用同一开关。
+const CUSTOM_AGENTS_DIR = process.env.AO_AGENTS_DIR ? resolve(process.env.AO_AGENTS_DIR) : '';
 function agentsDirFor(lang) {
+  if (CUSTOM_AGENTS_DIR && existsSync(CUSTOM_AGENTS_DIR)) return CUSTOM_AGENTS_DIR;
   if (lang === 'en' && existsSync(AGENTS_DIR_EN)) return AGENTS_DIR_EN;
   return existsSync(AGENTS_DIR) ? AGENTS_DIR : AGENTS_DIR_EN;
 }
@@ -675,6 +678,76 @@ app.post('/api/workflows/save', (req, res) => {
   if (!isInside(file, COMPOSED_DIR)) return res.status(400).json({ error: 'bad path' });
   writeFileSync(file, yamlText.endsWith('\n') ? yamlText : yamlText + '\n', 'utf-8');
   res.json({ file });
+});
+
+// ── Teams / Loadouts: reusable role line-ups, shared with the `ao team` CLI ──
+// Stored in ~/.ao/teams (or AO_TEAMS_DIR) so CLI-saved and Studio-saved teams interoperate.
+app.get('/api/teams', async (_req, res) => {
+  try {
+    const { listTeams, slugify } = await import('../dist/cli/team.js');
+    const teams = listTeams().map(({ team }) => ({
+      slug: slugify(team.name),
+      name: team.name,
+      description: team.description || '',
+      roles: team.roles,
+      lang: team.lang || 'zh',
+      provider: team.provider,
+      source: team.source,
+      created: team.created,
+    }));
+    res.json({ teams });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+app.post('/api/teams', async (req, res) => {
+  const { name, description, roles, lang, provider } = req.body || {};
+  if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name required' });
+  if (!Array.isArray(roles) || roles.length === 0) return res.status(400).json({ error: 'at least one role required' });
+  try {
+    const { saveTeam, slugify } = await import('../dist/cli/team.js');
+    // Normalize: accept ["cat/role"] or [{role,name,emoji,note}]
+    const seen = new Set();
+    const normRoles = [];
+    for (const r of roles) {
+      const rolePath = typeof r === 'string' ? r : r?.role;
+      if (!rolePath || seen.has(rolePath)) continue;
+      seen.add(rolePath);
+      const entry = { role: String(rolePath) };
+      if (r && typeof r === 'object') {
+        if (r.name) entry.name = String(r.name);
+        if (r.emoji) entry.emoji = String(r.emoji);
+        if (r.note) entry.note = String(r.note);
+      }
+      normRoles.push(entry);
+    }
+    const team = {
+      kind: 'team',
+      name: String(name).trim(),
+      description: description ? String(description) : undefined,
+      roles: normRoles,
+      lang: lang === 'en' ? 'en' : 'zh',
+      provider: provider ? String(provider) : undefined,
+      created: new Date().toISOString().slice(0, 10),
+      source: 'studio',
+    };
+    const file = saveTeam(team);
+    res.json({ ok: true, slug: slugify(team.name), file });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+app.delete('/api/teams/:slug', async (req, res) => {
+  try {
+    const { removeTeam } = await import('../dist/cli/team.js');
+    const removed = removeTeam(req.params.slug);
+    if (!removed) return res.status(404).json({ error: 'team not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
 });
 
 // ── Usage / cost stats: aggregate token usage from ao-output metadata ──

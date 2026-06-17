@@ -1,4 +1,4 @@
-import { Boxes, Check, ChevronDown, Loader2, Play, Sparkles, TriangleAlert, X } from "lucide-react";
+import { Bookmark, Boxes, Check, ChevronDown, Loader2, Play, Sparkles, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ export function ComposePreview({
   onRun,
   onClose,
   onGoToWorkflows,
+  onSaveTeam,
+  defaultTeamName,
 }: {
   result: ComposeResult;
   meta: Workflow | null;
@@ -23,11 +25,24 @@ export function ComposePreview({
   onRun: (r: RunRequest) => void;
   onClose: () => void;
   onGoToWorkflows?: () => void;
+  onSaveTeam?: (name: string) => Promise<string | null>;
+  defaultTeamName?: string;
 }) {
   const { t } = useLanguage();
   const [showYaml, setShowYaml] = useState(false);
+  const [teamState, setTeamState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [teamErr, setTeamErr] = useState<string | null>(null);
   const steps = meta?.steps ?? [];
   const name = meta?.name || t.studio.workflows.newTeam;
+
+  const saveTeam = async () => {
+    if (!onSaveTeam) return;
+    setTeamState("saving");
+    setTeamErr(null);
+    const err = await onSaveTeam(defaultTeamName || name);
+    if (err) { setTeamState("error"); setTeamErr(err); }
+    else setTeamState("saved");
+  };
 
   const run = () => {
     onRun({ kind: "workflow", title: name, file: result.file, provider: provider || undefined, cast: meta?.steps });
@@ -111,6 +126,23 @@ export function ComposePreview({
             <Button variant="ghost" onClick={onClose}>
               {t.studio.workflows.cancel}
             </Button>
+            {onSaveTeam && (
+              <Button
+                variant="outline"
+                onClick={saveTeam}
+                disabled={teamState === "saving" || teamState === "saved"}
+                title={teamErr || t.studio.roles.saveAsTeam}
+              >
+                {teamState === "saving" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : teamState === "saved" ? (
+                  <Check className="size-4 text-emerald-500" />
+                ) : (
+                  <Bookmark className="size-4" />
+                )}
+                {teamState === "saved" ? t.studio.roles.teamSaved : t.studio.roles.saveAsTeam}
+              </Button>
+            )}
             {onGoToWorkflows && (
               <Button variant="outline" onClick={onGoToWorkflows}>
                 <Boxes className="size-4" />

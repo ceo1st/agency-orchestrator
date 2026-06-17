@@ -1,8 +1,8 @@
-import { Check, Loader2, MessageSquare, Search, Sparkles, Users, X } from "lucide-react";
+import { Bookmark, Check, Loader2, MessageSquare, Search, Sparkles, Trash2, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, type ComposeResult, type Role, type Workflow } from "@/lib/studio";
+import { api, type ComposeResult, type Role, type Team, type Workflow } from "@/lib/studio";
 import { demoRoles } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 import { ComposePreview } from "./ComposePreview";
@@ -42,6 +42,17 @@ export function RolesPicker({
   const [composeErr, setComposeErr] = useState<string | null>(null);
   const [detail, setDetail] = useState<Role | null>(null);
   const [preview, setPreview] = useState<{ result: ComposeResult; meta: Workflow | null; loading: boolean } | null>(null);
+
+  // teams / loadouts
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [savingTeam, setSavingTeam] = useState(false);
+  const [teamMsg, setTeamMsg] = useState<string | null>(null);
+
+  const refreshTeams = () => {
+    if (demo) return;
+    api.teams().then(setTeams).catch(() => setTeams([]));
+  };
+  useEffect(refreshTeams, [demo]);
 
   useEffect(() => {
     if (demo) {
@@ -90,6 +101,64 @@ export function RolesPicker({
   };
 
   const clearSel = () => setSelected({});
+
+  const roleByPath = useMemo(() => {
+    const m: Record<string, Role> = {};
+    roles.forEach((r) => { m[roleKey(r)] = r; });
+    return m;
+  }, [roles]);
+
+  // 点一个已存团队：把它的角色整队载入选择区（缺失的角色——如换了语言库——跳过）
+  const loadTeam = (team: Team) => {
+    setComposeErr(null);
+    const next: Record<string, Role> = {};
+    let missing = 0;
+    for (const tr of team.roles) {
+      const r = roleByPath[tr.role];
+      if (r) next[roleKey(r)] = r;
+      else missing++;
+    }
+    setSelected(next);
+    setTeamName(team.name);
+    setTeamMsg(missing > 0 ? `${missing} ${t.studio.roles.teamLoadedMissing}` : null);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // 存当前阵容为团队，返回 null = 成功，否则返回错误文案。供 tray 与 ComposePreview 复用。
+  const saveTeamNamed = async (name: string): Promise<string | null> => {
+    if (count < 2) return t.studio.roles.teamSaveNeedName;
+    if (!name.trim()) return t.studio.roles.teamSaveNeedName;
+    try {
+      await api.saveTeam({
+        name: name.trim(),
+        roles: selectedList.map((r) => ({ role: roleKey(r), name: r.name })),
+        provider: provider || undefined,
+        lang,
+      });
+      refreshTeams();
+      return null;
+    } catch (e: any) {
+      return e?.message || t.studio.roles.teamSaveFailed;
+    }
+  };
+
+  const saveAsTeam = async () => {
+    setSavingTeam(true);
+    setTeamMsg(null);
+    const err = await saveTeamNamed(teamName);
+    setTeamMsg(err ?? `✅ ${t.studio.roles.teamSaved}`);
+    setSavingTeam(false);
+  };
+
+  const deleteTeam = async (team: Team, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await api.deleteTeam(team.slug);
+      refreshTeams();
+    } catch {
+      /* ignore */
+    }
+  };
 
   const doSingleChat = () => {
     const r = selectedList[0];
@@ -150,6 +219,42 @@ export function RolesPicker({
         <span><b className="text-foreground">{t.studio.roles.hintPickManyBold}</b> {t.studio.roles.hintPickManyRest}</span>
         <span>{t.studio.roles.hintAvatarPre}<b className="text-foreground">{t.studio.roles.hintAvatarBold}</b>{t.studio.roles.hintAvatarPost}</span>
       </div>
+
+      {/* my teams / loadouts — 一键载入整队，套新任务 */}
+      {!demo && teams.length > 0 && (
+        <div className="mb-4 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <Bookmark className="size-3.5" />
+            {t.studio.roles.myTeams}
+            <span className="font-normal text-muted-foreground/70">· {t.studio.roles.myTeamsHint}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {teams.map((team) => (
+              <button
+                key={team.slug}
+                onClick={() => loadTeam(team)}
+                title={team.description || team.name}
+                className="group flex items-center gap-2 rounded-full border border-border/70 bg-card/70 py-1 pl-3 pr-1.5 text-xs transition-colors hover:border-primary/50 hover:bg-card"
+              >
+                <span className="font-medium">{team.name}</span>
+                <span className="text-muted-foreground/70">
+                  {team.roles.slice(0, 6).map((r) => r.emoji || "•").join("")}
+                  {" "}{team.roles.length}{t.studio.roles.teamMembersSuffix}
+                </span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  title={t.studio.roles.deleteTeam}
+                  onClick={(e) => deleteTeam(team, e)}
+                  className="grid size-5 place-items-center rounded-full text-muted-foreground/50 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
+                >
+                  <Trash2 className="size-3" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* filter bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -282,10 +387,16 @@ export function RolesPicker({
                 className="h-10 flex-1 rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
               />
               {count >= 2 ? (
-                <Button onClick={doComposeRun} disabled={composing || !task.trim()}>
-                  {composing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                  {t.studio.roles.composeAndRun}
-                </Button>
+                <>
+                  <Button variant="outline" onClick={saveAsTeam} disabled={savingTeam} title={t.studio.roles.saveAsTeam}>
+                    {savingTeam ? <Loader2 className="size-4 animate-spin" /> : <Bookmark className="size-4" />}
+                    {t.studio.roles.saveAsTeam}
+                  </Button>
+                  <Button onClick={doComposeRun} disabled={composing || !task.trim()}>
+                    {composing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                    {t.studio.roles.composeAndRun}
+                  </Button>
+                </>
               ) : (
                 <Button onClick={doSingleChat} disabled={!task.trim()}>
                   <MessageSquare className="size-4" />
@@ -293,6 +404,7 @@ export function RolesPicker({
                 </Button>
               )}
             </div>
+            {teamMsg && <p className="mt-2 text-xs text-muted-foreground">{teamMsg}</p>}
             {composeErr && <p className="mt-2 text-xs text-red-500">{composeErr}</p>}
           </div>
         </div>
@@ -306,6 +418,8 @@ export function RolesPicker({
           loadingMeta={preview.loading}
           provider={provider}
           onRun={onRun}
+          onSaveTeam={saveTeamNamed}
+          defaultTeamName={teamName.trim() || preview.meta?.name}
           onClose={() => setPreview(null)}
           onGoToWorkflows={
             onGoToWorkflows

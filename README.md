@@ -268,6 +268,9 @@ ao init --lang en                    # （可选）复制 184 个英文角色到
 ao init --workflow                    # 交互式创建工作流
 ao compose "一句话描述"                # AI 智能编排工作流
 ao compose "一句话描述" --run          # 编排并立即执行
+ao team save <workflow.yaml>          # 把角色阵容存成可复用团队 (Loadout)
+ao team list / show / rm              # 管理已保存的团队
+ao run --team <名字> "新任务"          # 用已保存的团队跑新任务（锁定阵容）
 ao run <workflow.yaml> [选项]          # 执行工作流
 ao validate <workflow.yaml>           # 校验（不执行）
 ao plan <workflow.yaml>               # 查看执行计划（DAG）
@@ -302,6 +305,25 @@ AI 会自动：
 4. 保存到 `workflows/` — 直接 `ao run` 就能跑
 
 支持 `--provider` 和 `--model` 参数（默认使用 DeepSeek）。
+
+### 团队 / Loadout（把跑得好的阵容存下来复用）
+
+`compose` 每次都是临时组队。如果某个角色阵容效果好，把它**存成团队**，套到任意新任务上——团队只保存「角色阵容」，与具体任务解耦：
+
+```bash
+# 从一个跑得好的工作流抽出阵容，存成团队
+ao team save workflows/tech-blog.yaml --name 技术博客组
+
+# 让整队人接新活（自动用这几个角色重新设计步骤并运行）
+ao run --team 技术博客组 "写一篇关于 RISC-V 架构的科普"
+
+ao team list           # 查看已保存的团队
+ao team show 技术博客组  # 查看阵容构成
+```
+
+`ao run --team` 的本质 = compose 时把可选角色**锁定**为团队那几个，所以既不会漏人、也不会幻觉出别的角色。团队存在 `~/.ao/teams/*.team.yaml`（纯 YAML，可直接拷贝分享），**命令行和网页 Studio 共用同一份**——Studio 里勾选角色后点「存为团队」，命令行立刻 `ao run --team` 可用，反之亦然。
+
+> 自带私有专家：设环境变量 `AO_AGENTS_DIR=/你的角色目录`，`run / compose / roles / web` 全部改用你自己的角色库。
 
 ### 迭代优化（Resume）
 

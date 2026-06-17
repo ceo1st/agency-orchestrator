@@ -10,7 +10,18 @@ ao run <workflow.yaml> --resume last --from <step-id>  # Re-run from a specific 
 ao validate <workflow.yaml>           # Validate without running
 ao plan <workflow.yaml>               # Show DAG execution plan
 ao roles                              # List all 216 available roles
+ao team save <workflow.yaml>          # Save a role line-up as a reusable team (Loadout)
+ao team list / show / rm              # Manage saved teams (stored in ~/.ao/teams)
+ao run --team <name> "task"           # Run a new task with a saved team (locked line-up)
 ```
+
+## Teams / Loadouts
+
+A "team" is a saved, named set of roles decoupled from any task — `src/cli/team.ts`.
+`ao run --team` = `composeWorkflow({ pinnedRoles })` with the catalog locked to the team's
+roles. Teams persist as `~/.ao/teams/*.team.yaml` (override dir with `AO_TEAMS_DIR`) and are
+**shared between the CLI and the web Studio** (`GET/POST/DELETE /api/teams` in `web/server.js`).
+Bring-your-own roles: `AO_AGENTS_DIR=/path` overrides the built-in catalog everywhere.
 
 ## Resume — Iterative Optimization
 
