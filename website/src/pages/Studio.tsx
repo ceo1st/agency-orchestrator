@@ -21,7 +21,9 @@ import { cn } from "@/lib/utils";
 // recharts(~390kB)只在用量 tab 用 → 懒加载，避免拖累 Studio 首屏与演示模式
 const UsagePanel = lazy(() => import("@/components/studio/UsagePanel").then((m) => ({ default: m.UsagePanel })));
 
-const KEYED = ["deepseek", "compshare", "openai", "claude"];
+// 需要 API key 的 provider。apinebula 是当前默认 provider，必须在列——否则新用户没填 key 时
+// 不会弹「需要配置 key」提示，直接运行才报认证错（commit 61e84a6 改默认后遗漏）。
+const KEYED = ["apinebula", "deepseek", "compshare", "openai", "claude"];
 
 type Tab = "roles" | "workflows" | "runs" | "usage" | "providers";
 
