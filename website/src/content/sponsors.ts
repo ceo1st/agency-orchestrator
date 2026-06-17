@@ -42,6 +42,7 @@ export const sponsors: Sponsor[] = [
     name: "APINEBULA",
     badge: "🌌",
     accent: "from-violet-600 to-indigo-500",
+    logo: "/sponsors/logo-apinebula-icon.png",
     banner: "/sponsors/banner-apinebula.jpeg",
     url: "https://apinebula.com/V6ekjG",
     tier: "flagship",

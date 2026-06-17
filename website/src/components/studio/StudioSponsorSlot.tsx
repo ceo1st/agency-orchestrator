@@ -25,7 +25,9 @@ export function StudioSponsorSlot() {
         </span>
 
         {sponsor.logo ? (
-          <img src={sponsor.logo} alt={sponsor.name} className="h-6 w-6 rounded object-contain" />
+          <span className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-lg border border-border/60 bg-white p-1 dark:bg-white/95">
+            <img src={sponsor.logo} alt={sponsor.name} className="h-full w-full object-contain" />
+          </span>
         ) : (
           <span className={cn("grid size-6 place-items-center rounded bg-gradient-to-br text-sm", sponsor.accent ?? "from-primary to-fuchsia-500")}>
             {sponsor.badge}
