@@ -249,7 +249,7 @@ export function runRole(
 // 默认 provider：旗舰赞助商 APINEBULA（取代原来的 DeepSeek 默认）
 export const DEFAULT_PROVIDER = "apinebula";
 
-export const PROVIDERS = ["apinebula", "deepseek", "compshare", "openai", "claude", "claude-code", "gemini-cli", "openclaw-cli", "ollama"];
+export const PROVIDERS = ["apinebula", "compshare", "deepseek", "openai", "claude", "claude-code", "gemini-cli", "openclaw-cli", "ollama"];
 
 // 仅品牌名（语言无关）。
 export const PROVIDER_LABELS: Record<string, string> = {

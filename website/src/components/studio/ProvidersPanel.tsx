@@ -5,13 +5,14 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, DEFAULT_PROVIDER, PROVIDER_LABELS, type ConfigResponse } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 
-type ApiMeta = { id: string; name: string; hint: string; flagship?: boolean };
+type ApiMeta = { id: string; name: string; hint: string; flagship?: boolean; sponsor?: boolean };
 
 const API_META: ApiMeta[] = [
-  // 旗舰赞助商 APINEBULA —— 置顶 + 高亮（大屏特有）
+  // 旗舰赞助商 APINEBULA —— 置顶 + 金色高亮（大屏特有）
   { id: "apinebula", name: "APINEBULA", hint: "apinebula.com", flagship: true },
+  // 普通赞助商 CompShare —— 次于旗舰，中性「赞助商」标记
+  { id: "compshare", name: "CompShare", hint: "console.compshare.cn", sponsor: true },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com" },
-  { id: "compshare", name: "CompShare", hint: "console.compshare.cn" },
   { id: "openai", name: "OpenAI", hint: "gpt-4o {etc} · platform.openai.com" },
   { id: "claude", name: "Claude (Anthropic)", hint: "console.anthropic.com" },
 ];
@@ -141,6 +142,11 @@ function ApiCard({
           {meta.flagship && (
             <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold text-gold">
               <Sparkles className="size-3" /> {t.studio.providers.flagshipTag}
+            </span>
+          )}
+          {meta.sponsor && (
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              {t.studio.providers.sponsorTag}
             </span>
           )}
         </div>
