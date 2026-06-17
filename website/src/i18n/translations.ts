@@ -297,6 +297,7 @@ const zh = {
       tabs: {
         roles: { label: "角色组队", hint: "勾 1 个对话 · 勾多个合成团队" },
         workflows: { label: "工作流", hint: "运行模板 · 勾多个对比" },
+        prompt: { label: "提示词", hint: "优化 · 测试 · 对比 · 沉淀" },
         runs: { label: "运行历史", hint: "查看产物 · 从某步重跑" },
         usage: { label: "用量统计", hint: "token / 成本 / 趋势" },
         providers: { label: "供应商", hint: "密钥 · 测试连接" },
@@ -760,6 +761,7 @@ const en: typeof zh = {
       tabs: {
         roles: { label: "Build a Team", hint: "1 to chat · several to compose a team" },
         workflows: { label: "Workflows", hint: "Run templates · pick several to compare" },
+        prompt: { label: "Prompts", hint: "Optimize · test · compare · save" },
         runs: { label: "Run History", hint: "View outputs · rerun from a step" },
         usage: { label: "Usage", hint: "tokens / cost / trends" },
         providers: { label: "Providers", hint: "API keys · test connection" },

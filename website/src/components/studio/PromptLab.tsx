@@ -1,0 +1,295 @@
+import { Bookmark, Check, Copy, FlaskConical, Loader2, Scale, Sparkles, Sprout, Star, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { api, type GardenSeed, type PromptMode, type PromptRecord, type ScoreResult } from "@/lib/studio";
+import { cn } from "@/lib/utils";
+
+const STR = {
+  zh: {
+    title: "提示词优化", sub: "把靠感觉的提示词，变成可优化 · 可测试 · 可对比 · 可沉淀的资产",
+    modeUser: "任务提示词", modeSystem: "角色/系统提示词",
+    rawPlaceholder: "粘贴你的原始提示词…（例如：帮我写个朋友圈文案卖咖啡）",
+    optimize: "一键优化", optimizing: "优化中…",
+    garden: "从模板起手", original: "原始", optimized: "优化后", copy: "复制", copied: "已复制",
+    adopt: "采纳优化版", testTitle: "实测对比", testPlaceholder: "样例输入（system 模式下作为用户消息；user 模式可留空）",
+    runTest: "测试两版", testing: "测试中…", scoreBtn: "AI 评分对比", scoring: "评分中…",
+    best: "胜出", saveName: "给这条提示词起个名字", save: "保存", saving: "保存中…", saved: "已保存",
+    saveNeedName: "请先起个名字", saveNeedOpt: "先优化或填写内容再保存",
+    myPrompts: "我的提示词", empty: "还没有保存的提示词", versions: "版", delete: "删除", load: "载入",
+    needRaw: "请先输入原始提示词", fav: "收藏",
+  },
+  en: {
+    title: "Prompt Optimizer", sub: "Turn gut-feel prompts into assets you can optimize · test · compare · save",
+    modeUser: "Task prompt", modeSystem: "Role/system prompt",
+    rawPlaceholder: "Paste your raw prompt… (e.g. write a tweet selling coffee)",
+    optimize: "Optimize", optimizing: "Optimizing…",
+    garden: "Start from a template", original: "Original", optimized: "Optimized", copy: "Copy", copied: "Copied",
+    adopt: "Adopt optimized", testTitle: "Test & compare", testPlaceholder: "Sample input (used as user message in system mode; optional in user mode)",
+    runTest: "Test both", testing: "Testing…", scoreBtn: "AI score", scoring: "Scoring…",
+    best: "winner", saveName: "Name this prompt", save: "Save", saving: "Saving…", saved: "Saved",
+    saveNeedName: "Name it first", saveNeedOpt: "Optimize or write content first",
+    myPrompts: "My Prompts", empty: "No saved prompts yet", versions: "ver", delete: "Delete", load: "Load",
+    needRaw: "Enter a raw prompt first", fav: "Favorite",
+  },
+};
+
+function slug(name: string) {
+  return name.trim().replace(/[\s/\\:*?"<>|]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "prompt";
+}
+
+export function PromptLab({ provider, demo, onInstallPrompt }: { provider: string; demo?: boolean; onInstallPrompt?: () => void }) {
+  const { lang } = useLanguage();
+  const L = STR[lang === "en" ? "en" : "zh"];
+
+  const [mode, setMode] = useState<PromptMode>("user");
+  const [raw, setRaw] = useState("");
+  const [optimized, setOptimized] = useState<string | null>(null);
+  const [optimizing, setOptimizing] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const [testInput, setTestInput] = useState("");
+  const [outs, setOuts] = useState<{ original?: string; optimized?: string }>({});
+  const [testing, setTesting] = useState(false);
+  const [score, setScore] = useState<ScoreResult | null>(null);
+  const [scoring, setScoring] = useState(false);
+
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [prompts, setPrompts] = useState<PromptRecord[]>([]);
+  const [garden, setGarden] = useState<GardenSeed[]>([]);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [showGarden, setShowGarden] = useState(false);
+
+  const refresh = () => { if (!demo) api.prompts().then(setPrompts).catch(() => setPrompts([])); };
+  useEffect(refresh, [demo]);
+  useEffect(() => { api.promptGarden().then(setGarden).catch(() => setGarden([])); }, []);
+
+  const gardenForMode = useMemo(
+    () => garden.filter((s) => s.mode === mode && (s.lang === (lang === "en" ? "en" : "zh"))),
+    [garden, mode, lang],
+  );
+
+  const copy = (key: string, text: string) => {
+    navigator.clipboard?.writeText(text).then(() => { setCopiedKey(key); setTimeout(() => setCopiedKey(null), 1200); });
+  };
+
+  const doOptimize = async () => {
+    if (demo) return onInstallPrompt?.();
+    if (!raw.trim()) { setErr(L.needRaw); return; }
+    setOptimizing(true); setErr(null); setScore(null); setOuts({});
+    try {
+      const { optimized: opt } = await api.optimizePrompt({ rawPrompt: raw.trim(), mode, provider, lang });
+      setOptimized(opt);
+    } catch (e: any) { setErr(e?.message || "optimize failed"); }
+    finally { setOptimizing(false); }
+  };
+
+  const doTest = async () => {
+    if (demo) return onInstallPrompt?.();
+    setTesting(true); setErr(null); setScore(null);
+    try {
+      const targets: [keyof typeof outs, string][] = [["original", raw.trim()]];
+      if (optimized) targets.push(["optimized", optimized]);
+      const results = await Promise.all(
+        targets.map(([, p]) => api.testPrompt({ prompt: p, mode, testInput: testInput.trim(), provider })),
+      );
+      const next: typeof outs = {};
+      targets.forEach(([k], i) => { next[k] = results[i].output; });
+      setOuts(next);
+    } catch (e: any) { setErr(e?.message || "test failed"); }
+    finally { setTesting(false); }
+  };
+
+  const doScore = async () => {
+    if (!outs.original || !outs.optimized) return;
+    setScoring(true); setErr(null);
+    try {
+      const r = await api.scorePrompts({
+        testInput: testInput.trim(),
+        candidates: [{ label: L.original, output: outs.original }, { label: L.optimized, output: outs.optimized }],
+        provider, lang,
+      });
+      setScore(r);
+    } catch (e: any) { setErr(e?.message || "score failed"); }
+    finally { setScoring(false); }
+  };
+
+  const doSave = async () => {
+    if (demo) return onInstallPrompt?.();
+    if (!name.trim()) { setMsg(L.saveNeedName); return; }
+    if (!raw.trim() && !optimized) { setMsg(L.saveNeedOpt); return; }
+    setSaving(true); setMsg(null);
+    try {
+      const now = new Date().toISOString();
+      const versions = [];
+      if (raw.trim()) versions.push({ content: raw.trim(), source: "original" as const, created: now });
+      if (optimized) versions.push({ content: optimized, source: "optimize" as const, created: now, note: lang === "en" ? "optimized" : "一键优化" });
+      await api.savePrompt({ name: name.trim(), mode, versions });
+      setMsg(`✅ ${L.saved}`); refresh();
+    } catch (e: any) { setMsg(e?.message || "save failed"); }
+    finally { setSaving(false); }
+  };
+
+  const loadRecord = (r: PromptRecord) => {
+    setMode(r.mode);
+    setName(r.name);
+    setRaw(r.versions[0]?.content ?? "");
+    setOptimized(r.versions.length > 1 ? r.versions[r.versions.length - 1].content : null);
+    setOuts({}); setScore(null); setErr(null);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const del = async (r: PromptRecord, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try { await api.deletePrompt(slug(r.name)); refresh(); } catch { /* ignore */ }
+  };
+
+  const Pane = ({ k, label, text }: { k: string; label: string; text?: string }) => (
+    <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border/70 bg-card/50">
+      <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
+        <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+        {text && (
+          <button onClick={() => copy(k, text)} className="text-muted-foreground hover:text-foreground" title={L.copy}>
+            {copiedKey === k ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+          </button>
+        )}
+      </div>
+      <pre className="max-h-72 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-relaxed">{text || ""}</pre>
+    </div>
+  );
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+      <div className="min-w-0">
+        <div className="mb-4">
+          <h2 className="flex items-center gap-2 text-lg font-bold"><Sparkles className="size-5 text-primary" />{L.title}</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{L.sub}</p>
+        </div>
+
+        {/* mode + garden */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg bg-muted/60 p-0.5">
+            {(["user", "system"] as PromptMode[]).map((m) => (
+              <button key={m} onClick={() => setMode(m)}
+                className={cn("rounded-md px-3 py-1 text-xs font-medium transition-colors", mode === m ? "bg-background text-primary shadow-sm" : "text-muted-foreground")}>
+                {m === "user" ? L.modeUser : L.modeSystem}
+              </button>
+            ))}
+          </div>
+          <div className="relative">
+            <Button size="sm" variant="ghost" onClick={() => setShowGarden((v) => !v)}><Sprout className="size-4" />{L.garden}</Button>
+            {showGarden && gardenForMode.length > 0 && (
+              <div className="absolute z-20 mt-1 w-72 rounded-xl border border-border/70 bg-popover p-1 shadow-xl">
+                {gardenForMode.map((s) => (
+                  <button key={s.id} onClick={() => { setRaw(s.content); setShowGarden(false); }}
+                    className="block w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-muted">
+                    <span className="font-medium">{s.name}</span>
+                    <span className="ml-1 text-muted-foreground">· {s.tags.join(" / ")}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <textarea value={raw} onChange={(e) => setRaw(e.target.value)} placeholder={L.rawPlaceholder}
+          className="h-32 w-full resize-y rounded-xl border border-border/70 bg-card/60 p-3 text-sm outline-none focus:border-primary/50" />
+
+        <div className="mt-3 flex items-center gap-2">
+          <Button onClick={doOptimize} disabled={optimizing || !raw.trim()}>
+            {optimizing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{optimizing ? L.optimizing : L.optimize}
+          </Button>
+        </div>
+        {err && <p className="mt-2 text-xs text-red-500">{err}</p>}
+
+        {/* before / after */}
+        {optimized && (
+          <div className="mt-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Pane k="orig" label={L.original} text={raw} />
+              <Pane k="opt" label={L.optimized} text={optimized} />
+            </div>
+            <div className="mt-2 flex justify-end">
+              <Button size="sm" variant="outline" onClick={() => { setRaw(optimized); setOptimized(null); setOuts({}); setScore(null); }}>
+                <Check className="size-4" />{L.adopt}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* test & compare */}
+        <div className="mt-6 rounded-xl border border-border/60 bg-muted/20 p-4">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><FlaskConical className="size-4 text-primary" />{L.testTitle}</h3>
+          <textarea value={testInput} onChange={(e) => setTestInput(e.target.value)} placeholder={L.testPlaceholder}
+            className="h-16 w-full resize-y rounded-lg border border-border/70 bg-card/60 p-2.5 text-sm outline-none focus:border-primary/50" />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={doTest} disabled={testing || !raw.trim()}>
+              {testing ? <Loader2 className="size-4 animate-spin" /> : <FlaskConical className="size-4" />}{testing ? L.testing : L.runTest}
+            </Button>
+            {outs.original && outs.optimized && (
+              <Button size="sm" variant="outline" onClick={doScore} disabled={scoring}>
+                {scoring ? <Loader2 className="size-4 animate-spin" /> : <Scale className="size-4" />}{scoring ? L.scoring : L.scoreBtn}
+              </Button>
+            )}
+          </div>
+          {(outs.original || outs.optimized) && (
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+              <Pane k="to" label={L.original} text={outs.original} />
+              {outs.optimized !== undefined && <Pane k="tp" label={L.optimized} text={outs.optimized} />}
+            </div>
+          )}
+          {score && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {score.ranking.map((r) => (
+                <span key={r.label} className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs",
+                  score.best === r.label ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground")}>
+                  {score.best === r.label && <Star className="size-3 fill-current" />}
+                  <b>{r.label}</b> {r.score}/10 · {r.reason}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* save */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={L.saveName}
+            className="h-9 flex-1 rounded-lg border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50 sm:max-w-xs" />
+          <Button size="sm" variant="outline" onClick={doSave} disabled={saving}>
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Bookmark className="size-4" />}{saving ? L.saving : L.save}
+          </Button>
+          {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
+        </div>
+      </div>
+
+      {/* my prompts */}
+      <aside className="lg:border-l lg:border-border/60 lg:pl-5">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Bookmark className="size-4" />{L.myPrompts}</h3>
+        {prompts.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{L.empty}</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {prompts.map((r) => (
+              <button key={r.name} onClick={() => loadRecord(r)}
+                className="group flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-card/60 px-3 py-2 text-left text-xs transition-colors hover:border-primary/50">
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5">
+                    {r.favorite && <Star className="size-3 fill-amber-400 text-amber-400" />}
+                    <span className="truncate font-medium">{r.name}</span>
+                  </span>
+                  <span className="text-muted-foreground">[{r.mode === "system" ? L.modeSystem : L.modeUser}] · {r.versions.length} {L.versions}</span>
+                </span>
+                <span role="button" tabIndex={0} title={L.delete} onClick={(e) => del(r, e)}
+                  className="shrink-0 text-muted-foreground/50 opacity-0 transition-all hover:text-red-500 group-hover:opacity-100">
+                  <Trash2 className="size-3.5" />
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </aside>
+    </div>
+  );
+}

@@ -1,9 +1,10 @@
-import { BarChart3, Boxes, Download, History, KeyRound, Plug, TriangleAlert, Users } from "lucide-react";
+import { BarChart3, Boxes, Download, History, KeyRound, Plug, TriangleAlert, Users, Wand2 } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ProviderSelect } from "@/components/studio/ProviderSelect";
 import { ProvidersPanel } from "@/components/studio/ProvidersPanel";
+import { PromptLab } from "@/components/studio/PromptLab";
 import { RolesPicker } from "@/components/studio/RolesPicker";
 import { RunDock } from "@/components/studio/RunDock";
 import { RunProvider, useRunManager } from "@/components/studio/RunManager";
@@ -25,11 +26,12 @@ const UsagePanel = lazy(() => import("@/components/studio/UsagePanel").then((m) 
 // 不会弹「需要配置 key」提示，直接运行才报认证错（commit 61e84a6 改默认后遗漏）。
 const KEYED = ["apinebula", "deepseek", "compshare", "openai", "claude"];
 
-type Tab = "roles" | "workflows" | "runs" | "usage" | "providers";
+type Tab = "roles" | "workflows" | "prompt" | "runs" | "usage" | "providers";
 
 const TAB_META: { id: Tab; icon: typeof Users }[] = [
   { id: "roles", icon: Users },
   { id: "workflows", icon: Boxes },
+  { id: "prompt", icon: Wand2 },
   { id: "runs", icon: History },
   { id: "usage", icon: BarChart3 },
   { id: "providers", icon: Plug },
@@ -170,6 +172,8 @@ function StudioInner() {
             <RolesPicker provider={provider} onRun={start} onGoToWorkflows={() => setTab("workflows")} />
           ) : tab === "workflows" ? (
             <WorkflowsPanel provider={provider} onRun={start} />
+          ) : tab === "prompt" ? (
+            <PromptLab provider={provider} />
           ) : tab === "runs" ? (
             <RunsPanel provider={provider} onRun={start} />
           ) : tab === "usage" ? (
