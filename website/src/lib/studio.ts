@@ -237,9 +237,9 @@ export const api = {
   runInput: (runId: string, text: string) =>
     postJSON<{ ok: boolean }>("/run-input", { runId, text }),
   // ── Prompt Lab ──
-  optimizePrompt: (body: { rawPrompt: string; mode: PromptMode; provider?: string; lang?: string }) =>
+  optimizePrompt: (body: { rawPrompt: string; mode: PromptMode; provider?: string; lang?: string; model?: string }) =>
     postJSON<{ optimized: string }>("/prompt/optimize", body),
-  testPrompt: (body: { prompt: string; mode: PromptMode; testInput: string; provider?: string }) =>
+  testPrompt: (body: { prompt: string; mode: PromptMode; testInput: string; provider?: string; model?: string }) =>
     postJSON<{ output: string }>("/prompt/test", body),
   scorePrompts: (body: { testInput: string; candidates: { label: string; output: string }[]; provider?: string; lang?: string }) =>
     postJSON<ScoreResult>("/prompt/score", body),
