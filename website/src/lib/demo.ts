@@ -38,70 +38,21 @@ export async function demoRoleContent(lang: "zh" | "en", category: string, id: s
   return res.text();
 }
 
-// 演示模式工作流：公开站无后端，这里给一组内置模板的静态快照，可浏览 / 看步骤，但不能真跑。
-type DemoWf = { name: { zh: string; en: string }; desc: { zh: string; en: string }; steps: { role: string; name: { zh: string; en: string }; emoji: string }[] };
-const DEMO_WORKFLOWS: DemoWf[] = [
-  {
-    name: { zh: "技术博客创作", en: "Tech Blog" },
-    desc: { zh: "一句话主题 → 趋势调研 → 大纲 → 正文 → 润色，输出可发布的技术博客", en: "One topic → research → outline → draft → polish into a publishable post" },
-    steps: [
-      { role: "product/product-trend-researcher", name: { zh: "趋势研究员", en: "Trend Researcher" }, emoji: "🔬" },
-      { role: "engineering/engineering-technical-writer", name: { zh: "技术作家", en: "Tech Writer" }, emoji: "✍️" },
-      { role: "engineering/engineering-senior-developer", name: { zh: "资深开发", en: "Senior Dev" }, emoji: "💻" },
-    ],
-  },
-  {
-    name: { zh: "创业可行性分析", en: "Startup Feasibility" },
-    desc: { zh: "市场 / 用户 / 产品 / 财务多角度并行评估，输出可行性结论", en: "Parallel market / user / product / finance analysis → feasibility verdict" },
-    steps: [
-      { role: "product/product-market-researcher", name: { zh: "市场研究员", en: "Market Researcher" }, emoji: "📊" },
-      { role: "product/product-user-researcher", name: { zh: "用户研究员", en: "User Researcher" }, emoji: "🔍" },
-      { role: "finance/finance-cfo", name: { zh: "财务总监", en: "CFO" }, emoji: "💰" },
-    ],
-  },
-  {
-    name: { zh: "PR 代码审查", en: "PR Code Review" },
-    desc: { zh: "安全 / 性能 / 可读性三路并行审查 → 汇总修改建议", en: "Security / performance / readability review in parallel → consolidated feedback" },
-    steps: [
-      { role: "engineering/engineering-code-reviewer", name: { zh: "代码审查员", en: "Code Reviewer" }, emoji: "🔍" },
-      { role: "engineering/engineering-security-engineer", name: { zh: "安全工程师", en: "Security Eng" }, emoji: "🛡️" },
-    ],
-  },
-  {
-    name: { zh: "小红书爆款文案", en: "Viral Social Post" },
-    desc: { zh: "选题 → 标题 → 正文 → 标签，产出一篇可直接发的小红书笔记", en: "Topic → hook → body → tags: a ready-to-post note" },
-    steps: [
-      { role: "marketing/marketing-growth-hacker", name: { zh: "增长黑客", en: "Growth Hacker" }, emoji: "🚀" },
-      { role: "marketing/marketing-content-creator", name: { zh: "内容创作者", en: "Content Creator" }, emoji: "✍️" },
-    ],
-  },
-  {
-    name: { zh: "会议纪要整理", en: "Meeting Notes" },
-    desc: { zh: "清理 → 决策 / TODO / 争议三视角并行 → 整合成结构化纪要", en: "Clean up → decisions / TODOs / disputes → structured minutes" },
-    steps: [
-      { role: "operations/operations-chief-of-staff", name: { zh: "幕僚长", en: "Chief of Staff" }, emoji: "📋" },
-      { role: "product/product-manager", name: { zh: "产品经理", en: "Product Manager" }, emoji: "🧭" },
-    ],
-  },
-  {
-    name: { zh: "OKR 拆解", en: "OKR Breakdown" },
-    desc: { zh: "现状分析 → 季度 KR → 行动方案 → 完整 OKR 文档", en: "Status → quarterly KRs → action plan → full OKR doc" },
-    steps: [
-      { role: "operations/operations-chief-of-staff", name: { zh: "战略幕僚", en: "Strategist" }, emoji: "🎯" },
-      { role: "product/product-manager", name: { zh: "产品经理", en: "Product Manager" }, emoji: "🧭" },
-    ],
-  },
-];
+// 演示模式工作流：公开站无后端，读取内置模板的静态快照(由 scripts/gen-workflows.mjs 生成)，
+// 可浏览 / 看步骤，但不能真跑。
+interface WfSnapshot { name: string; description: string; steps: { id?: string; role: string; name?: string; emoji?: string }[] }
 
-/** 演示模式工作流列表(静态快照，标 private=false，file 用 demo:// 占位，不可真跑)。 */
-export function demoWorkflows(lang: "zh" | "en"): Workflow[] {
-  return DEMO_WORKFLOWS.map((w, i) => ({
+/** 演示模式工作流列表(完整内置模板快照，file 用 demo:// 占位，不可真跑)。 */
+export async function demoWorkflows(lang: "zh" | "en"): Promise<Workflow[]> {
+  const data = (await import("@/content/workflows.json")).default as { zh: WfSnapshot[]; en: WfSnapshot[] };
+  const arr = (lang === "en" ? data.en : data.zh) ?? data.zh ?? [];
+  return arr.map((w, i) => ({
     file: `demo://${i}`,
-    filename: `${w.name.en.toLowerCase().replace(/\s+/g, "-")}.yaml`,
-    name: w.name[lang],
-    description: w.desc[lang],
+    filename: `${i}.yaml`,
+    name: w.name,
+    description: w.description,
     inputs: [],
-    steps: w.steps.map((s, j) => ({ id: `step_${j + 1}`, role: s.role, name: s.name[lang], emoji: s.emoji })),
+    steps: w.steps.map((s, j) => ({ id: s.id || `step_${j + 1}`, role: s.role, name: s.name, emoji: s.emoji })),
     private: false,
   }));
 }

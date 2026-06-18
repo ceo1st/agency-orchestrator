@@ -1,0 +1,822 @@
+{
+  "zh": [
+    {
+      "name": "AI 一人公司：全员大会",
+      "description": "你说一句话，9 个 AI 部门自动协作，2 分钟出完整商业方案——这就是一人公司",
+      "steps": [
+        {
+          "id": "ceo_kickoff",
+          "role": "strategy/nexus-strategy",
+          "name": "老板",
+          "emoji": "👔"
+        },
+        {
+          "id": "market_research",
+          "role": "product/product-trend-researcher",
+          "name": "市场调研员",
+          "emoji": "📊"
+        },
+        {
+          "id": "user_research",
+          "role": "design/design-ux-researcher",
+          "name": "用户研究员",
+          "emoji": "🔍"
+        },
+        {
+          "id": "tech_feasibility",
+          "role": "engineering/engineering-backend-architect",
+          "name": "技术总监",
+          "emoji": "💻"
+        },
+        {
+          "id": "brand_design",
+          "role": "design/design-brand-guardian",
+          "name": "品牌总监",
+          "emoji": "🎨"
+        },
+        {
+          "id": "product_plan",
+          "role": "product/product-manager",
+          "name": "产品经理",
+          "emoji": "🧭"
+        },
+        {
+          "id": "marketing_plan",
+          "role": "marketing/marketing-content-creator",
+          "name": "营销主管",
+          "emoji": "📣"
+        },
+        {
+          "id": "finance_plan",
+          "role": "finance/finance-financial-forecaster",
+          "name": "财务总监",
+          "emoji": "💰"
+        },
+        {
+          "id": "ceo_decision",
+          "role": "strategy/nexus-strategy",
+          "name": "老板",
+          "emoji": "👔"
+        }
+      ]
+    },
+    {
+      "name": "AI 一人公司：SaaS 产品发布决策",
+      "description": "CEO 一句话启动，5 个 AI 部门并行工作，30 秒出完整发布方案",
+      "steps": [
+        {
+          "id": "ceo_vision",
+          "role": "strategy/nexus-strategy"
+        },
+        {
+          "id": "product_plan",
+          "role": "product/product-manager"
+        },
+        {
+          "id": "tech_plan",
+          "role": "engineering/engineering-backend-architect"
+        },
+        {
+          "id": "marketing_plan",
+          "role": "marketing/marketing-content-creator"
+        },
+        {
+          "id": "finance_plan",
+          "role": "finance/finance-financial-forecaster"
+        },
+        {
+          "id": "launch_decision",
+          "role": "strategy/nexus-strategy"
+        }
+      ]
+    },
+    {
+      "name": "产品发布物料生成",
+      "description": "输入新产品/功能简介，并行产出发布通稿 + 社交短文 + 客户邮件 → 整合发布物料包",
+      "steps": [
+        {
+          "id": "positioning",
+          "role": "marketing/marketing-social-media-strategist",
+          "name": "市场策略",
+          "emoji": "🎯"
+        },
+        {
+          "id": "press_release",
+          "role": "marketing/marketing-content-creator",
+          "name": "通稿主笔",
+          "emoji": "📰"
+        },
+        {
+          "id": "social_short",
+          "role": "marketing/marketing-social-media-strategist",
+          "name": "社交短文",
+          "emoji": "📱"
+        },
+        {
+          "id": "customer_email",
+          "role": "marketing/marketing-content-creator",
+          "name": "邮件主笔",
+          "emoji": "✉️"
+        },
+        {
+          "id": "launch_pack",
+          "role": "marketing/marketing-content-creator",
+          "name": "发布物料整理员",
+          "emoji": "📦"
+        }
+      ]
+    },
+    {
+      "name": "创业 Pitch Deck 大纲",
+      "description": "输入一句话项目，并行输出市场分析 / 商业模式 / 财务预估 → 整合 5 屏 deck 大纲（创始人评审用）",
+      "steps": [
+        {
+          "id": "market_analysis",
+          "role": "product/product-trend-researcher",
+          "name": "市场研究员",
+          "emoji": "🔍"
+        },
+        {
+          "id": "solution_design",
+          "role": "product/product-manager",
+          "name": "产品方案",
+          "emoji": "💡"
+        },
+        {
+          "id": "business_model",
+          "role": "specialized/specialized-pricing-optimizer",
+          "name": "商业模式",
+          "emoji": "💰"
+        },
+        {
+          "id": "financial_projection",
+          "role": "finance/finance-financial-forecaster",
+          "name": "财务预估",
+          "emoji": "📈"
+        },
+        {
+          "id": "deck_outline",
+          "role": "product/product-manager",
+          "name": "Deck 主笔",
+          "emoji": "📊"
+        }
+      ]
+    },
+    {
+      "name": "会议纪要整理",
+      "description": "输入原始会议记录，自动整理为结构化纪要：决策、TODO、争议点 三视角并行 → 完整纪要",
+      "steps": [
+        {
+          "id": "organize",
+          "role": "specialized/specialized-meeting-assistant",
+          "name": "速记整理员",
+          "emoji": "📝"
+        },
+        {
+          "id": "extract_decisions",
+          "role": "specialized/specialized-meeting-assistant",
+          "name": "决策分析员",
+          "emoji": "✅"
+        },
+        {
+          "id": "extract_todos",
+          "role": "specialized/specialized-meeting-assistant",
+          "name": "行动跟踪员",
+          "emoji": "📌"
+        },
+        {
+          "id": "extract_concerns",
+          "role": "specialized/specialized-meeting-assistant",
+          "name": "争议追踪员",
+          "emoji": "⚠️"
+        },
+        {
+          "id": "final_notes",
+          "role": "specialized/specialized-meeting-assistant",
+          "name": "纪要主笔",
+          "emoji": "📄"
+        }
+      ]
+    },
+    {
+      "name": "AI 爆款深度文章",
+      "description": "多角色协作写一篇有深度、引人入胜的 AI 观点文章 — 调研、构思、写作、审校",
+      "steps": [
+        {
+          "id": "trend_research",
+          "role": "product/product-trend-researcher"
+        },
+        {
+          "id": "narrative_design",
+          "role": "academic/academic-narratologist"
+        },
+        {
+          "id": "depth_thinking",
+          "role": "academic/academic-narratologist"
+        },
+        {
+          "id": "write_article",
+          "role": "marketing/marketing-content-creator"
+        },
+        {
+          "id": "polish",
+          "role": "marketing/marketing-content-creator"
+        }
+      ]
+    },
+    {
+      "name": "产品需求评审",
+      "description": "多角色协作评审 PRD 文档 — 产品经理分析需求，架构师评估技术，设计师评估体验，最后汇总结论",
+      "steps": [
+        {
+          "id": "analyze",
+          "role": "product/product-manager"
+        },
+        {
+          "id": "tech_review",
+          "role": "engineering/engineering-software-architect"
+        },
+        {
+          "id": "design_review",
+          "role": "design/design-ux-researcher"
+        },
+        {
+          "id": "final_summary",
+          "role": "product/product-manager"
+        }
+      ]
+    },
+    {
+      "name": "抖音口播脚本创作",
+      "description": "一句话选题 → 爆款选题分析 + 逐秒脚本 + 标题钩子 + 拍摄建议",
+      "steps": [
+        {
+          "id": "angle",
+          "role": "marketing/marketing-douyin-strategist",
+          "name": "抖音选题官",
+          "emoji": "🎬"
+        },
+        {
+          "id": "script",
+          "role": "marketing/marketing-content-creator",
+          "name": "口播编剧",
+          "emoji": "✍️"
+        },
+        {
+          "id": "titles",
+          "role": "marketing/marketing-douyin-strategist",
+          "name": "标题钩子专家",
+          "emoji": "🎯"
+        },
+        {
+          "id": "final",
+          "role": "marketing/marketing-content-creator",
+          "name": "整合导演",
+          "emoji": "🎥"
+        }
+      ]
+    },
+    {
+      "name": "短篇小说创作",
+      "description": "从创意到成稿：叙事学家设计结构 → 心理学家塑造人物 + 叙事设计师构建冲突 → 内容创作者执笔成稿",
+      "steps": [
+        {
+          "id": "story_structure",
+          "role": "academic/academic-narratologist"
+        },
+        {
+          "id": "character_design",
+          "role": "academic/academic-psychologist"
+        },
+        {
+          "id": "conflict_design",
+          "role": "game-development/narrative-designer"
+        },
+        {
+          "id": "write_story",
+          "role": "marketing/marketing-content-creator"
+        }
+      ]
+    },
+    {
+      "name": "法律咨询意见书",
+      "description": "事实梳理 + 合同/文书审查 + 风险识别 + 法律意见书",
+      "steps": [
+        {
+          "id": "intake",
+          "role": "specialized/legal-client-intake",
+          "name": "法务助理",
+          "emoji": "📋"
+        },
+        {
+          "id": "document_review",
+          "role": "legal/legal-contract-reviewer",
+          "name": "合同/文书审查",
+          "emoji": "📄"
+        },
+        {
+          "id": "legal_risk",
+          "role": "specialized/legal-document-review",
+          "name": "诉讼风险顾问",
+          "emoji": "⚖️"
+        },
+        {
+          "id": "opinion",
+          "role": "legal/legal-policy-writer",
+          "name": "主办律师",
+          "emoji": "💼"
+        }
+      ]
+    },
+    {
+      "name": "技术博客创作",
+      "description": "输入一句话主题，自动完成趋势调研 → 大纲 → 正文 → 润色，输出可直接发布的技术博客",
+      "steps": [
+        {
+          "id": "research",
+          "role": "product/product-trend-researcher",
+          "name": "研究员",
+          "emoji": "🔬"
+        },
+        {
+          "id": "outline",
+          "role": "engineering/engineering-technical-writer",
+          "name": "技术作家",
+          "emoji": "✍️"
+        },
+        {
+          "id": "draft",
+          "role": "engineering/engineering-senior-developer",
+          "name": "资深开发",
+          "emoji": "💻"
+        },
+        {
+          "id": "polish",
+          "role": "engineering/engineering-technical-writer",
+          "name": "校对编辑",
+          "emoji": "🧹"
+        }
+      ]
+    },
+    {
+      "name": "简历优化与面试准备",
+      "description": "简历诊断 → 简历重写 + 面试问题预测 + STAR 答题框架",
+      "steps": [
+        {
+          "id": "diagnose",
+          "role": "hr/hr-recruiter",
+          "name": "资深 HR",
+          "emoji": "👔"
+        },
+        {
+          "id": "rewrite",
+          "role": "hr/hr-recruiter",
+          "name": "简历优化师",
+          "emoji": "✍️"
+        },
+        {
+          "id": "predict_questions",
+          "role": "hr/hr-recruiter",
+          "name": "面试官",
+          "emoji": "❓"
+        },
+        {
+          "id": "star_answers",
+          "role": "hr/hr-performance-reviewer",
+          "name": "答题教练",
+          "emoji": "🎯"
+        }
+      ]
+    },
+    {
+      "name": "内容创作流水线",
+      "description": "从主题到成稿的完整内容创作流程 — 研究、写作、品牌审核",
+      "steps": [
+        {
+          "id": "research",
+          "role": "marketing/marketing-social-media-strategist"
+        },
+        {
+          "id": "draft",
+          "role": "marketing/marketing-content-creator"
+        },
+        {
+          "id": "brand_review",
+          "role": "marketing/marketing-growth-hacker"
+        },
+        {
+          "id": "final_edit",
+          "role": "marketing/marketing-content-creator"
+        }
+      ]
+    },
+    {
+      "name": "投资标的分析（股票/基金/行业）",
+      "description": "基本面研究 + 财务分析 + 风险识别 + CFO 综合建议",
+      "steps": [
+        {
+          "id": "research",
+          "role": "finance/finance-investment-researcher",
+          "name": "投资研究员",
+          "emoji": "🔬"
+        },
+        {
+          "id": "financial",
+          "role": "finance/finance-financial-analyst",
+          "name": "财务分析师",
+          "emoji": "📊"
+        },
+        {
+          "id": "risk",
+          "role": "finance/finance-fraud-detector",
+          "name": "风控专家",
+          "emoji": "⚠️"
+        },
+        {
+          "id": "cfo_opinion",
+          "role": "finance/finance-financial-forecaster",
+          "name": "CFO 顾问",
+          "emoji": "💼"
+        }
+      ]
+    },
+    {
+      "name": "小红书爆款笔记创作",
+      "description": "一句话主题 → 策略分析 + 文案撰写 + SEO 标题 + 整合成稿",
+      "steps": [
+        {
+          "id": "strategy",
+          "role": "marketing/marketing-xiaohongshu-specialist",
+          "name": "小红书策略师",
+          "emoji": "📱"
+        },
+        {
+          "id": "copy",
+          "role": "marketing/marketing-content-creator",
+          "name": "文案创作",
+          "emoji": "✍️"
+        },
+        {
+          "id": "title",
+          "role": "marketing/marketing-baidu-seo-specialist",
+          "name": "标题+标签专家",
+          "emoji": "🎯"
+        },
+        {
+          "id": "final",
+          "role": "marketing/marketing-content-creator",
+          "name": "整合发稿",
+          "emoji": "📝"
+        }
+      ]
+    },
+    {
+      "name": "学术论文选题与大纲",
+      "description": "选题评估 + 研究方法设计 + 文献综述框架 + 完整大纲",
+      "steps": [
+        {
+          "id": "topic_eval",
+          "role": "academic/academic-study-planner",
+          "name": "选题导师",
+          "emoji": "🎓"
+        },
+        {
+          "id": "methodology",
+          "role": "academic/academic-study-planner",
+          "name": "方法论设计师",
+          "emoji": "🔬"
+        },
+        {
+          "id": "literature",
+          "role": "academic/academic-historian",
+          "name": "文献综述专家",
+          "emoji": "📚"
+        },
+        {
+          "id": "outline",
+          "role": "academic/academic-study-planner",
+          "name": "论文架构师",
+          "emoji": "📝"
+        }
+      ]
+    },
+    {
+      "name": "Codex + Claude Code 协作编程(闭环版)",
+      "description": "",
+      "steps": [
+        {
+          "id": "plan",
+          "role": "engineering/engineering-backend-architect"
+        },
+        {
+          "id": "implement",
+          "role": "engineering/engineering-rapid-prototyper"
+        },
+        {
+          "id": "review",
+          "role": "testing/testing-reality-checker"
+        },
+        {
+          "id": "fix",
+          "role": "engineering/engineering-rapid-prototyper"
+        }
+      ]
+    },
+    {
+      "name": "OKR 拆解",
+      "description": "输入年度目标，自动完成现状分析 → 4 个季度 KR 拆解 → 首季度行动方案 → 完整 OKR 文档",
+      "steps": [
+        {
+          "id": "situation_analysis",
+          "role": "product/product-manager",
+          "name": "现状分析师",
+          "emoji": "📊"
+        },
+        {
+          "id": "quarterly_plan",
+          "role": "project-management/project-manager-senior",
+          "name": "项目总监",
+          "emoji": "📅"
+        },
+        {
+          "id": "q1_action_plan",
+          "role": "marketing/marketing-growth-hacker",
+          "name": "Q1 操盘手",
+          "emoji": "🚀"
+        },
+        {
+          "id": "final_okr",
+          "role": "project-management/project-manager-senior",
+          "name": "OKR 主笔",
+          "emoji": "📄"
+        }
+      ]
+    },
+    {
+      "name": "Codex + Claude Code 协作编程(极简版)",
+      "description": "",
+      "steps": [
+        {
+          "id": "plan",
+          "role": "engineering/engineering-backend-architect"
+        },
+        {
+          "id": "implement",
+          "role": "engineering/engineering-rapid-prototyper"
+        },
+        {
+          "id": "review",
+          "role": "testing/testing-reality-checker"
+        }
+      ]
+    }
+  ],
+  "en": [
+    {
+      "name": "Solo Founder All-Hands",
+      "description": "One sentence in, 8 AI 'departments' collaborate, full launch plan out in 2 minutes — your one-person company",
+      "steps": [
+        {
+          "id": "ceo_kickoff",
+          "role": "strategy/nexus-strategy",
+          "name": "CEO",
+          "emoji": "👔"
+        },
+        {
+          "id": "market_research",
+          "role": "product/product-trend-researcher",
+          "name": "Market Researcher",
+          "emoji": "📊"
+        },
+        {
+          "id": "user_research",
+          "role": "design/design-ux-researcher",
+          "name": "User Researcher",
+          "emoji": "🔍"
+        },
+        {
+          "id": "tech_feasibility",
+          "role": "engineering/engineering-backend-architect",
+          "name": "Tech Lead",
+          "emoji": "💻"
+        },
+        {
+          "id": "brand_design",
+          "role": "design/design-brand-guardian",
+          "name": "Brand Director",
+          "emoji": "🎨"
+        },
+        {
+          "id": "product_plan",
+          "role": "product/product-manager",
+          "name": "Product Manager",
+          "emoji": "🧭"
+        },
+        {
+          "id": "marketing_plan",
+          "role": "marketing/marketing-content-creator",
+          "name": "Marketing Lead",
+          "emoji": "📣"
+        },
+        {
+          "id": "finance_plan",
+          "role": "finance/finance-fpa-analyst",
+          "name": "CFO",
+          "emoji": "💰"
+        },
+        {
+          "id": "ceo_decision",
+          "role": "strategy/nexus-strategy",
+          "name": "CEO",
+          "emoji": "👔"
+        }
+      ]
+    },
+    {
+      "name": "Business Plan",
+      "description": "Market research → financial forecast + product roadmap → executive summary — generates a complete business plan",
+      "steps": [
+        {
+          "id": "market_research",
+          "role": "product/product-trend-researcher"
+        },
+        {
+          "id": "financial_model",
+          "role": "finance/finance-fpa-analyst"
+        },
+        {
+          "id": "product_roadmap",
+          "role": "product/product-manager"
+        },
+        {
+          "id": "executive_summary",
+          "role": "support/support-executive-summary-generator"
+        }
+      ]
+    },
+    {
+      "name": "Competitor Analysis Report",
+      "description": "Trend research → data analysis + SEO scan → executive summary — a report ready to present",
+      "steps": [
+        {
+          "id": "trend_research",
+          "role": "product/product-trend-researcher"
+        },
+        {
+          "id": "data_analysis",
+          "role": "support/support-analytics-reporter"
+        },
+        {
+          "id": "seo_scan",
+          "role": "marketing/marketing-seo-specialist"
+        },
+        {
+          "id": "executive_summary",
+          "role": "support/support-executive-summary-generator"
+        }
+      ]
+    },
+    {
+      "name": "Content Creation Pipeline",
+      "description": "Topic to finished draft — research, write, brand review, final edit",
+      "steps": [
+        {
+          "id": "research",
+          "role": "marketing/marketing-social-media-strategist"
+        },
+        {
+          "id": "draft",
+          "role": "marketing/marketing-content-creator"
+        },
+        {
+          "id": "brand_review",
+          "role": "marketing/marketing-growth-hacker"
+        },
+        {
+          "id": "final_edit",
+          "role": "marketing/marketing-content-creator"
+        }
+      ]
+    },
+    {
+      "name": "PR Code Review",
+      "description": "Three-dimensional parallel review: code quality, security, performance → unified verdict",
+      "steps": [
+        {
+          "id": "code_quality",
+          "role": "engineering/engineering-code-reviewer"
+        },
+        {
+          "id": "security_check",
+          "role": "engineering/engineering-security-engineer"
+        },
+        {
+          "id": "perf_check",
+          "role": "testing/testing-performance-benchmarker"
+        },
+        {
+          "id": "summary",
+          "role": "engineering/engineering-code-reviewer"
+        }
+      ]
+    },
+    {
+      "name": "Product Requirements Review",
+      "description": "Multi-role PRD review — PM analyzes requirements, architect assesses tech, UX researcher assesses experience, then synthesis",
+      "steps": [
+        {
+          "id": "analyze",
+          "role": "product/product-manager"
+        },
+        {
+          "id": "tech_review",
+          "role": "engineering/engineering-software-architect"
+        },
+        {
+          "id": "design_review",
+          "role": "design/design-ux-researcher"
+        },
+        {
+          "id": "final_summary",
+          "role": "product/product-manager"
+        }
+      ]
+    },
+    {
+      "name": "Tech Blog",
+      "description": "Research → outline → draft → polish: a deep, credible technical blog post.",
+      "steps": [
+        {
+          "id": "research",
+          "role": "product/product-trend-researcher"
+        },
+        {
+          "id": "outline",
+          "role": "engineering/engineering-technical-writer"
+        },
+        {
+          "id": "draft",
+          "role": "engineering/engineering-senior-developer"
+        },
+        {
+          "id": "polish",
+          "role": "engineering/engineering-technical-writer"
+        }
+      ]
+    },
+    {
+      "name": "Code Architecture Review",
+      "description": "Architecture design → backend deep-dive → code review for a feature or system.",
+      "steps": [
+        {
+          "id": "architecture",
+          "role": "engineering/engineering-software-architect"
+        },
+        {
+          "id": "backend",
+          "role": "engineering/engineering-backend-architect"
+        },
+        {
+          "id": "review",
+          "role": "engineering/engineering-code-reviewer"
+        }
+      ]
+    },
+    {
+      "name": "Investment Analysis",
+      "description": "Research → fundamentals → financial modeling: a structured analysis of a target.",
+      "steps": [
+        {
+          "id": "research",
+          "role": "finance/finance-investment-researcher"
+        },
+        {
+          "id": "fundamentals",
+          "role": "finance/finance-financial-analyst"
+        },
+        {
+          "id": "plan",
+          "role": "finance/finance-fpa-analyst"
+        }
+      ]
+    },
+    {
+      "name": "OKR Decomposition",
+      "description": "Annual goal → quarterly KRs → a concrete Q1 action plan.",
+      "steps": [
+        {
+          "id": "analyze",
+          "role": "product/product-manager"
+        },
+        {
+          "id": "kr_design",
+          "role": "project-management/project-manager-senior"
+        },
+        {
+          "id": "q1_plan",
+          "role": "project-management/project-management-project-shepherd"
+        }
+      ]
+    }
+  ]
+}

@@ -99,9 +99,10 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
   useEffect(() => {
     setLoading(true);
     if (demo) {
-      // 演示模式：用静态模板快照，可浏览、看步骤，但运行时引导安装
+      // 演示模式：用内置模板的静态快照，可浏览、看步骤，但运行时引导安装
       import("@/lib/demo")
-        .then((m) => setWfs(m.demoWorkflows(lang)))
+        .then((m) => m.demoWorkflows(lang))
+        .then(setWfs)
         .catch(() => setWfs([]))
         .finally(() => setLoading(false));
       return;

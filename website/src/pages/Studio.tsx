@@ -170,11 +170,17 @@ function StudioInner() {
                 <WorkflowsPanel provider={provider} onRun={start} demo onInstallPrompt={() => setInstallOpen(true)} />
               ) : tab === "prompt" ? (
                 <PromptLab provider={provider} demo onInstallPrompt={() => setInstallOpen(true)} />
-              ) : tab === "runs" || tab === "usage" ? (
-                <p className="py-16 text-center text-sm text-muted-foreground">
+              ) : tab === "runs" ? (
+                <p className="mx-auto max-w-md py-16 text-center text-sm text-muted-foreground">
                   {lang === "en"
-                    ? "Nothing here in demo mode yet — run a workflow locally and it'll show up."
-                    : "演示模式下这里还没有数据，本地实际跑过工作流后就会出现。"}
+                    ? "Run History — demo mode has no records yet. Once you run workflows locally, each run's outputs, duration and tokens show here, and you can re-run from any step."
+                    : "运行历史 —— 演示模式还没有记录。本地实际跑过工作流后，这里会列出每次运行的产物、耗时与 token，并支持从任意步骤重跑。"}
+                </p>
+              ) : tab === "usage" ? (
+                <p className="mx-auto max-w-md py-16 text-center text-sm text-muted-foreground">
+                  {lang === "en"
+                    ? "Usage — demo mode has no data yet. After real local runs, this tab charts token usage and estimated cost by day and by role."
+                    : "用量统计 —— 演示模式还没有数据。本地实际调用后，这里按天 / 按角色统计 token 用量与估算成本。"}
                 </p>
               ) : (
                 <>
