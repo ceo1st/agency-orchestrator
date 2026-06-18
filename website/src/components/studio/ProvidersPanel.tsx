@@ -191,16 +191,28 @@ function ApiCard({
           value={model}
           onChange={(e) => setModel(e.target.value)}
           placeholder={t.studio.providers.modelPlaceholder}
-          list={`models-${meta.id}`}
           autoComplete="off"
           className="h-9 rounded-xl border border-border/70 bg-background px-3 text-sm outline-none focus:border-primary/50"
         />
-        <datalist id={`models-${meta.id}`}>
-          {(MODEL_SUGGESTIONS[meta.id] ?? []).map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
       </div>
+      {/* 常用模型「胶囊」：点一下填入,也可在上面手敲。主题一致,不用原生 datalist(深色下很丑)。 */}
+      {(MODEL_SUGGESTIONS[meta.id] ?? []).length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {MODEL_SUGGESTIONS[meta.id].map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setModel(m)}
+              className={cn(
+                "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
+                model === m ? "border-primary bg-primary/10 text-primary" : "border-border/70 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+              )}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="mt-3 flex items-center gap-3">
         <TestRow provider={meta.id} enabled={!!status?.hasKey} />

@@ -43,6 +43,9 @@ export function PromptLab({ provider, demo, onInstallPrompt }: { provider: strin
   const L = STR[lang === "en" ? "en" : "zh"];
 
   const [mode, setMode] = useState<PromptMode>("user");
+  // 演示站(免费额度走 CF Function 代理 Agnes)可选文本模型；本地用配好的 provider，不显示。
+  const DEMO_MODELS = ["agnes-2.0-flash", "agnes-1.5-flash"];
+  const [model, setModel] = useState(DEMO_MODELS[0]);
   const [raw, setRaw] = useState("");
   const [optimized, setOptimized] = useState<string | null>(null);
   const [optimizing, setOptimizing] = useState(false);
@@ -81,7 +84,7 @@ export function PromptLab({ provider, demo, onInstallPrompt }: { provider: strin
     if (!raw.trim()) { setErr(L.needRaw); return; }
     setOptimizing(true); setErr(null); setScore(null); setOuts({});
     try {
-      const { optimized: opt } = await api.optimizePrompt({ rawPrompt: raw.trim(), mode, provider, lang });
+      const { optimized: opt } = await api.optimizePrompt({ rawPrompt: raw.trim(), mode, provider, lang, model: demo ? model : undefined });
       setOptimized(opt);
     } catch (e: any) {
       if (demo) onInstallPrompt?.();
@@ -95,7 +98,7 @@ export function PromptLab({ provider, demo, onInstallPrompt }: { provider: strin
       const targets: [keyof typeof outs, string][] = [["original", raw.trim()]];
       if (optimized) targets.push(["optimized", optimized]);
       const results = await Promise.all(
-        targets.map(([, p]) => api.testPrompt({ prompt: p, mode, testInput: testInput.trim(), provider })),
+        targets.map(([, p]) => api.testPrompt({ prompt: p, mode, testInput: testInput.trim(), provider, model: demo ? model : undefined })),
       );
       const next: typeof outs = {};
       targets.forEach(([k], i) => { next[k] = results[i].output; });
@@ -183,6 +186,17 @@ export function PromptLab({ provider, demo, onInstallPrompt }: { provider: strin
               </button>
             ))}
           </div>
+          {/* 演示站可选模型（免费额度走 Agnes）；本地用配好的 provider，不显示 */}
+          {demo && (
+            <div className="inline-flex rounded-lg bg-muted/60 p-0.5">
+              {DEMO_MODELS.map((m) => (
+                <button key={m} onClick={() => setModel(m)} title={m}
+                  className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors", model === m ? "bg-background text-primary shadow-sm" : "text-muted-foreground")}>
+                  {m.replace(/^agnes-/, "").replace(/-flash$/, "")}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="relative">
             <Button size="sm" variant="ghost" onClick={() => setShowGarden((v) => !v)}><Sprout className="size-4" />{L.garden}</Button>
             {showGarden && gardenForMode.length > 0 && (

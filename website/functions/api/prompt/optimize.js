@@ -32,6 +32,10 @@ export async function onRequestPost({ request, env }) {
   const mode = body?.mode === "system" ? "system" : "user";
   const lang = /[一-鿿]/.test(raw) ? "zh" : "en";
   const base = (env.AGNES_BASE_URL || "https://apihub.agnes-ai.com/v1").replace(/\/+$/, "");
+  // 模型：前端可选,但只接受白名单内的 Agnes 文本模型(防止请求贵模型刷额度)
+  const ALLOWED = ["agnes-2.0-flash", "agnes-1.5-flash"];
+  const reqModel = String(body?.model || "");
+  const model = ALLOWED.includes(reqModel) ? reqModel : (env.AGNES_MODEL || "agnes-2.0-flash");
 
   let res;
   try {
@@ -39,7 +43,7 @@ export async function onRequestPost({ request, env }) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: env.AGNES_MODEL || "agnes-2.0-flash",
+        model,
         messages: [{ role: "system", content: metaPrompt(mode, lang) }, { role: "user", content: raw }],
         max_tokens: 2048,
       }),
