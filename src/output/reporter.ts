@@ -11,7 +11,14 @@ import type { DAGNode } from '../types.js';
  */
 export function saveResults(result: WorkflowResult, outputDir: string): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const dirName = `${result.name}-${timestamp}`;
+  // 清洗工作流名再作目录名：Windows 禁止 \ / : * ? " < > | 及控制字符，run-role 默认名
+  // "专家咨询: <role>" 含冒号会让 win 上 mkdirSync 直接失败。统一在此清洗，对全平台/全工作流生效。
+  const safeName = (result.name || 'workflow')
+    .replace(/[\\/:*?"<>|\x00-\x1f]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'workflow';
+  const dirName = `${safeName}-${timestamp}`;
   const dir = join(outputDir, dirName);
   const stepsDir = join(dir, 'steps');
 
@@ -328,8 +335,12 @@ export function printSummary(result: WorkflowResult, outputPath: string, workflo
   console.log(`  ${result.success ? '完成' : '部分失败'}: ${completedSteps}/${result.steps.length} 步 | ${duration}s | ${totalTokens} tokens`);
   console.log(`  详细输出: ${outputPath}`);
 
+  // run-role 等一次性运行用 /tmp 临时工作流（跑完即删），且只有单步——resume 提示既指向
+  // 已删除文件又无意义，由调用方设 AO_NO_RESUME_HINT=1 关闭。
+  const showResumeHint = process.env.AO_NO_RESUME_HINT !== '1';
+
   // 成功时也提示可迭代：用户往往不知道能"只重跑某一步"。把命令和可选步骤直接列出来。
-  if (result.success && workflowPath) {
+  if (showResumeHint && result.success && workflowPath) {
     const displayPath = relative(process.cwd(), workflowPath) || workflowPath;
     const stepIds = result.steps.filter(s => s.status === 'completed').map(s => s.id);
     console.log('');
@@ -342,6 +353,7 @@ export function printSummary(result: WorkflowResult, outputPath: string, workflo
 
   // 失败时显示失败详情和 resume 命令
   if (!result.success && workflowPath) {
+    const showFailResume = showResumeHint;
     const failedSteps = result.steps.filter(s => s.status === 'failed');
     const skippedSteps = result.steps.filter(s => s.status === 'skipped');
 
@@ -355,11 +367,13 @@ export function printSummary(result: WorkflowResult, outputPath: string, workflo
       }
 
       // 提示用户如何恢复（显示相对路径更友好）
-      const firstFailed = failedSteps[0].id;
-      const displayPath = relative(process.cwd(), workflowPath!) || workflowPath;
-      console.log('');
-      console.log(`  💡 从失败处继续:`);
-      console.log(`     ao run ${displayPath} --resume last --from ${firstFailed}`);
+      if (showFailResume) {
+        const firstFailed = failedSteps[0].id;
+        const displayPath = relative(process.cwd(), workflowPath!) || workflowPath;
+        console.log('');
+        console.log(`  💡 从失败处继续:`);
+        console.log(`     ao run ${displayPath} --resume last --from ${firstFailed}`);
+      }
     }
   }
 

@@ -615,7 +615,8 @@ app.post('/api/run-role', (req, res) => {
   }
 
   console.log('[run-role]', role, task.slice(0, 60));
-  const child = spawn(NODE_BIN, args, { cwd: DATA_DIR, env: { ...process.env, FORCE_COLOR: '0', AO_NO_AT_FILE: '1' } });
+  // AO_NO_RESUME_HINT=1 → 单角色一次性运行(临时工作流跑完即删),不打印失效的 --resume 提示
+  const child = spawn(NODE_BIN, args, { cwd: DATA_DIR, env: { ...process.env, FORCE_COLOR: '0', AO_NO_AT_FILE: '1', AO_NO_RESUME_HINT: '1' } });
 
   child.stdout.on('data', chunk => {
     const text = chunk.toString();
