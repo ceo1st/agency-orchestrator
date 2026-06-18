@@ -18,6 +18,17 @@ const API_META: ApiMeta[] = [
   { id: "claude", name: "Claude (Anthropic)", hint: "console.anthropic.com" },
 ];
 
+// 每个 provider 的常用模型建议：下拉可选，也仍可手填(datalist)。避免用户必须凭记忆敲。
+const MODEL_SUGGESTIONS: Record<string, string[]> = {
+  agnes: ["agnes-2.0-flash", "agnes-1.5-flash"],
+  deepseek: ["deepseek-chat", "deepseek-reasoner"],
+  openai: ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "gpt-4.1"],
+  claude: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022"],
+  apinebula: ["gpt-5.5", "claude-opus-4", "gemini-2.5-pro", "deepseek-chat"],
+  compshare: ["deepseek-ai/DeepSeek-R1", "deepseek-ai/DeepSeek-V3"],
+  ollama: ["llama3", "qwen2.5", "qwen2.5:14b", "deepseek-r1"],
+};
+
 type TestState = { status: "idle" | "testing" | "ok" | "fail"; msg?: string };
 
 function ActiveButton({ on, onClick }: { on: boolean; onClick: () => void }) {
@@ -176,7 +187,19 @@ function ApiCard({
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={t.studio.providers.baseUrlPlaceholder} className="h-9 rounded-xl border border-border/70 bg-background px-3 text-sm outline-none focus:border-primary/50" />
-        <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={t.studio.providers.modelPlaceholder} className="h-9 rounded-xl border border-border/70 bg-background px-3 text-sm outline-none focus:border-primary/50" />
+        <input
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          placeholder={t.studio.providers.modelPlaceholder}
+          list={`models-${meta.id}`}
+          autoComplete="off"
+          className="h-9 rounded-xl border border-border/70 bg-background px-3 text-sm outline-none focus:border-primary/50"
+        />
+        <datalist id={`models-${meta.id}`}>
+          {(MODEL_SUGGESTIONS[meta.id] ?? []).map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
       </div>
 
       <div className="mt-3 flex items-center gap-3">
