@@ -17,8 +17,8 @@ import { resolve, basename } from 'node:path';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { run } from '../src/index.js';
 import { parseWorkflow } from '../src/core/parser.js';
-import { createConnector } from '../src/connectors/factory.js';
-import type { LLMConfig, WorkflowResult, InputDefinition } from '../src/types.js';
+import type { LLMConfig, InputDefinition } from '../src/types.js';
+import { buildBaselineTask, runBaseline, finalOutput, compareOutputs } from '../src/core/compare.js';
 import { GOLDEN_FIXTURES } from './golden-tasks.js';
 import { decideGate, formatGate, type EvalSummary, type BaselineSnapshot } from './gate.js';
 
@@ -35,11 +35,6 @@ const RUNS = Math.max(1, parseInt(process.env.AO_EVAL_RUNS || '1', 10)); // 每�
 
 const genLlm: LLMConfig = { provider: GEN_PROVIDER, model: GEN_MODEL, max_tokens: 2048, timeout: 600_000 };
 const judgeLlm: LLMConfig = { provider: JUDGE_PROVIDER, model: JUDGE_MODEL, max_tokens: 400, timeout: 600_000 };
-
-// 截断上限要足够大：太小会把更长/更完整的产出尾部（常含结论）切掉，
-// 系统性惩罚长产出——而"完整性"正是要测的维度。强 judge 可吃数万字。
-const JUDGE_TRUNC = 20000;
-const trunc = (s: string) => (s.length > JUDGE_TRUNC ? s.slice(0, JUDGE_TRUNC) + '\n…[截断]' : s);
 
 // 黄金任务集（filename → 输入）来自 eval/golden-tasks.ts，覆盖创作/社媒/商业/分析/产品五类。
 const FIXTURES = GOLDEN_FIXTURES;
@@ -60,53 +55,6 @@ function resolveInputs(defs: InputDefinition[] | undefined): Record<string, stri
   const out: Record<string, string> = {};
   for (const d of defs || []) if (d.default !== undefined) out[d.name] = d.default;
   return out;
-}
-
-/** 把工作流目标+输入合成"单次直接要成品"的基线 prompt（模拟用户不用 ao 的写法） */
-function buildBaselineTask(name: string, description: string | undefined, inputs: Record<string, string>): string {
-  const inputLines = Object.entries(inputs).map(([k, v]) => `- ${k}：${v}`).join('\n');
-  return [
-    `任务目标：${description || name}`,
-    inputLines ? `\n输入信息：\n${inputLines}` : '',
-    '\n请直接产出最终成品（完整、可直接交付），不要输出过程、大纲或说明文字。',
-  ].join('');
-}
-
-function parseJudge(raw: string): { scoreA: number; scoreB: number; reason: string } | null {
-  const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try {
-    const j = JSON.parse(m[0]);
-    const a = Number(j.scoreA), b = Number(j.scoreB);
-    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-    return { scoreA: a, scoreB: b, reason: String(j.reason || '').slice(0, 200) };
-  } catch { return null; }
-}
-
-async function judge(taskDesc: string, outA: string, outB: string) {
-  const conn = createConnector(judgeLlm);
-  const prompt = [
-    '你是严格、客观的内容质量评审。下面是针对同一任务的两份产出，请对比。',
-    `任务：${taskDesc}`,
-    '', '【产出 A】', trunc(outA), '', '【产出 B】', trunc(outB), '',
-    '评判维度：完整性、具体性、可用性、是否直接可交付。',
-    '只输出一行 JSON，不要任何额外文字：{"scoreA": 1-10, "scoreB": 1-10, "reason": "一句话理由"}',
-  ].join('\n');
-  // 解析失败重试一次（judge 偶尔会包代码块/加解释）——避免整条评测因格式问题丢失
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const sys = attempt === 0
-      ? '你是严格客观的评审，只输出 JSON。'
-      : '你必须只输出一行纯 JSON，绝对不要代码块标记、前言或任何解释文字。';
-    const res = await conn.chat(sys, prompt, { ...judgeLlm, max_tokens: 400 });
-    const parsed = parseJudge(res.content);
-    if (parsed) return parsed;
-  }
-  return null;
-}
-
-function finalOutput(result: WorkflowResult): string {
-  const done = result.steps.filter(s => s.status === 'completed' && s.output);
-  return done.length ? String(done[done.length - 1].output) : '';
 }
 
 interface EvalRow {
@@ -139,21 +87,17 @@ async function evalOne(wfPath: string): Promise<EvalRow> {
         llmOverride: { provider: GEN_PROVIDER, model: GEN_MODEL },
       });
       const multiOut = finalOutput(result);
-      const conn = createConnector(genLlm);
-      const baseOut = (await conn.chat('你是能力很强的助手，直接产出高质量的最终成品。', baselineTask, genLlm)).content;
+      const baseOut = await runBaseline(genLlm, baselineTask);
 
       console.log(`    盲评(${JUDGE_PROVIDER})…`);
-      const j1 = await judge(baselineTask, multiOut, baseOut);   // A=multi, B=base
-      const j2 = await judge(baselineTask, baseOut, multiOut);   // A=base,  B=multi
-      if (!j1 || !j2) { console.log('    ⚠️ judge 解析失败，跳过本 run'); continue; }
+      const verdict = await compareOutputs(judgeLlm, baselineTask, multiOut, baseOut);
+      if (!verdict) { console.log('    ⚠️ judge 解析失败，跳过本 run'); continue; }
 
-      const ms = (j1.scoreA + j2.scoreB) / 2, bs = (j1.scoreB + j2.scoreA) / 2;
-      mScores.push(ms); bScores.push(bs); mLens.push(multiOut.length); bLens.push(baseOut.length);
-      if (ms > bs) row.multiWins++;
-      if (row.reasons.length < 2) row.reasons = [j1.reason, j2.reason].filter(Boolean);
-      // 一致性：pass1 认为 multi 更好(scoreA>scoreB) 应与 pass2(scoreB>scoreA) 同向
-      const p1 = j1.scoreA - j1.scoreB, p2 = j2.scoreB - j2.scoreA;
-      row.consistent = Math.sign(p1) === Math.sign(p2) && p1 !== 0;
+      mScores.push(verdict.multiScore); bScores.push(verdict.baseScore);
+      mLens.push(multiOut.length); bLens.push(baseOut.length);
+      if (verdict.multiScore > verdict.baseScore) row.multiWins++;
+      if (row.reasons.length < 2) row.reasons = verdict.reasons;
+      row.consistent = verdict.consistent;
       row.runs++;
     }
     if (row.runs === 0) { row.error = 'judge 全部解析失败'; return row; }
