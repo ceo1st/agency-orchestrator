@@ -61,13 +61,19 @@ export function buildOptimizeMetaPrompt(mode: PromptMode, lang: 'zh' | 'en' = 'z
 
 CRITICAL: Your output must itself be a PROMPT (an instruction meant to be sent to an AI). Do NOT answer, fulfill, or execute the user's prompt. If the input says "write a tweet selling coffee", you do NOT write the tweet — you produce a sharper *prompt* for writing that tweet.
 
-Rewrite it to be markedly more effective:
-- Make the intent and desired output explicit; remove ambiguity.
-- Add the structure that helps (role/goal/constraints/steps/output-format) ONLY where it earns its place — do not bloat.
-- Keep the user's original language and domain. Do NOT invent facts or over-specify details the user didn't ask for.
-- ${mode === 'system' ? 'Define persona, scope, tone, and hard constraints crisply.' : 'State the task, the inputs, and the exact output format/length expected. Use [PLACEHOLDERS] where the user would fill in specifics.'}
+Before rewriting, silently diagnose the original's weaknesses (think internally, do NOT output the diagnosis): unclear intent, missing audience/role/constraints/output-format/success-criteria, ambiguity or redundancy. Then rewrite to fix them.
 
-Output ONLY the rewritten prompt itself — no preamble, no explanation, no markdown fences, no "here is".`;
+When rewriting, consider the checklist below but apply ONLY the items that genuinely improve it — never bloat for structure's sake:
+- Role / goal: name the AI's persona and objective when useful.
+- Context / inputs: what the user provides and the scenario it runs in.
+- Constraints: hard requirements (tone, length, scope, do-nots).
+- Output format: specify structure / length / example shape; ask for a list, JSON or table when it helps.
+- Task-type patterns: extraction → define the fields/schema; reasoning or math → require step-by-step thinking then a final answer; classification → give the label set; generation → pin down style, audience and length.
+- Use [PLACEHOLDERS] where the user must fill in specifics.
+
+Hard boundaries: keep the user's original language and domain; do NOT invent facts or over-specify details the user didn't ask for; ${mode === 'system' ? 'define persona, scope, tone and hard constraints crisply.' : 'state the task, the inputs, and the exact output format/length expected.'}
+
+Output ONLY the rewritten prompt itself — no diagnosis, no preamble, no explanation, no markdown fences, no "here is".`;
   }
   const role = mode === 'system'
     ? '一段 system / 角色提示词（定义 AI 的人设、能力和约束）'
@@ -76,13 +82,19 @@ Output ONLY the rewritten prompt itself — no preamble, no explanation, no mark
 
 最重要的一条：你的输出本身必须仍是一段【提示词】（一条准备发给 AI 的指令），不要去回答、完成或执行用户那段提示词。举例：如果输入是「帮我写个朋友圈文案卖咖啡」，你**不要**真去写文案，而是产出一段更好的「让 AI 写这条文案」的提示词。
 
-请把它改写得明显更有效：
-- 让意图和期望产出更明确，消除歧义。
-- 只在「确实能提升效果」的地方补结构（角色/目标/约束/步骤/输出格式），不要为了堆结构而臃肿。
-- 保持用户原本的语言和领域。不要编造事实，也不要过度补充用户没要求的细节。
-- ${mode === 'system' ? '把人设、适用范围、语气、硬性约束写清楚。' : '把任务、输入、期望的输出格式/长度写清楚；用户需要自己填的地方用【方括号占位符】标出。'}
+改写前，先在心里快速诊断原提示词的薄弱处（只在脑中思考，不要输出诊断）：意图是否清晰、有无缺受众/角色/约束/输出格式/成功标准、是否有歧义或冗余。然后据此重写来修补它们。
 
-只输出改写后的提示词本身——不要开场白、不要解释、不要 markdown 代码围栏、不要「这是…」之类的话。`;
+重写时对照下面这份清单，但【只采用确实能提升效果的项】，绝不为了堆结构而臃肿：
+- 角色 / 目标：需要时点明 AI 的身份与要达成的目标。
+- 上下文 / 输入：用户会提供什么、在什么场景使用。
+- 约束：必须遵守的硬性要求（语气、长度、范围、禁忌）。
+- 输出格式：明确结构 / 字数 / 示例样式；该用列表、JSON 或表格就指定。
+- 按任务类型加对应套路：抽取类 → 定义字段 / schema；推理或计算类 → 要求分步思考后再给结论；分类类 → 给定类别集合；生成类 → 明确风格、受众、长度。
+- 用户需要自己填的地方，用【方括号占位符】标出。
+
+硬性边界：保持用户原本的语言和领域；不要编造事实，也不要过度补充用户没要求的细节；${mode === 'system' ? '把人设、适用范围、语气、硬性约束写清楚。' : '把任务、输入、期望的输出格式/长度写清楚。'}
+
+只输出改写后的提示词本身——不要诊断、不要开场白、不要解释、不要 markdown 代码围栏、不要「这是…」之类的话。`;
 }
 
 /** 去掉 LLM 偶尔仍加上的 ```围栏 / "这是优化后的..." 前缀。 */
