@@ -1,6 +1,7 @@
 export const SITE = {
   name: "Agency Orchestrator",
   short: "ao",
+  platform: "https://aiolaola.com",
   repo: "https://github.com/jnMetaCode/agency-orchestrator",
   npm: "https://www.npmjs.com/package/agency-orchestrator",
   rolesRepo: "https://github.com/jnMetaCode/agency-agents-zh",
