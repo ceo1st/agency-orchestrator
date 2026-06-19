@@ -56,7 +56,7 @@ export function SiteFooter() {
             </a>
           </p>
           <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-            {lang === "zh" ? "出品方 " : "Part of "}
+            {lang === "zh" ? "配套学习 " : "Companion learning "}
             <a
               href={SITE.platform}
               target="_blank"
