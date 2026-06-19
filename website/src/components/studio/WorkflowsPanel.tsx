@@ -1,4 +1,4 @@
-import { Check, GitCompare, Loader2, Play, Search, X } from "lucide-react";
+import { Check, GitCompare, Loader2, Play, Scale, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
 import type { RunRequest } from "./RunManager";
 import { CompareOverlay } from "./CompareOverlay";
+import { BaselineCompareOverlay } from "./BaselineCompareOverlay";
 
 function CastStack({ steps }: { steps: NonNullable<Workflow["steps"]> }) {
   const shown = steps.slice(0, 6);
@@ -30,8 +31,8 @@ function CastStack({ steps }: { steps: NonNullable<Workflow["steps"]> }) {
   );
 }
 
-function InputsDialog({ wf, provider, onClose, onRun }: { wf: Workflow; provider: string; onClose: () => void; onRun: (r: RunRequest) => void }) {
-  const { t } = useLanguage();
+function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflow; provider: string; onClose: () => void; onRun: (r: RunRequest) => void; onCompare: (inputs: Record<string, string>) => void }) {
+  const { t, lang } = useLanguage();
   const inputs = wf.inputs ?? [];
   const [vals, setVals] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -41,6 +42,10 @@ function InputsDialog({ wf, provider, onClose, onRun }: { wf: Workflow; provider
 
   const submit = () => {
     onRun({ kind: "workflow", title: wf.name, file: wf.file, inputs: vals, provider: provider || undefined, cast: wf.steps });
+    onClose();
+  };
+  const compare = () => {
+    onCompare(vals);
     onClose();
   };
 
@@ -76,6 +81,10 @@ function InputsDialog({ wf, provider, onClose, onRun }: { wf: Workflow; provider
           <Button variant="ghost" onClick={onClose}>
             {t.studio.workflows.cancel}
           </Button>
+          <Button variant="outline" onClick={compare} title={lang === "en" ? "Run the workflow and a single-shot baseline, then blind-judge both" : "跑工作流 + 单次基线并盲评对比"}>
+            <Scale className="size-4" />
+            {lang === "en" ? "vs Single-shot" : "对比单次"}
+          </Button>
           <Button onClick={submit}>
             <Play className="size-4" />
             {t.studio.workflows.run}
@@ -95,6 +104,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
   const [picked, setPicked] = useState<Record<string, Workflow>>({});
   const [inputsFor, setInputsFor] = useState<Workflow | null>(null);
   const [compare, setCompare] = useState<Workflow[] | null>(null);
+  const [baseline, setBaseline] = useState<{ wf: Workflow; inputs: Record<string, string> } | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -133,6 +143,13 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
     if (demo) return onInstallPrompt?.();
     if (w.inputs && w.inputs.length) setInputsFor(w);
     else onRun({ kind: "workflow", title: w.name, file: w.file, provider: provider || undefined, cast: w.steps });
+  };
+
+  // 对比单次基线：需引擎，demo 引导安装；有输入先填，再开对比视图
+  const compareOne = (w: Workflow) => {
+    if (demo) return onInstallPrompt?.();
+    if (w.inputs && w.inputs.length) setInputsFor(w); // 复用输入对话框（含「对比单次」按钮）
+    else setBaseline({ wf: w, inputs: {} });
   };
 
   if (loading)
@@ -190,10 +207,15 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
                   {`${w.steps?.length ?? 0} ${t.studio.workflows.steps}`}
                   {w.private ? ` · ${t.studio.workflows.mine}` : ""}
                 </span>
-                <Button size="sm" onClick={() => runOne(w)}>
-                  <Play className="size-3.5" />
-                  {t.studio.workflows.run}
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button size="sm" variant="ghost" onClick={() => compareOne(w)} title={lang === "en" ? "Compare vs single-shot" : "对比单次基线（看多智能体到底强在哪）"}>
+                    <Scale className="size-3.5" />
+                  </Button>
+                  <Button size="sm" onClick={() => runOne(w)}>
+                    <Play className="size-3.5" />
+                    {t.studio.workflows.run}
+                  </Button>
+                </div>
               </div>
             </div>
           );
@@ -220,8 +242,17 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
         </div>
       )}
 
-      {inputsFor && <InputsDialog wf={inputsFor} provider={provider} onClose={() => setInputsFor(null)} onRun={onRun} />}
+      {inputsFor && (
+        <InputsDialog
+          wf={inputsFor}
+          provider={provider}
+          onClose={() => setInputsFor(null)}
+          onRun={onRun}
+          onCompare={(inputs) => setBaseline({ wf: inputsFor, inputs })}
+        />
+      )}
       {compare && <CompareOverlay workflows={compare} provider={provider} onClose={() => setCompare(null)} />}
+      {baseline && <BaselineCompareOverlay wf={baseline.wf} inputs={baseline.inputs} provider={provider} onClose={() => setBaseline(null)} />}
     </div>
   );
 }

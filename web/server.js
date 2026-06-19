@@ -493,6 +493,28 @@ app.post('/api/run-input', (req, res) => {
   }
 });
 
+// ── 多智能体 vs 单次基线对比（把 eval 的核心证明产品化）──
+// 需本地引擎(in-process 调 dist/index.js)；公开站无此能力。一次跑完返回 JSON(非流式)。
+app.post('/api/compare', async (req, res) => {
+  const { file, inputs, provider } = req.body || {};
+  if (!file || typeof file !== 'string') return res.status(400).json({ error: 'invalid workflow file' });
+  const resolvedFile = resolve(file);
+  if (!isAllowedWorkflow(resolvedFile)) return res.status(403).json({ error: 'file outside allowed dirs' });
+  if (!existsSync(resolvedFile)) return res.status(404).json({ error: 'workflow file not found' });
+  try {
+    const { compareWorkflowVsBaseline } = await import('../dist/index.js');
+    const llm = buildLLMConfig(provider); // key 已在启动时注入 process.env，connector 自取
+    const cmp = await compareWorkflowVsBaseline(resolvedFile, inputs || {}, {
+      quiet: true,
+      outputDir: OUTPUT_DIR,
+      genOverride: { provider: llm.provider, model: llm.model, base_url: llm.base_url },
+    });
+    res.json({ multiOutput: cmp.multiOutput, baselineOutput: cmp.baselineOutput, verdict: cmp.verdict });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
 // ── Roles / Agents ──
 const CATEGORY_NAMES = {
   zh: {
