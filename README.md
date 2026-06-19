@@ -13,7 +13,7 @@
 
 > 📖 [完整上手教程](https://mp.weixin.qq.com/s/XcGbkMb6TM6NLQiL7ICwbw) — 从安装到实战，10 分钟上手
 >
-> 🌟 出品方 [aiOlaOla](https://aiolaola.com/) · 学 · 用 · 创造 AI — 一个账号解锁全部 AI 产品：180 节免费 AI 编程课 · 《方法论三卷书》· 实战社区
+> 📖 **配套学习**：[aiOlaOla — 学 · 用 · 创造 AI](https://aiolaola.com/) — 180 节免费 AI 编程课 + 《方法论三卷书》+ 实战社区 · 一个账号解锁全部 · 永久免费
 
 > 觉得有用？请点个 **Star** — 帮助更多人发现这个项目。
 
