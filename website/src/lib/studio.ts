@@ -212,6 +212,19 @@ export const PRICING: Record<string, { label: string; in: number; out: number }>
   gemini: { label: "Gemini 1.5 Pro", in: 1.25, out: 5 },
 };
 
+export interface CompareVerdict {
+  multiScore: number;
+  baseScore: number;
+  winner: "multi-agent" | "baseline" | "tie";
+  consistent: boolean;
+  reasons: string[];
+}
+export interface CompareResult {
+  multiOutput: string;
+  baselineOutput: string;
+  verdict: CompareVerdict | null;
+}
+
 export const api = {
   health: () => getJSON<{ ok: boolean; version: string }>("/health"),
   usage: () => getJSON<UsageResponse>("/usage"),
@@ -236,6 +249,9 @@ export const api = {
   // 把人工输入写回正在等待的运行（human_input / approval 节点暂停时）
   runInput: (runId: string, text: string) =>
     postJSON<{ ok: boolean }>("/run-input", { runId, text }),
+  // ── 多智能体 vs 单次基线对比（本地引擎，非流式，可能较慢）──
+  compare: (body: { file: string; inputs: Record<string, string>; provider?: string }) =>
+    postJSON<CompareResult>("/compare", body),
   // ── Prompt Lab ──
   optimizePrompt: (body: { rawPrompt: string; mode: PromptMode; provider?: string; lang?: string; model?: string }) =>
     postJSON<{ optimized: string }>("/prompt/optimize", body),
