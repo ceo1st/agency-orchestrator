@@ -1,0 +1,11 @@
+# Cloudflare Pages 缓存头。public/ 下的文件会被复制到 dist 根，CF Pages 读取本文件。
+#
+# Vite 输出的 /assets/* 是内容哈希文件名（内容变 → 文件名变），可安全永久缓存。
+# 默认 CF Browser Cache TTL 只给 4h，导致同一文件反复回源、缓存命中率低（触发 CF 的
+# 「源流量超必需 / Smart Shield」提示）。设为 1 年 immutable 从根本上提高命中率、减少回源。
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# index.html 等入口保持可重验证，确保新部署能及时被用户拿到（不要长缓存 HTML）。
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
