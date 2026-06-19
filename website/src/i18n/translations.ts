@@ -7,7 +7,7 @@ const zh = {
   nav: {
     home: "首页",
     features: "能力",
-    studio: "Studio",
+    studio: "工作台",
     experts: "专家库",
     prompt: "提示词优化",
     sponsors: "赞助商",

@@ -88,7 +88,7 @@ function StudioInner() {
           <div className="container-page flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
             <span className="flex items-center gap-2 font-bold">
               <span className="grid size-7 place-items-center rounded-lg bg-primary text-sm text-primary-foreground">ao</span>
-              Studio
+              {t.nav.studio}
             </span>
 
             {status !== "checking" && (
