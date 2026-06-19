@@ -12,6 +12,8 @@
 **一句话出结果 · 216 个专业 AI 角色 · YAML 零代码 · 10 种大模型 · 支持 key（推荐 DeepSeek），也有 7 种免 key 方式**
 
 > 📖 [完整上手教程](https://mp.weixin.qq.com/s/XcGbkMb6TM6NLQiL7ICwbw) — 从安装到实战，10 分钟上手
+>
+> 🌟 出品方 [aiOlaOla](https://aiolaola.com/) · 学 · 用 · 创造 AI — 一个账号解锁全部 AI 产品：180 节免费 AI 编程课 · 《方法论三卷书》· 实战社区
 
 > 觉得有用？请点个 **Star** — 帮助更多人发现这个项目。
 

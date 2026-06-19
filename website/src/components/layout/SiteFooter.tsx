@@ -4,7 +4,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { SITE } from "@/lib/site";
 
 export function SiteFooter() {
-  const { t, prefix } = useLanguage();
+  const { t, prefix, lang } = useLanguage();
   const f = t.footer;
 
   const cols = [
@@ -54,6 +54,18 @@ export function SiteFooter() {
             >
               agency-agents ↗
             </a>
+          </p>
+          <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+            {lang === "zh" ? "出品方 " : "Part of "}
+            <a
+              href={SITE.platform}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-foreground underline-offset-2 hover:underline"
+            >
+              aiOlaOla ↗
+            </a>
+            {lang === "zh" ? " · 学 · 用 · 创造 AI" : " · Learn · Use · Create AI"}
           </p>
           <a
             href={SITE.repo}
