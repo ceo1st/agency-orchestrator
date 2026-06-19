@@ -16,9 +16,10 @@ import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
-import { run, findAgentsDir } from './index.js';
+import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
 import { formatValidationReport, buildValidationReport } from './cli/validate-report.js';
 import { parseInputPairs } from './cli/parse-inputs.js';
+import { formatCompareReport } from './cli/compare-report.js';
 import { scheduleUpdateCheck, fetchLatestVersion, isNewer, detectUpgradeCommand, PKG } from './utils/version-check.js';
 import { t, detectLang } from './i18n.js';
 import { loadEnvFile, writeEnvFile, ensureEnvGitignored } from './utils/env-loader.js';
@@ -123,6 +124,8 @@ async function handleRun(): Promise<void> {
   if (!filePath) {
     console.error('用法: ao run <workflow.yaml> [--input key=value ...]');
     console.error('  或: ao run --team <名字> "你的任务"   # 用已保存的团队跑新任务');
+    console.error('  --compare                跑完后再跑单次基线 + 盲评，并排对比多智能体 vs 单次');
+    console.error('  --judge-provider/--judge-model   --compare 时指定评审模型(默认用生成模型)');
     process.exit(1);
   }
 
@@ -180,6 +183,22 @@ async function handleRun(): Promise<void> {
       if (apiKey) llmOverride.api_key = apiKey;
       // --timeout 最后赋值，优先级高于 CLI provider 自动 600s
       if (timeoutMs !== undefined) llmOverride.timeout = timeoutMs;
+    }
+
+    // --compare：跑完工作流后再跑单次基线 + 双向盲评，并排对比（产品化 eval 的核心卖点）
+    if (args.includes('--compare')) {
+      const judgeProvider = getArgValue('--judge-provider') as LLMConfig['provider'] | undefined;
+      const judgeModel = getArgValue('--judge-model');
+      const cmp = await compareWorkflowVsBaseline(resolve(filePath), inputs, {
+        outputDir,
+        quiet,
+        genOverride: llmOverride,
+        judgeLlm: judgeProvider
+          ? { provider: judgeProvider, model: judgeModel, timeout: 600_000 } as LLMConfig
+          : undefined,
+      });
+      console.log(formatCompareReport(cmp));
+      process.exit(cmp.result.success ? 0 : 1);
     }
 
     const result = await run(resolve(filePath), inputs, {

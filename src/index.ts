@@ -17,6 +17,9 @@ export { OpenAICompatibleConnector } from './connectors/openai-compatible.js';
 export { createConnector } from './connectors/factory.js';
 export { saveResults, loadPreviousContext, findLatestOutput, computeResumeSkipIds } from './output/reporter.js';
 export { composeWorkflow, buildRoleCatalog, extractYamlFromResponse } from './cli/compose.js';
+import { buildBaselineTask, runBaseline, finalOutput, compareOutputs, type CompareVerdict } from './core/compare.js';
+export { buildBaselineTask, runBaseline, finalOutput, compareOutputs, aggregateVerdict } from './core/compare.js';
+export type { CompareVerdict } from './core/compare.js';
 
 export type {
   WorkflowDefinition,
@@ -301,6 +304,57 @@ export async function run(
   }
 
   return result;
+}
+
+/**
+ * 多智能体工作流 vs 单次基线对比（产品化 eval 的核心假设验证）。
+ * 跑完整工作流拿最终成品 + 跑"一句话直接要成品"的单次基线 + 双向盲评，
+ * 返回两份产出与可信的胜负结论。供 `ao run --compare`、网页 Studio、eval 复用。
+ *
+ * 公平性：多智能体与基线默认用同一生成模型（genOverride 或工作流自身 llm）；
+ * 评审用更强的 judgeLlm（不传则退回生成模型）。详见 EVAL_FINDINGS.md。
+ */
+export async function compareWorkflowVsBaseline(
+  workflowPath: string,
+  inputs: Record<string, string>,
+  options?: {
+    outputDir?: string;
+    quiet?: boolean;
+    /** 生成模型（多智能体与基线都用它，保证公平）；不传用工作流自身 llm */
+    genOverride?: Partial<import('./types.js').LLMConfig>;
+    /** 评审模型（建议强模型）；不传退回生成模型 */
+    judgeLlm?: import('./types.js').LLMConfig;
+  },
+): Promise<{
+  multiOutput: string;
+  baselineOutput: string;
+  verdict: CompareVerdict | null;
+  result: import('./types.js').WorkflowResult;
+}> {
+  const workflow = parseWorkflow(workflowPath);
+  // baseline 用与工作流一致的有效输入（含 default），保证两边输入相同
+  const effInputs: Record<string, string> = {};
+  for (const d of workflow.inputs || []) if (d.default !== undefined) effInputs[d.name] = d.default;
+  Object.assign(effInputs, inputs);
+
+  // 1) 跑多智能体工作流
+  const result = await run(workflowPath, inputs, {
+    quiet: options?.quiet ?? true,
+    outputDir: options?.outputDir,
+    llmOverride: options?.genOverride,
+  });
+  const multiOutput = finalOutput(result);
+
+  // 2) 跑单次基线（同生成模型）
+  const genLlm = { ...workflow.llm, ...options?.genOverride } as import('./types.js').LLMConfig;
+  const baselineTask = buildBaselineTask(workflow.name, workflow.description, effInputs);
+  const baselineOutput = await runBaseline(genLlm, baselineTask);
+
+  // 3) 双向盲评
+  const judgeLlm = options?.judgeLlm ?? genLlm;
+  const verdict = await compareOutputs(judgeLlm, baselineTask, multiOutput, baselineOutput);
+
+  return { multiOutput, baselineOutput, verdict, result };
 }
 
 /**
