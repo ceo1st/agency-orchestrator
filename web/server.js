@@ -312,7 +312,7 @@ const activeRuns = new Map();
 
 // ── Run workflow (with optional resume) ──
 app.post('/api/run', (req, res) => {
-  const { file, inputs, provider, resume, fromStep, feedback } = req.body || {};
+  const { file, inputs, provider, resume, fromStep, feedback, materialize } = req.body || {};
   if (!file || typeof file !== 'string') {
     return res.status(400).json({ error: 'invalid workflow file' });
   }
@@ -355,6 +355,12 @@ app.post('/api/run', (req, res) => {
   if (feedback && typeof feedback === 'string' && feedback.trim()) {
     if (fromStep && !resume) args.push('--from', fromStep);
     args.push('--feedback', feedback);
+  }
+  // 「开发项目」勾选：把开发步产出的文件块落盘到本地 scaffold 目录
+  if (materialize) {
+    const safe = basename(resolvedFile).replace(/\.ya?ml$/i, '').replace(/[^\w.一-龥-]+/g, '-');
+    const dest = join(DATA_DIR, 'scaffold', safe);
+    args.push('--materialize', dest);
   }
   for (const [k, v] of Object.entries(inputs || {})) {
     if (v !== '' && v !== undefined && v !== null) {

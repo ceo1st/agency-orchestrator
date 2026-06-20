@@ -36,6 +36,7 @@ export type RunRequest =
       fromStep?: string;
       feedback?: string;
       cast?: WorkflowStepMeta[];
+      materialize?: boolean;
     }
   | { kind: "role"; title: string; role: string; emoji?: string; name?: string; task: string; provider?: string; lang?: string };
 
@@ -208,7 +209,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       const starter =
         request.kind === "workflow"
           ? runWorkflow(
-              { file: request.file, inputs: request.inputs, provider: request.provider, resume: request.resume, fromStep: request.fromStep, feedback: request.feedback },
+              { file: request.file, inputs: request.inputs, provider: request.provider, resume: request.resume, fromStep: request.fromStep, feedback: request.feedback, materialize: request.materialize },
               onEvent,
               ctrl.signal,
             )

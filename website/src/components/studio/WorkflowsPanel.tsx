@@ -39,9 +39,10 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     inputs.forEach((i) => (init[i.name] = i.default ?? ""));
     return init;
   });
+  const [materialize, setMaterialize] = useState(false);
 
   const submit = () => {
-    onRun({ kind: "workflow", title: wf.name, file: wf.file, inputs: vals, provider: provider || undefined, cast: wf.steps });
+    onRun({ kind: "workflow", title: wf.name, file: wf.file, inputs: vals, provider: provider || undefined, cast: wf.steps, materialize });
     onClose();
   };
   const compare = () => {
@@ -77,6 +78,17 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
           ))}
           {!inputs.length && <p className="text-sm text-muted-foreground">{t.studio.workflows.noInputsNeeded}</p>}
         </div>
+        <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-xl border border-border/70 bg-card/40 p-3">
+          <input type="checkbox" checked={materialize} onChange={(e) => setMaterialize(e.target.checked)} className="mt-0.5" />
+          <span className="text-sm">
+            <span className="font-medium">{lang === "en" ? "Develop project (write code to files)" : "开发项目（把生成的代码写成真实文件）"}</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              {lang === "en"
+                ? "If the workflow produces code, save it as a runnable scaffold on disk. The run log shows where."
+                : "若工作流会产出代码，跑完落盘成可运行脚手架到本地；运行日志里显示路径。"}
+            </span>
+          </span>
+        </label>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             {t.studio.workflows.cancel}

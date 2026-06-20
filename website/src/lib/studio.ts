@@ -326,7 +326,7 @@ async function streamSse(
 }
 
 export function runWorkflow(
-  body: { file: string; inputs?: Record<string, string>; provider?: string; resume?: string | boolean; fromStep?: string; feedback?: string },
+  body: { file: string; inputs?: Record<string, string>; provider?: string; resume?: string | boolean; fromStep?: string; feedback?: string; materialize?: boolean },
   onEvent: SseHandler,
   signal?: AbortSignal,
 ) {
