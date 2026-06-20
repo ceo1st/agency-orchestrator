@@ -13,7 +13,7 @@
 
 > 📖 [完整上手教程](https://mp.weixin.qq.com/s/XcGbkMb6TM6NLQiL7ICwbw) — 从安装到实战，10 分钟上手
 >
-> 📖 **免费配套学习** → [从零学会 AI 编程](https://aiolaola.com/)：180 节免费实操课 + 《AI 编程实战三卷书》在线阅读 + 实战社区 · 永久免费
+> 📖 **免费配套学习** → [从零学会 AI 编程](https://aiolaola.com/?utm_source=github&utm_campaign=orchestrator)：180 节免费实操课 + 《AI 编程实战三卷书》在线阅读 + 实战社区 · 永久免费
 
 > 觉得有用？请点个 **Star** — 帮助更多人发现这个项目。
 

@@ -15,7 +15,7 @@
 
 > 📖 [Full Tutorial](https://dev.to/jnmetacode/agency-orchestrator-one-sentence-five-ai-agents-a-complete-plan-in-3-minutes-1ij6) — from install to real-world use in 10 minutes
 >
-> 📖 **Free companion learning** → [Learn AI coding from zero](https://aiolaola.com/): 180 free hands-on lessons + AI Coding Trilogy online + community · forever free
+> 📖 **Free companion learning** → [Learn AI coding from zero](https://aiolaola.com/?utm_source=github&utm_campaign=orchestrator): 180 free hands-on lessons + AI Coding Trilogy online + community · forever free
 
 > If you find this useful, please **Star** it — helps others discover the project.
 
