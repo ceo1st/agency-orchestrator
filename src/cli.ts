@@ -17,6 +17,7 @@ import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
+import { detectInstalledCliProviders } from './providers/detect.js';
 import { formatValidationReport, buildValidationReport } from './cli/validate-report.js';
 import { parseInputPairs } from './cli/parse-inputs.js';
 import { formatCompareReport } from './cli/compare-report.js';
@@ -361,7 +362,7 @@ async function handleCompose(): Promise<void> {
     process.exit(1);
   }
 
-  const provider = (getArgValue('--provider') || process.env.AO_PROVIDER || 'deepseek') as LLMConfig['provider'];
+  const provider = autoProvider(getArgValue('--provider') || process.env.AO_PROVIDER, 'deepseek') as LLMConfig['provider'];
   const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
   const knownApiProviders = ['deepseek', 'claude', 'openai', 'ollama', 'agnes', 'apinebula', 'compshare'];
   const isUnknownProvider = !cliProviders.includes(provider) && !knownApiProviders.includes(provider);
@@ -524,9 +525,27 @@ function firstPositional(): string | undefined {
   return undefined;
 }
 
-/** 解析 provider/model（CLI flag > env > 兜底默认），team 可提供默认 provider/model。 */
+/**
+ * 零配置首跑：没显式指定 provider、也没配 deepseek key 时，优先用本机已装的订阅制 CLI
+ * （claude/gemini/codex…，复用其登录态，无需另配 key）。显式指定的 provider 永远优先。
+ * 用于 compose / prompt / team 等「需要一个能直接跑的 provider」的路径；`ao run` 不走这里（尊重 YAML）。
+ */
+function autoProvider(explicit: string | undefined, fallback: string): string {
+  if (explicit) return explicit;
+  if (!process.env.DEEPSEEK_API_KEY) {
+    const detected = detectInstalledCliProviders();
+    if (detected.length > 0) {
+      console.log(`  🔌 检测到本机已安装 ${detected[0]}，零配置直接用（要换 provider 用 --provider 指定）\n`);
+      return detected[0];
+    }
+  }
+  return fallback;
+}
+
+/** 解析 provider/model（CLI flag > env > 自动探测 > 兜底默认），team 可提供默认 provider/model。 */
 function resolveProviderModel(teamProvider?: string, teamModel?: string): { provider: LLMConfig['provider']; model: string } {
-  const provider = (getArgValue('--provider') || process.env.AO_PROVIDER || teamProvider || 'deepseek') as LLMConfig['provider'];
+  const explicit = getArgValue('--provider') || process.env.AO_PROVIDER || teamProvider;
+  const provider = autoProvider(explicit, 'deepseek') as LLMConfig['provider'];
   const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
   const model = getArgValue('--model') || process.env.AO_MODEL || teamModel || (
     cliProviders.includes(provider) ? '' :
@@ -759,7 +778,7 @@ async function handlePrompt(): Promise<void> {
     return undefined;
   };
   const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
-  const provider = (getArgValue('--provider') || process.env.AO_PROVIDER || 'deepseek') as LLMConfig['provider'];
+  const provider = autoProvider(getArgValue('--provider') || process.env.AO_PROVIDER, 'deepseek') as LLMConfig['provider'];
   const model = getArgValue('--model') || process.env.AO_MODEL || (
     cliProviders.includes(provider) ? '' :
     provider === 'deepseek' ? 'deepseek-chat' :
