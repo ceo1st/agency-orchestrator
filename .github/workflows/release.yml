@@ -1,0 +1,62 @@
+name: Release (npm)
+
+# tag 驱动发布:推一个 v* tag（如 v0.8.0）→ 校验 + 测试 + 发 npm。
+# 把"发布"从易被跳过的手工仪式变成一条命令,根治"代码已修但线上没发"(#80/#81)。
+#
+# 前置:仓库 Secrets 配 NPM_TOKEN(npmjs 的 automation token)。
+# 用法:
+#   npm version 0.8.0 --no-git-tag-version   # 或手动改 package.json version
+#   git commit -am "release: 0.8.0" && git tag v0.8.0 && git push origin main --tags
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      # tag 必须与 package.json 的 version 一致,避免发错版本
+      - name: Verify tag matches package.json version
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "package.json=$PKG  tag=$TAG"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::tag v$TAG 与 package.json version $PKG 不一致,拒绝发布"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build engine + Studio
+        run: |
+          npm run build
+          npm run build:studio
+
+      # 发布闸:dist 命令完整 + 前端产物完整(与 prepublishOnly 同一道闸)
+      - name: Verify release artifacts
+        run: npm run verify:release
+
+      - name: Clone agency-agents-zh for tests
+        run: git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
+
+      - name: Run tests
+        run: npm test
+
+      # prepublishOnly 会再跑一遍 build + verify,这里 --provenance 留痕;artifacts 已就绪
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

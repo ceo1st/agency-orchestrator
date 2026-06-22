@@ -8,6 +8,9 @@ name: Release Desktop App
 #   2) 在仓库 Secrets 加 CSC_LINK / CSC_KEY_PASSWORD / APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
 #   下面的步骤已透传这些 env，有就自动签、没有就出未签名版。
 on:
+  # 推 desktop-v* tag 自动出三平台桌面包;也可在 Actions 页手动触发并填 tag。
+  push:
+    tags: ["desktop-v*"]
   workflow_dispatch:
     inputs:
       tag:
@@ -89,8 +92,8 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag }}
-          name: ${{ inputs.tag }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ inputs.tag || github.ref_name }}
           draft: false
           # 桌面包始终标记为 latest：官网「下载桌面客户端」走 /releases/latest，
           # 引擎(npm)版本另发 v* release 时用 --latest=false，避免抢走下载入口。
