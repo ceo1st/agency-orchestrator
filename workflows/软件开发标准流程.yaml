@@ -1,0 +1,103 @@
+# 标准软件开发流程（5 步）：需求澄清 → 架构设计 → TDD 实现 → 代码审查 → 现实验收
+# 每步挂一个工程方法论 skill（superpowers-zh），把"怎么做"注入对应专家。
+#
+# 用法（把生成的代码落盘成真实文件）：
+#   ao run workflows/软件开发标准流程.yaml -i requirement="一个自动记账的命令行小工具" --materialize ./out
+#
+# ⚠️ 代码生成（implement 步）输出很长。强烈建议用 claude-code（本机已登录即零配置，
+#    且不会像 deepseek 那样在长输出时被服务端断流卡死）：
+#   ao run workflows/软件开发标准流程.yaml -i requirement="..." --provider claude-code --materialize ./out
+name: "软件开发标准流程"
+description: "一句话需求 → 澄清 → 架构 → TDD 实现 → 代码审查 → 现实验收。标准化的多智能体软件开发流水线，配合 --materialize 把代码写成真实文件。"
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-chat"
+
+concurrency: 1
+
+inputs:
+  - name: requirement
+    required: true
+    description: "想做的东西（一句话即可，如：一个支持标签和全文搜索的命令行待办工具）"
+
+steps:
+  - id: clarify
+    role: "product/product-manager"
+    skill: "brainstorming"
+    task: |
+      这是自动化流水线，没有人能回答你的提问。请直接基于下面的需求，自行做出合理假设，
+      产出一份简洁的需求与设计要点（意图、核心功能、非功能要求、使用场景、约束、技术选型）。
+      绝对不要反问、不要等待用户确认、不要让用户选 A/B/C。
+
+      需求：{{requirement}}
+    output: spec
+
+  - id: design
+    role: "engineering/engineering-software-architect"
+    skill: "writing-plans"
+    task: |
+      把下面的需求与设计要点，写成一份可执行的分步实现计划：
+      模块划分、目录/文件结构、关键接口与数据结构、依赖、运行与测试方式、风险点。
+
+      {{spec}}
+    output: plan
+    depends_on: [clarify]
+
+  - id: implement
+    role: "engineering/engineering-senior-developer"
+    skill: "test-driven-development"
+    task: |
+      这是自动化流水线，没有人能回答你的提问。直接基于下面的计划实现一个可运行的最小项目，
+      对任何不明确之处用合理默认值，绝对不要反问、不要等待确认、不要让用户做选择。
+      遵循测试驱动：关键逻辑要有对应测试。
+
+      {{plan}}
+
+      严格按以下格式输出每个文件（供自动落盘解析），不要输出与文件无关的解说：
+
+      ### 相对/路径/文件名.ext
+      ```语言
+      <该文件的完整内容>
+      ```
+
+      要求：
+      - 包含入口文件、依赖清单（如 package.json / requirements.txt）、README 运行说明、以及基本测试。
+      - 一律用相对路径，禁止绝对路径或包含 `..`。
+      - 代码要能跑起来（缺省值齐全、无明显语法错误）。
+      - 重要：若某文件内容本身包含 ``` 代码围栏（典型是 README.md 等 markdown），请用四个反引号 ```` 作为该文件的外层围栏，避免内层围栏被误判截断。
+    output: code
+    depends_on: [design]
+
+  - id: review
+    role: "engineering/engineering-code-reviewer"
+    skill: "chinese-code-review"
+    task: |
+      审查下面生成的代码：正确性 bug、安全问题、可维护性、与计划的偏差、缺失的测试。
+      用证据说话（指到文件/片段），给出按严重度排序的问题清单和具体修改建议。
+
+      实现计划：
+      {{plan}}
+
+      代码：
+      {{code}}
+    output: review
+    depends_on: [implement]
+
+  - id: verify
+    role: "testing/testing-reality-checker"
+    skill: "verification-before-completion"
+    task: |
+      现实检验下面的项目：到底能不能跑起来、是否真的满足最初需求、还差哪些文件/步骤、
+      代码审查发现的问题是否致命。不要轻信"应该可以"，用清单给出"可交付 / 待补"的结论。
+
+      最初需求：{{requirement}}
+
+      代码：
+      {{code}}
+
+      代码审查意见：
+      {{review}}
+    output: acceptance
+    depends_on: [implement, review]
