@@ -1,8 +1,8 @@
-import { Check, GitCompare, Loader2, Play, Scale, Search, Workflow as WorkflowIcon, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Check, GitCompare, Loader2, Play, Scale, Search, Star, Workflow as WorkflowIcon, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { api, type Workflow } from "@/lib/studio";
+import { api, getFavWorkflows, setFavWorkflows, type Workflow } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
 import type { RunRequest } from "./RunManager";
@@ -119,6 +119,16 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
   const [compare, setCompare] = useState<Workflow[] | null>(null);
   const [baseline, setBaseline] = useState<{ wf: Workflow; inputs: Record<string, string> } | null>(null);
   const [canvasFor, setCanvasFor] = useState<Workflow | null>(null);
+  // 用户自选「常用」：点星收藏（localStorage）。首次无记录时用编辑推荐(featured)做种子。
+  const [favs, setFavs] = useState<Set<string>>(() => getFavWorkflows() ?? new Set());
+  const seededRef = useRef(false);
+  const toggleFav = (w: Workflow) =>
+    setFavs((prev) => {
+      const n = new Set(prev);
+      if (n.has(w.file)) n.delete(w.file); else n.add(w.file);
+      setFavWorkflows(n);
+      return n;
+    });
 
   useEffect(() => {
     setLoading(true);
@@ -138,10 +148,38 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
       .finally(() => setLoading(false));
   }, [lang, demo]);
 
+  // 首次（localStorage 无收藏记录）用编辑推荐做种子，让新用户也有「常用」默认值。
+  useEffect(() => {
+    if (seededRef.current || wfs.length === 0) return;
+    seededRef.current = true;
+    if (getFavWorkflows() === null) {
+      const seed = new Set(wfs.filter((w) => w.featured).map((w) => w.file));
+      if (seed.size > 0) { setFavWorkflows(seed); setFavs(seed); }
+    }
+  }, [wfs]);
+
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
     return wfs.filter((w) => !n || (w.name + (w.description ?? "")).toLowerCase().includes(n));
   }, [wfs, q]);
+
+  // 分组：⭐ 推荐置顶，其余按类目（开发 → 内容 → 商业 → 职场 → 我的 → 其他）。治"太多、不知道用哪个"。
+  const CATEGORY_ORDER = ["开发", "内容创作", "商业 / 产品", "职场 / 学术", "我的工作流", "其他"];
+  const groups = useMemo(() => {
+    const fav = filtered.filter((w) => favs.has(w.file));
+    const byCat = new Map<string, Workflow[]>();
+    for (const w of filtered) {
+      // 收藏的也仍按类目展示一份，方便浏览；顶部「常用」组只是把它们额外置顶。
+      const c = w.category || "其他";
+      if (!byCat.has(c)) byCat.set(c, []);
+      byCat.get(c)!.push(w);
+    }
+    const cats = [...byCat.keys()].sort((a, b) => {
+      const ia = CATEGORY_ORDER.indexOf(a), ib = CATEGORY_ORDER.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+    return { fav, cats: cats.map((c) => [c, byCat.get(c)!] as [string, Workflow[]]) };
+  }, [filtered, favs]);
 
   const pickedList = Object.values(picked);
 
@@ -186,8 +224,8 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
         />
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((w) => {
+      {(() => {
+        const renderCard = (w: Workflow) => {
           const on = !!picked[w.file];
           return (
             <div
@@ -198,7 +236,16 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
               )}
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold leading-snug">{w.name}</h3>
+                <h3 className="flex items-center gap-1.5 font-semibold leading-snug">
+                  <button
+                    onClick={() => toggleFav(w)}
+                    title={favs.has(w.file) ? "取消收藏" : "收藏为常用"}
+                    className="shrink-0 text-muted-foreground/50 transition-colors hover:text-amber-400"
+                  >
+                    <Star className={cn("size-3.5", favs.has(w.file) && "fill-amber-400 text-amber-400")} />
+                  </button>
+                  {w.name}
+                </h3>
                 <button
                   onClick={() => togglePick(w)}
                   title={t.studio.workflows.checkToCompare}
@@ -236,8 +283,25 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
               </div>
             </div>
           );
-        })}
-      </div>
+        };
+        const Section = ({ title, items, star }: { title: string; items: Workflow[]; star?: boolean }) => (
+          <section className="mt-6">
+            <h2 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-muted-foreground">
+              {star && <Star className="size-3.5 fill-amber-400 text-amber-400" />}
+              {title}
+              <span className="font-normal text-muted-foreground/60">· {items.length}</span>
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{items.map(renderCard)}</div>
+          </section>
+        );
+        return (
+          <>
+            {groups.fav.length > 0 && <Section title={lang === "en" ? "Favorites" : "常用（点 ☆ 收藏）"} items={groups.fav} star />}
+            {groups.cats.map(([c, items]) => <Section key={c} title={c} items={items} />)}
+            {filtered.length === 0 && <p className="mt-10 text-center text-sm text-muted-foreground">{lang === "en" ? "No matching workflows" : "没有匹配的工作流"}</p>}
+          </>
+        );
+      })()}
 
       {pickedList.length >= 2 && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 backdrop-blur-xl">

@@ -171,6 +171,22 @@ const catEmojiMap = {
   academic:'🎓', finance:'💰', hr:'👥', legal:'⚖️', strategy:'🧭', 'supply-chain':'📦',
 };
 
+// 内置工作流分类 + 推荐（集中映射，避免改每个 YAML；用户工作流可在 YAML 自带 category/featured）。
+// 解决「27 个平铺、不知道用哪个」：列表按类目分组，⭐ 推荐置顶。
+const WF_CATEGORY = {
+  '软件开发标准流程.yaml': '开发', 'codex-cc-loop.yaml': '开发', 'codex-cc-simple.yaml': '开发', '需求转项目脚手架.yaml': '开发',
+  'content-pipeline.yaml': '内容创作', 'douyin-script.yaml': '内容创作', 'tech-blog.yaml': '内容创作',
+  'xiaohongshu-viral-post.yaml': '内容创作', 'story-creation.yaml': '内容创作', 'ai-opinion-article.yaml': '内容创作',
+  'investment-analysis.yaml': '商业 / 产品', 'pitch-deck-outline.yaml': '商业 / 产品', 'product-launch-comms.yaml': '商业 / 产品',
+  'product-review.yaml': '商业 / 产品', 'okr-decomposition.yaml': '商业 / 产品', 'ai-startup-launch.yaml': '商业 / 产品',
+  '一人公司全员大会.yaml': '商业 / 产品',
+  'resume-and-interview-prep.yaml': '职场 / 学术', 'legal-consultation.yaml': '职场 / 学术',
+  'meeting-notes.yaml': '职场 / 学术', 'academic-paper-outline.yaml': '职场 / 学术',
+};
+const WF_FEATURED = new Set([
+  '软件开发标准流程.yaml', 'codex-cc-loop.yaml', 'content-pipeline.yaml', 'product-review.yaml', 'meeting-notes.yaml',
+]);
+
 function loadWorkflowMeta(dir, tagPrivate = false) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
@@ -184,6 +200,8 @@ function loadWorkflowMeta(dir, tagPrivate = false) {
           filename: f,
           name: doc?.name || f,
           description: doc?.description || '',
+          category: doc?.category || WF_CATEGORY[f] || (tagPrivate ? '我的工作流' : '其他'),
+          featured: doc?.featured ?? WF_FEATURED.has(f),
           inputs: (doc?.inputs || []).map(i => ({
             name: i.name,
             description: i.description || '',

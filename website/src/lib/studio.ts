@@ -33,6 +33,8 @@ export interface Workflow {
   steps?: WorkflowStepMeta[];
   provider?: string;
   private?: boolean;
+  category?: string;
+  featured?: boolean;
 }
 
 export interface RunStepSummary {
@@ -213,6 +215,20 @@ export function setActiveProvider(p: string) {
 export function hasExplicitProvider(): boolean {
   if (typeof window === "undefined") return false;
   return !!window.localStorage.getItem(ACTIVE_KEY);
+}
+
+// ── 用户自选「常用」工作流（点星收藏，存 localStorage，按机器） ──
+const FAV_KEY = "ao-fav-workflows";
+/** 返回收藏的工作流 key 集合；首次（无记录）返回 null，调用方可用编辑推荐做种子。 */
+export function getFavWorkflows(): Set<string> | null {
+  if (typeof window === "undefined") return new Set();
+  const raw = window.localStorage.getItem(FAV_KEY);
+  if (raw == null) return null;
+  try { return new Set(JSON.parse(raw) as string[]); } catch { return new Set(); }
+}
+export function setFavWorkflows(keys: Set<string>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(FAV_KEY, JSON.stringify([...keys]));
 }
 
 export interface UsageDay {
