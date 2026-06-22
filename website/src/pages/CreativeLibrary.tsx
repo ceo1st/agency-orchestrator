@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Search } from "lucide-react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { useSeo } from "@/lib/useSeo";
 import { cn } from "@/lib/utils";
 import dataset from "@/content/creative-prompts.json";
 
@@ -69,6 +70,14 @@ function PromptCard({ p }: { p: CreativePrompt }) {
 
 export default function CreativeLibrary() {
   const { lang } = useLanguage();
+  useSeo(
+    lang === "en"
+      ? `Creative Library — ${DATA.count}+ Nano Banana / Gemini image prompts | Agency Orchestrator`
+      : `创意库 — ${DATA.count}+ Nano Banana / Gemini 图像生成提示词大全 | Agency Orchestrator`,
+    lang === "en"
+      ? `${DATA.count}+ ready-to-copy Nano Banana / Gemini (Google) AI image generation prompts, browse by category, free.`
+      : `${DATA.count}+ 条可直接复制的 Nano Banana / Gemini(谷歌)AI 图像生成中文提示词,按分类浏览,免费取用。`,
+  );
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
 
