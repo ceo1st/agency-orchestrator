@@ -5,15 +5,30 @@
 ## [Unreleased]
 
 ### Changed
+- **导航重组为 8 项**：资源 / 帮助分组下拉，新增「创意库」「影视提示词」入口，去掉价值低的「能力」锚点。
+- **零配置首跑默认 provider**：未指定 provider 且未配 key 时，自动用本机已登录的订阅制 CLI（claude / gemini / codex…），复用登录态、免 API key；CLI 与 Studio 行为一致。
+- **发布卫生**：`prepublishOnly` 接入 `verify:release`（校验 dist 命令完整 + 前端产物完整），残缺包发不出去。
 - **赞助位收敛到赞助页**：APINEBULA 旗舰赞助 / 优惠码推广此前在首页(SponsorStrip)和 Studio(StudioSponsorSlot)也展示，现仅保留在 `/sponsors` 赞助页，不再出现在首页与工作区。
 
 ### Fixed
+- **DeepSeek 长生成 0-token 卡死**：OpenAI 兼容连接器加首字节/停顿超时（`AO_STREAM_STALL_MS` 默认 90s，覆盖等响应头 + 读 body 全程），provider 久不响应时**快速失败**并给精准提示（优先换 provider / 拆分，说明增大超时无效），不再干等 20+ 分钟再重试。
+- **桌面 AppImage 白屏 (#81)**：CI 加前端产物完整性闸（打包前校验 + 钻进产物校验 `website/dist`）；server 缺前端时给可读诊断页而非白屏 / 报栈。
+- **`ao prompt` / `ao team` 等命令「不存在」(#80)**：根因是已发布 dist 落后于源码；加 `verify-cli` 闸确保发布的 `dist/cli.js` 实现源码全部命令，残缺不予发布。
+- **Windows 下单角色对话不进运行历史 (#82)**：临时工作流名「专家咨询: \<role\>」含冒号导致 Windows 建目录失败，已清洗输出目录名。
+- **角色数口径 (#67)**：`package.json` 描述的角色数 211 订正为 216（与 loader 实际枚举 216 中 / 184 英一致）。
 - **演示页工作流太少 / 运行历史与用量「显示同一个」**：演示模式工作流改为读取**全部内置模板的静态快照**(19 个中文 / 10 个英文,由 `gen-workflows.mjs` 生成),不再只有手写几个;运行历史与用量两个 tab 给出**各自独立**的说明文案,不再雷同看着像没切换。
 - **Studio 演示模式下切 tab 不响应**：引擎离线 / 公开演示站（无后端）时，各 tab 点了内容都不变（一律显示角色 demo），看起来像卡死。现在演示模式也**按 tab 显示真实内容、可浏览**——工作流展示内置模板快照、角色展示角色库、提示词展示 Prompt Lab，**只是运行类操作引导安装、不能真跑**（运行历史 / 用量本就无离线数据，给出简短说明）。另加防御：任一 tab 文案缺失也不再让整个 Studio 渲染崩溃。
 - **Azure OpenAI 兼容**（#38）：Azure 的 gpt 模型只认 `max_completion_tokens`（不认 `max_tokens`），且用 `api-key` header 鉴权。OpenAI 兼容连接器现在检测到 `base_url` 含 `azure` 时自动切换；非 Azure 的 OpenAI o 系列推理模型可用 `AO_OPENAI_TOKENS_PARAM=max_completion_tokens` 显式覆盖（含回归测试 `test/azure-compat.ts`）。
 - **`ao prompt` 文档补齐**：Prompt Lab 合入后 `ao prompt` 一直没进 `ao --help` / README / CLAUDE.md，用户无从发现；现已补上（中英）。
 
 ### Added
+- **零配置首跑**：自动探测并默认使用本机已装的订阅制 CLI（claude/gemini/codex…），开发者无需配 key 即可一句话直接跑。
+- **可视化工作流画布（可编辑）**：`@xyflow/react` + dagre，拖拽节点 / 连线（自动防环）/ 增删 / 侧栏改 task·角色·skill / 保存；运行时节点按状态**实时点亮**（运行中=蓝 / 成功=绿 / 失败=红）。借鉴 n8n 交互范式，绑定 AO 的 YAML+角色模型（转换在引擎侧保真往返）。
+- **创意库（图像生成提示词）**：导航「提示词优化」左侧新增入口，整合 2 个 CC BY 4.0 开源库（YouMind + jimmylv）共 229 条 Nano Banana / Gemini 提示词，带预览图 / 12 分类 / 搜索 / 分页 / 收藏 / 一键复制 + 出处署名；导航「影视提示词」跳 prompts.aiolaola.com。
+- **Studio「AI 自动组队」**：角色页顶部一句话、不选角色，直接让 LLM 从全部专家里自动组队并运行（`/api/compose` 放开空角色）。
+- **标准软件开发流程工作流**：需求澄清 → 架构设计 → TDD 实现 → 代码审查 → 现实验收，5 步各挂方法论 skill，配 `--materialize` 落盘。
+- **工作流列表分类分组 + ⭐ 收藏置顶**；Studio 供应商面板展示本机已装 CLI（绿标 + 推荐）。
+- **SEO 基础**：`robots.txt` + `sitemap.xml` + 各公开页独立 title/description meta + 百度站长验证（meta + 验证文件）。
 - **模型选择改成主题一致的「胶囊」**：供应商面板原生 datalist 下拉在深色主题下很丑,改为可点胶囊(点选 + 仍可手敲);Prompt Lab 演示站新增文本模型切换(agnes-2.0-flash / agnes-1.5-flash)。CF 函数接收前端选的模型并做**白名单校验**(只允许 Agnes 文本模型,非法/图像模型回落默认),防刷额度。
 - **供应商面板模型可选可填**：原来模型名只能手敲、易写错;现在每个 provider 给常用模型下拉建议(datalist),既能**选**也能**填**自定义,留空用默认。
 - **顶部导航新增「提示词优化」入口**(挨着「专家库」、在「文档」左边)→ 独立 `/prompt` 页,直接用提示词优化(公开站走 CF Function 免费额度)。撤销上一版把 Studio 内 tab 挪位的改动(那不是诉求)。
