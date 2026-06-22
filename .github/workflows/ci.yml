@@ -27,6 +27,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      # 确认构建出的 dist/cli.js 实现了源码声明的所有命令（防 #80：发布陈旧 dist）
+      - name: Verify CLI command parity
+        run: node scripts/verify-cli.mjs
+
       - name: Clone agency-agents-zh for tests
         run: git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 

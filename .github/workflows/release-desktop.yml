@@ -49,6 +49,10 @@ jobs:
       - name: Build Studio (website/dist)
         run: npm run build:studio
 
+      # 闸 1：打包前确认前端产物完整（防 #81：website/dist 缺失/空就被打包）
+      - name: Verify frontend before packaging
+        run: node scripts/verify-frontend.mjs website/dist
+
       - name: Install desktop deps
         working-directory: desktop
         run: npm ci
@@ -63,6 +67,11 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # 闸 2：确认前端真的被打进产物（electron-builder 会顺带产出 *-unpacked / mac .app，
+      #       直接进去看 resources/app/website/dist 在不在；不在就 fail，绝不发白屏包）
+      - name: Verify frontend landed in packaged app
+        run: node scripts/verify-frontend.mjs --packed desktop/release
 
       # 为本平台产物生成 SHA256 校验和（mac 用 shasum，linux/win-gitbash 用 sha256sum）
       - name: Generate checksums
