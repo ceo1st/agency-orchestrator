@@ -5,6 +5,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Markdown } from "@/components/studio/Markdown";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { useSeo } from "@/lib/useSeo";
 import { cn } from "@/lib/utils";
 import { docBySlug, docGroups, firstDocSlug } from "@/content/docs";
 
@@ -23,6 +24,12 @@ function CodeBlock({ code }: { code: string }) {
 
 export default function Docs() {
   const { t, lang, prefix } = useLanguage();
+  useSeo(
+    lang === "en" ? "Docs — Agency Orchestrator multi-agent workflow engine"
+      : "文档 — Agency Orchestrator 多智能体工作流编排引擎",
+    lang === "en" ? "How to define YAML workflows, orchestrate AI roles, DAG parallelism, resume & iterate."
+      : "如何用 YAML 定义工作流、编排 AI 角色、DAG 并行、断点续跑与迭代。",
+  );
   const d = t.docs;
   const { slug } = useParams();
   const [query, setQuery] = useState("");

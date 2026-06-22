@@ -5,6 +5,7 @@ import { InstallPrompt } from "@/components/studio/InstallPrompt";
 import { PromptLab } from "@/components/studio/PromptLab";
 import { useBackend } from "@/components/studio/useBackend";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { useSeo } from "@/lib/useSeo";
 import { getActiveProvider } from "@/lib/studio";
 
 /**
@@ -14,6 +15,12 @@ import { getActiveProvider } from "@/lib/studio";
  */
 export default function PromptStudio() {
   const { t, lang } = useLanguage();
+  useSeo(
+    lang === "en" ? "Prompt Studio — AI rewrites your prompt to be more effective | Agency Orchestrator"
+      : "提示词优化 — AI 帮你把提示词改得更有效 | Agency Orchestrator",
+    lang === "en" ? "Optimize, test and compare prompts with AI. System & user prompt meta-optimization, free to try."
+      : "用 AI 优化、测试、对比提示词。系统/用户提示词元优化,免费试用。",
+  );
   const { status } = useBackend();
   const [installOpen, setInstallOpen] = useState(false);
   const offline = status !== "online";
