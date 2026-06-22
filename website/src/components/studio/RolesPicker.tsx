@@ -170,8 +170,11 @@ export function RolesPicker({
     onRun({ kind: "role", title: `${t.studio.roles.singleChat} · ${r.name}`, role: roleKey(r), emoji: undefined, name: r.name, task: task.trim(), provider, lang });
   };
 
-  const doComposeRun = async () => {
-    if (count < 2 || !task.trim()) return;
+  // auto=true：不锁定阵容，传空 roles 让后端 LLM 自动组队（对应 CLI `ao compose "一句话"`）。
+  // auto=false：手动锁定已勾选的 ≥2 个角色。
+  const doComposeRun = async (auto = false) => {
+    if (!task.trim()) return;
+    if (!auto && count < 2) return;
     if (demo) {
       onInstallPrompt?.();
       return;
@@ -181,8 +184,8 @@ export function RolesPicker({
     try {
       const res = await api.compose({
         description: task.trim(),
-        roles: selectedList.map(roleKey),
-        name: teamName.trim() || undefined,
+        roles: auto ? [] : selectedList.map(roleKey),
+        name: auto ? undefined : teamName.trim() || undefined,
         provider: provider || undefined,
         lang,
       });
@@ -212,6 +215,32 @@ export function RolesPicker({
 
   return (
     <div className="pb-40">
+      {/* AI 自动组队 —— 核心入口：不用手选角色，一句话让 LLM 从全量专家里自动挑人组队并运行 */}
+      <div className="mb-5 rounded-2xl border border-primary/30 bg-primary/5 p-4 sm:p-5">
+        <div className="mb-1 flex items-center gap-2">
+          <Sparkles className="size-5 text-primary" />
+          <h3 className="text-base font-semibold">{t.studio.roles.autoTitle}</h3>
+        </div>
+        <p className="mb-3 text-sm text-muted-foreground">{t.studio.roles.autoHint}</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            value={task}
+            onChange={(e) => setTask(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) doComposeRun(true);
+            }}
+            placeholder={t.studio.roles.autoTaskPlaceholder}
+            className="h-11 flex-1 rounded-xl border border-border/70 bg-card/80 px-3.5 text-sm outline-none focus:border-primary/50"
+          />
+          <Button onClick={() => doComposeRun(true)} disabled={composing || !task.trim()} size="lg" className="shrink-0">
+            {composing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+            {t.studio.roles.autoComposeBtn}
+          </Button>
+        </div>
+        {composeErr && count === 0 && <p className="mt-2 text-xs text-red-500">{composeErr}</p>}
+        <p className="mt-2.5 text-xs text-muted-foreground/80">{t.studio.roles.autoOrManual}</p>
+      </div>
+
       {/* onboarding hint */}
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
         <span>💡 {t.studio.roles.hintLabel}</span>
@@ -381,7 +410,7 @@ export function RolesPicker({
                 value={task}
                 onChange={(e) => setTask(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (count >= 2 ? doComposeRun() : doSingleChat());
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (count >= 2 ? doComposeRun(false) : doSingleChat());
                 }}
                 placeholder={count >= 2 ? t.studio.roles.teamTaskPlaceholder : t.studio.roles.roleTaskPlaceholder}
                 className="h-10 flex-1 rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
@@ -392,7 +421,7 @@ export function RolesPicker({
                     {savingTeam ? <Loader2 className="size-4 animate-spin" /> : <Bookmark className="size-4" />}
                     {t.studio.roles.saveAsTeam}
                   </Button>
-                  <Button onClick={doComposeRun} disabled={composing || !task.trim()}>
+                  <Button onClick={() => doComposeRun(false)} disabled={composing || !task.trim()}>
                     {composing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                     {t.studio.roles.composeAndRun}
                   </Button>

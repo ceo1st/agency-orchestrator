@@ -63,6 +63,27 @@ export interface ComposeResult {
   warnings?: string[];
 }
 
+// ── 可编辑画布 graph 模型（与服务端 src/canvas/graph.ts 对齐）──
+export interface CanvasNode {
+  id: string;
+  position: { x: number; y: number };
+  /** 该步骤的完整 YAML 定义，保真往返用。 */
+  data: Record<string, unknown>;
+}
+export interface CanvasEdge {
+  id: string;
+  source: string;
+  target: string;
+}
+export interface CanvasGraphResponse {
+  name: string;
+  nodes: CanvasNode[];
+  edges: CanvasEdge[];
+  file: string;
+  /** 仅用户目录(COMPOSED_DIR)的工作流可就地保存；内置模板只读。 */
+  editable: boolean;
+}
+
 export interface TeamRole {
   role: string;
   name?: string;
@@ -164,9 +185,18 @@ export interface ProviderKeyStatus {
   configured?: boolean;
 }
 
+export interface CliProviderStatus {
+  name: string;
+  installed: boolean;
+}
+
 export interface ConfigResponse {
   providers: Record<string, ProviderKeyStatus>;
-  cli: string[];
+  cli: (string | CliProviderStatus)[];
+  /** 本机已探测到、可零配置直接用的订阅制 CLI provider 名。 */
+  installedCli?: string[];
+  /** 推荐默认 provider：已装 CLI 优先 > 已配 key > 默认。 */
+  recommended?: string;
   defaultProvider: string;
 }
 
@@ -178,6 +208,11 @@ export function getActiveProvider(): string {
 }
 export function setActiveProvider(p: string) {
   window.localStorage.setItem(ACTIVE_KEY, p);
+}
+/** 用户是否显式选过 provider（localStorage 有非空值）。没选过 → 可采用后端推荐的零配置 provider。 */
+export function hasExplicitProvider(): boolean {
+  if (typeof window === "undefined") return false;
+  return !!window.localStorage.getItem(ACTIVE_KEY);
 }
 
 export interface UsageDay {
@@ -237,6 +272,10 @@ export const api = {
   role: (category: string, id: string, lang?: string) =>
     getJSON<Role>(`/roles/${category}/${id}${lang === "en" ? "?lang=en" : ""}`),
   workflows: (lang?: string) => getJSON<Workflow[]>(`/workflows${lang === "en" ? "?lang=en" : ""}`),
+  // ── 可编辑画布：工作流 YAML ↔ graph（转换在引擎侧，前端只碰 graph JSON）──
+  workflowGraph: (file: string) => getJSON<CanvasGraphResponse>(`/workflows/graph?file=${encodeURIComponent(file)}`),
+  saveWorkflowGraph: (body: { file?: string; name: string; nodes: CanvasNode[]; edges: CanvasEdge[]; baseYaml?: string }) =>
+    postJSON<{ file: string; overwritten: boolean; errors?: string[] }>("/workflows/graph", body),
   runs: () => getJSON<RunSummary[]>("/runs"),
   run: (id: string) => getJSON<RunSummary>(`/runs/${encodeURIComponent(id)}`),
   compose: (body: { description: string; roles: string[]; name?: string; provider?: string; lang?: string }) =>

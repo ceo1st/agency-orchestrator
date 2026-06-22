@@ -67,6 +67,30 @@ try {
     assert(await post(base, '/api/compare', { file: '../../../../etc/passwd' }) === 403, '/api/compare 路径穿越 → 403');
     const yamlTraversal = (await fetch(base + '/api/workflows/yaml?file=' + encodeURIComponent('../../../../etc/passwd'))).status;
     assert(yamlTraversal === 403, '/api/workflows/yaml 路径穿越 → 403');
+
+    // ── SPA 兜底(#81)：非 /api 的深层路由必须返回前端 HTML，不能白屏 / 报栈 ──
+    const spa = await fetch(base + '/studio/some/deep/route');
+    const spaCt = spa.headers.get('content-type') || '';
+    assert(spa.ok && spaCt.includes('text/html'), `SPA 深层路由返回 HTML(${spa.status})`);
+
+    // ── 可编辑画布 graph 端点 ──
+    assert((await fetch(base + '/api/workflows/graph?file=' + encodeURIComponent('../../../../etc/passwd'))).status === 403, '/api/workflows/graph 路径穿越 → 403');
+    assert(await post(base, '/api/workflows/graph', { nodes: [] }) === 400, '/api/workflows/graph 空 nodes → 400');
+
+    const baseYaml = 'name: t\nagents_dir: agency-agents-zh\nllm:\n  provider: deepseek\n  model: deepseek-chat\nsteps:\n  - id: a\n    role: x/y\n    task: t1\n';
+    // 合法图：a → b，应保存成功
+    const okBody = {
+      name: 'canvas-test', baseYaml,
+      nodes: [
+        { id: 'a', position: { x: 0, y: 0 }, data: { id: 'a', role: 'x/y', task: 't1' } },
+        { id: 'b', position: { x: 200, y: 0 }, data: { id: 'b', role: 'x/y', task: 't2' } },
+      ],
+      edges: [{ id: 'a->b', source: 'a', target: 'b' }],
+    };
+    assert(await post(base, '/api/workflows/graph', okBody) === 200, '/api/workflows/graph 合法图 → 200 保存');
+    // 成环：a → b → a，validateWorkflow 应拒
+    const cycleBody = { ...okBody, edges: [{ id: 'a->b', source: 'a', target: 'b' }, { id: 'b->a', source: 'b', target: 'a' }] };
+    assert(await post(base, '/api/workflows/graph', cycleBody) === 400, '/api/workflows/graph 成环 → 400 被校验拦截');
   }
 } finally {
   if (server) server.kill('SIGTERM');

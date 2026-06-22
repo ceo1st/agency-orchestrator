@@ -1,4 +1,4 @@
-import { Check, GitCompare, Loader2, Play, Scale, Search, X } from "lucide-react";
+import { Check, GitCompare, Loader2, Play, Scale, Search, Workflow as WorkflowIcon, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { RoleAvatar } from "./RoleAvatar";
 import type { RunRequest } from "./RunManager";
 import { CompareOverlay } from "./CompareOverlay";
 import { BaselineCompareOverlay } from "./BaselineCompareOverlay";
+import { WorkflowCanvas } from "./WorkflowCanvas";
 
 function CastStack({ steps }: { steps: NonNullable<Workflow["steps"]> }) {
   const shown = steps.slice(0, 6);
@@ -117,6 +118,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
   const [inputsFor, setInputsFor] = useState<Workflow | null>(null);
   const [compare, setCompare] = useState<Workflow[] | null>(null);
   const [baseline, setBaseline] = useState<{ wf: Workflow; inputs: Record<string, string> } | null>(null);
+  const [canvasFor, setCanvasFor] = useState<Workflow | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -220,6 +222,9 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
                   {w.private ? ` · ${t.studio.workflows.mine}` : ""}
                 </span>
                 <div className="flex items-center gap-1.5">
+                  <Button size="sm" variant="ghost" onClick={() => (demo ? onInstallPrompt?.() : setCanvasFor(w))} title={lang === "en" ? "View as canvas" : "画布视图（可视化工作流图）"}>
+                    <WorkflowIcon className="size-3.5" />
+                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => compareOne(w)} title={lang === "en" ? "Compare vs single-shot" : "对比单次基线（看多智能体到底强在哪）"}>
                     <Scale className="size-3.5" />
                   </Button>
@@ -265,6 +270,14 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
       )}
       {compare && <CompareOverlay workflows={compare} provider={provider} onClose={() => setCompare(null)} />}
       {baseline && <BaselineCompareOverlay wf={baseline.wf} inputs={baseline.inputs} provider={provider} onClose={() => setBaseline(null)} />}
+      {canvasFor && (
+        <WorkflowCanvas
+          file={canvasFor.file}
+          name={canvasFor.name}
+          onClose={() => setCanvasFor(null)}
+          onSaved={() => { if (!demo) api.workflows(lang).then(setWfs).catch(() => {}); }}
+        />
+      )}
     </div>
   );
 }
