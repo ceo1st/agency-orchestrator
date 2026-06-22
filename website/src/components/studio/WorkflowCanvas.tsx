@@ -1,7 +1,7 @@
 // 工作流可视化画布（可编辑）。借鉴 n8n 的节点编辑交互，但用 AO 自己的 React 栈
 // (@xyflow/react + dagre)实现，绑定到 AO 的 YAML/角色模型。
 // graph 转换在引擎侧（保真往返），保存走 /api/workflows/graph（带成环校验 + 用户工作流就地覆盖）。
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   addEdge,
   Background,
@@ -19,14 +19,19 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "@dagrejs/dagre";
-import { Loader2, Plus, Save, Trash2, Wand2, X } from "lucide-react";
+import { CheckCircle2, Loader2, Plus, Save, Trash2, Wand2, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api, type CanvasEdge, type CanvasNode, type Role } from "@/lib/studio";
+import { useRunManager } from "./RunManager";
 
 const NODE_W = 230;
 const NODE_H = 92;
 
 type StepData = Record<string, unknown>;
+
+/** 执行态（Phase 2 点亮）：运行工作流时按步状态给节点着色。 */
+type ExecStatus = "running" | "done" | "error" | "pending";
+const ExecStatusCtx = createContext<Record<string, ExecStatus>>({});
 
 /** dagre 自动布局（rankdir LR，参考 n8n）。 */
 function autoLayout(nodes: { id: string; position: { x: number; y: number } }[], edges: { source: string; target: string }[]) {
@@ -59,19 +64,29 @@ function wouldCycle(source: string, target: string, edges: { source: string; tar
   return false;
 }
 
-function AOStepNode({ data, selected }: NodeProps<Node<StepData>>) {
+function AOStepNode({ id, data, selected }: NodeProps<Node<StepData>>) {
   const role = String(data.role ?? "");
   const isApproval = data.type === "approval" || data.type === "human_input";
+  const exec = useContext(ExecStatusCtx)[id];
+  // 执行态边框优先于普通态：运行中=蓝(脉冲)、成功=绿、失败=红
+  const execBorder =
+    exec === "running" ? "border-blue-500 ring-2 ring-blue-500/40 animate-pulse"
+    : exec === "done" ? "border-emerald-500"
+    : exec === "error" ? "border-red-500 ring-2 ring-red-500/40"
+    : "";
   return (
     <div
-      className={`rounded-xl border bg-card px-3 py-2 shadow-sm ${selected ? "border-primary ring-2 ring-primary/40" : isApproval ? "border-amber-500/60" : "border-border/70"}`}
+      className={`rounded-xl border bg-card px-3 py-2 shadow-sm ${execBorder || (selected ? "border-primary ring-2 ring-primary/40" : isApproval ? "border-amber-500/60" : "border-border/70")}`}
       style={{ width: NODE_W }}
     >
       <Handle type="target" position={Position.Left} className="!size-2.5 !bg-primary/60" />
       <div className="flex items-center gap-1.5">
         <span className="text-base leading-none">{String(data.emoji ?? "") || (isApproval ? "✋" : "🤖")}</span>
         <span className="truncate text-sm font-semibold">{String(data.name ?? "") || role}</span>
-        {!!data.skill && <span className="ml-auto rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{String(data.skill)}</span>}
+        {exec === "running" && <Loader2 className="size-3.5 shrink-0 animate-spin text-blue-500" />}
+        {exec === "done" && <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />}
+        {exec === "error" && <XCircle className="size-3.5 shrink-0 text-red-500" />}
+        {!exec && !!data.skill && <span className="ml-auto rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{String(data.skill)}</span>}
       </div>
       <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{String(data.task ?? "") || "—"}</p>
       <Handle type="source" position={Position.Right} className="!size-2.5 !bg-primary/60" />
@@ -96,6 +111,24 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const idSeq = useRef(1);
+
+  // Phase 2 执行态点亮：找本工作流最近一次运行，按步状态着色（随 SSE 实时更新）。
+  const { runs } = useRunManager();
+  const activeRun = useMemo(
+    () => [...runs].reverse().find((r) => r.kind === "workflow" && r.source?.file === file),
+    [runs, file],
+  );
+  const execStatus = useMemo<Record<string, ExecStatus>>(() => {
+    if (!activeRun) return {};
+    const map: Record<string, ExecStatus> = {};
+    for (const s of activeRun.steps) {
+      map[s.id] = s.status === "done" ? "done"
+        : s.status === "running" ? (activeRun.state === "error" ? "error" : "running") // 失败时停在该步 → 红
+        : "pending";
+    }
+    return map;
+  }, [activeRun]);
+  const isRunning = activeRun?.state === "running";
 
   useEffect(() => {
     let alive = true;
@@ -180,12 +213,19 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
   const stop = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
 
   return (
+    <ExecStatusCtx.Provider value={execStatus}>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border/60 bg-background shadow-xl" onClick={stop}>
         {/* 工具栏 */}
         <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5">
           <span className="truncate text-sm font-semibold">🗺️ {name}</span>
           {loaded && !editable && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">内置模板 · 编辑后将另存为副本</span>}
+          {activeRun && (
+            <span className="flex items-center gap-2 rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] text-muted-foreground">
+              {isRunning ? <Loader2 className="size-3 animate-spin text-blue-500" /> : activeRun.state === "error" ? <XCircle className="size-3 text-red-500" /> : <CheckCircle2 className="size-3 text-emerald-500" />}
+              {isRunning ? "运行中" : activeRun.state === "error" ? "失败" : "已完成"} · 执行态已点亮
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-1.5">
             <Button size="sm" variant="outline" onClick={addStep} disabled={!loaded} title="添加步骤">
               <Plus className="size-3.5" /> 步骤
@@ -301,5 +341,6 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
         </div>
       </div>
     </div>
+    </ExecStatusCtx.Provider>
   );
 }
