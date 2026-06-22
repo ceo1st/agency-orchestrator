@@ -20,6 +20,7 @@ export function SiteNavbar() {
     { to: prefix("/prompt"), label: t.nav.prompt },
     { to: prefix("/docs"), label: t.nav.docs },
     { to: prefix("/tutorials"), label: t.nav.tutorials },
+    { to: "https://aiolaola.com/", label: t.nav.learn, external: true },
     { to: prefix("/changelog"), label: t.nav.changelog },
     { to: prefix("/sponsors"), label: t.nav.sponsors },
   ];
@@ -36,10 +37,12 @@ export function SiteNavbar() {
 
         <div className="hidden items-center gap-1 md:flex">
           {links.map((l) =>
-            l.hash ? (
+            l.hash || l.external ? (
               <a
                 key={l.to}
                 href={l.to}
+                target={l.external ? "_blank" : undefined}
+                rel={l.external ? "noreferrer" : undefined}
                 className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 {l.label}
@@ -101,6 +104,8 @@ export function SiteNavbar() {
               <a
                 key={l.to}
                 href={l.to}
+                target={l.external ? "_blank" : undefined}
+                rel={l.external ? "noreferrer" : undefined}
                 onClick={() => setOpen(false)}
                 className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
               >

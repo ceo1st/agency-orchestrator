@@ -105,6 +105,17 @@ export default function CreativeLibrary() {
               : `${DATA.count} 条可直接取用的图像生成提示词（${DATA.model}）。复制后粘进你的图像工具即可。`}
           </p>
 
+          {/* 视频提示词 → 跳转配套站 prompts.aiolaola.com */}
+          <a
+            href="https://prompts.aiolaola.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/[0.06] px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary/60"
+          >
+            🎬 {lang === "en" ? "Looking for video prompts? Browse prompts.aiolaola.com" : "找视频提示词？去 prompts.aiolaola.com 浏览"}
+            <ExternalLink className="size-3.5 text-muted-foreground" />
+          </a>
+
           {/* 搜索 + 分类 */}
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative max-w-md flex-1">
