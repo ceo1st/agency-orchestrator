@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Check, Copy, Search, X } from "lucide-react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { useSeo } from "@/lib/useSeo";
 import { SITE } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import expertsData from "@/content/experts.json";
@@ -52,6 +53,12 @@ function Avatar({ e, className }: { e: Expert; className?: string }) {
 
 export default function Experts() {
   const { t, lang } = useLanguage();
+  useSeo(
+    lang === "en" ? "216 AI Expert Roles — Engineering / Design / Product / Marketing | Agency Orchestrator"
+      : "216 个 AI 专家角色库 — 工程 / 设计 / 产品 / 营销 | Agency Orchestrator",
+    lang === "en" ? "Browse 216 orchestratable AI expert roles. One sentence → AI auto-assembles a team to collaborate."
+      : "浏览 216 个可编排的 AI 专家角色,一句话让系统自动组队协作完成任务。",
+  );
   const x = t.experts;
   const all = DATA[lang] ?? DATA.zh;
   const [q, setQ] = useState("");

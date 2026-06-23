@@ -14,7 +14,7 @@ import { InstallPrompt } from "@/components/studio/InstallPrompt";
 import { WorkflowsPanel } from "@/components/studio/WorkflowsPanel";
 import { useBackend } from "@/components/studio/useBackend";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, DEFAULT_PROVIDER, getActiveProvider, setActiveProvider } from "@/lib/studio";
+import { api, DEFAULT_PROVIDER, getActiveProvider, hasExplicitProvider, setActiveProvider } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 
 // recharts(~390kB)只在用量 tab 用 → 懒加载，避免拖累 Studio 首屏与演示模式
@@ -59,7 +59,12 @@ function StudioInner() {
   const refreshConfig = useCallback(() => {
     api
       .config()
-      .then((c) => setKeyedHas(Object.fromEntries(Object.entries(c.providers).map(([k, v]) => [k, !!v.hasKey]))))
+      .then((c) => {
+        setKeyedHas(Object.fromEntries(Object.entries(c.providers).map(([k, v]) => [k, !!v.hasKey])));
+        // 零配置首跑：用户没显式选过 provider 时，采用后端推荐（已装 CLI 优先）。
+        // 不写 localStorage —— 保持「智能默认」，用户一旦手选即固定。
+        if (c.recommended && !hasExplicitProvider()) setProviderState(c.recommended);
+      })
       .catch(() => {});
   }, []);
 

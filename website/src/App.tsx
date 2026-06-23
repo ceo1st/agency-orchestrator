@@ -8,6 +8,7 @@ const Sponsors = lazy(() => import("@/pages/Sponsors"));
 const Studio = lazy(() => import("@/pages/Studio"));
 const Experts = lazy(() => import("@/pages/Experts"));
 const PromptStudio = lazy(() => import("@/pages/PromptStudio"));
+const CreativeLibrary = lazy(() => import("@/pages/CreativeLibrary"));
 const Docs = lazy(() => import("@/pages/Docs"));
 const Tutorials = lazy(() => import("@/pages/Tutorials"));
 const TutorialDetail = lazy(() => import("@/pages/TutorialDetail"));
@@ -65,6 +66,9 @@ export default function App() {
           ))}
           {["/experts", "/zh/experts", "/en/experts"].map((p) => (
             <Route key={p} path={p} element={<Experts />} />
+          ))}
+          {["/creative", "/zh/creative", "/en/creative"].map((p) => (
+            <Route key={p} path={p} element={<CreativeLibrary />} />
           ))}
           {["/prompt", "/zh/prompt", "/en/prompt"].map((p) => (
             <Route key={p} path={p} element={<PromptStudio />} />

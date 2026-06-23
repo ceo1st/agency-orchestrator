@@ -13,6 +13,7 @@ import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
+import { detectInstalledCliProviders } from '../dist/providers/detect.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -170,6 +171,22 @@ const catEmojiMap = {
   academic:'🎓', finance:'💰', hr:'👥', legal:'⚖️', strategy:'🧭', 'supply-chain':'📦',
 };
 
+// 内置工作流分类 + 推荐（集中映射，避免改每个 YAML；用户工作流可在 YAML 自带 category/featured）。
+// 解决「27 个平铺、不知道用哪个」：列表按类目分组，⭐ 推荐置顶。
+const WF_CATEGORY = {
+  '软件开发标准流程.yaml': '开发', 'codex-cc-loop.yaml': '开发', 'codex-cc-simple.yaml': '开发', '需求转项目脚手架.yaml': '开发',
+  'content-pipeline.yaml': '内容创作', 'douyin-script.yaml': '内容创作', 'tech-blog.yaml': '内容创作',
+  'xiaohongshu-viral-post.yaml': '内容创作', 'story-creation.yaml': '内容创作', 'ai-opinion-article.yaml': '内容创作',
+  'investment-analysis.yaml': '商业 / 产品', 'pitch-deck-outline.yaml': '商业 / 产品', 'product-launch-comms.yaml': '商业 / 产品',
+  'product-review.yaml': '商业 / 产品', 'okr-decomposition.yaml': '商业 / 产品', 'ai-startup-launch.yaml': '商业 / 产品',
+  '一人公司全员大会.yaml': '商业 / 产品',
+  'resume-and-interview-prep.yaml': '职场 / 学术', 'legal-consultation.yaml': '职场 / 学术',
+  'meeting-notes.yaml': '职场 / 学术', 'academic-paper-outline.yaml': '职场 / 学术',
+};
+const WF_FEATURED = new Set([
+  '软件开发标准流程.yaml', 'codex-cc-loop.yaml', 'content-pipeline.yaml', 'product-review.yaml', 'meeting-notes.yaml',
+]);
+
 function loadWorkflowMeta(dir, tagPrivate = false) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
@@ -183,6 +200,8 @@ function loadWorkflowMeta(dir, tagPrivate = false) {
           filename: f,
           name: doc?.name || f,
           description: doc?.description || '',
+          category: doc?.category || WF_CATEGORY[f] || (tagPrivate ? '我的工作流' : '其他'),
+          featured: doc?.featured ?? WF_FEATURED.has(f),
           inputs: (doc?.inputs || []).map(i => ({
             name: i.name,
             description: i.description || '',
@@ -671,7 +690,9 @@ app.post('/api/run-role', (req, res) => {
 app.post('/api/compose', async (req, res) => {
   const { description, roles, name, provider, lang } = req.body || {};
   if (!description || typeof description !== 'string') return res.status(400).json({ error: 'description required' });
-  if (!Array.isArray(roles) || roles.length === 0) return res.status(400).json({ error: 'at least one role required' });
+  // roles 可为空 = AI 自动组队：让 LLM 从全量角色目录里自己挑专家（对应 CLI `ao compose "一句话"`，
+  // 不传 --roles）。传了 roles = 锁定阵容（手动组队 / 套用已存团队）。
+  const pinnedRoles = Array.isArray(roles) ? roles.map(String) : [];
   try {
     mkdirSync(COMPOSED_DIR, { recursive: true });
     const { composeWorkflow } = await import('../dist/cli/compose.js');
@@ -681,7 +702,7 @@ app.post('/api/compose', async (req, res) => {
       description,
       agentsDir: agentsDirFor(composeLang),
       llmConfig: buildLLMConfig(provider),
-      pinnedRoles: roles.map(String),
+      pinnedRoles,
       outputName: trimmedName,
       saveDir: COMPOSED_DIR,
       lang: composeLang,
@@ -714,6 +735,65 @@ app.post('/api/workflows/save', (req, res) => {
   if (!isInside(file, COMPOSED_DIR)) return res.status(400).json({ error: 'bad path' });
   writeFileSync(file, yamlText.endsWith('\n') ? yamlText : yamlText + '\n', 'utf-8');
   res.json({ file });
+});
+
+// ── 可编辑画布：工作流 YAML ↔ graph（节点/连线）。转换在引擎侧（保真往返），前端只碰 graph JSON。 ──
+app.get('/api/workflows/graph', async (req, res) => {
+  const file = req.query.file;
+  if (!file || typeof file !== 'string') return res.status(400).json({ error: 'invalid file' });
+  const resolved = resolve(file);
+  if (!isAllowedWorkflow(resolved)) return res.status(403).json({ error: 'file outside allowed dirs' });
+  if (!existsSync(resolved)) return res.status(404).json({ error: 'file not found' });
+  try {
+    const { workflowToGraph } = await import('../dist/canvas/graph.js');
+    const graph = workflowToGraph(readFileSync(resolved, 'utf-8'));
+    // 内置模板只读：只有 COMPOSED_DIR 里的用户工作流可就地保存。
+    res.json({ ...graph, file: resolved, editable: isInside(resolved, COMPOSED_DIR) });
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+
+app.post('/api/workflows/graph', async (req, res) => {
+  const { file, name, nodes, edges, baseYaml } = req.body || {};
+  if (!Array.isArray(nodes) || nodes.length === 0) return res.status(400).json({ error: 'nodes required' });
+  // edges 必须显式传数组（可空=无依赖）。缺失则拒绝，避免把原工作流的依赖静默清空（QA #6）。
+  if (!Array.isArray(edges)) return res.status(400).json({ error: 'edges must be an array (use [] for no dependencies)' });
+  // 每个节点必须有非空 role，否则会存出跑不起来的工作流（QA #14）。
+  const roleless = nodes.filter((n) => !n?.data?.role || typeof n.data.role !== 'string' || !n.data.role.trim());
+  if (roleless.length > 0) return res.status(400).json({ error: `每个步骤都要选角色（${roleless.length} 个步骤缺 role）` });
+  // 底稿：编辑既有工作流用其自身 YAML；否则用前端传来的 baseYaml（含 llm/agents_dir 等顶层）。
+  let base = typeof baseYaml === 'string' ? baseYaml : '';
+  let overwritePath = '';
+  if (typeof file === 'string' && file) {
+    const resolved = resolve(file);
+    if (!isAllowedWorkflow(resolved)) return res.status(403).json({ error: 'file outside allowed dirs' });
+    if (!existsSync(resolved)) return res.status(404).json({ error: 'file not found' });
+    if (!base) base = readFileSync(resolved, 'utf-8');
+    if (isInside(resolved, COMPOSED_DIR)) overwritePath = resolved; // 仅用户目录可就地覆盖
+  }
+  if (!base) return res.status(400).json({ error: 'need file or baseYaml as base' });
+
+  try {
+    const { graphToWorkflow } = await import('../dist/canvas/graph.js');
+    const { validateWorkflow } = await import('../dist/core/parser.js');
+    const yamlText = graphToWorkflow({ name: String(name || 'workflow'), nodes, edges }, base);
+    // 保存前用引擎校验挡环 / 坏依赖 / 非法 loop（不校验角色文件存在，结构有效即可）。
+    const def = yaml.load(yamlText);
+    const errors = validateWorkflow(def);
+    if (errors.length > 0) return res.status(400).json({ error: 'invalid workflow', errors });
+
+    mkdirSync(COMPOSED_DIR, { recursive: true });
+    let outPath = overwritePath;
+    if (!outPath) {
+      const safe = String(name || def?.name || 'workflow')
+        .replace(/[^一-鿿a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'workflow';
+      outPath = join(COMPOSED_DIR, `${safe}.yaml`);
+      let i = 2;
+      while (existsSync(outPath)) { outPath = join(COMPOSED_DIR, `${safe}-${i}.yaml`); i++; }
+    }
+    if (!isInside(outPath, COMPOSED_DIR)) return res.status(400).json({ error: 'bad path' });
+    writeFileSync(outPath, yamlText.endsWith('\n') ? yamlText : yamlText + '\n', 'utf-8');
+    res.json({ file: outPath, overwritten: !!overwritePath });
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
 });
 
 // ── Teams / Loadouts: reusable role line-ups, shared with the `ao team` CLI ──
@@ -936,7 +1016,19 @@ app.get('/api/config', (_req, res) => {
     model: saved.ollama?.model || '',
     configured: !!saved.ollama?.model,
   };
-  res.json({ providers, cli: CLI_PROVIDERS, defaultProvider: process.env.AO_PROVIDER || 'apinebula' });
+  // 探测本机已安装的订阅制 CLI（可零配置直接用，无需在 AO 配 key）。
+  const installedCli = detectInstalledCliProviders();
+  const cli = CLI_PROVIDERS.map((name) => ({ name, installed: installedCli.includes(name) }));
+  // 推荐 provider：已装的 CLI 优先（零配置）> 已配 key 的 provider > 默认。前端据此默认选中并给提示。
+  const keyedWithKey = Object.entries(providers).find(([, p]) => p.hasKey)?.[0];
+  const recommended = installedCli[0] || keyedWithKey || (process.env.AO_PROVIDER || 'apinebula');
+  res.json({
+    providers,
+    cli,
+    installedCli,
+    recommended,
+    defaultProvider: process.env.AO_PROVIDER || 'apinebula',
+  });
 });
 
 app.post('/api/config', (req, res) => {
@@ -1016,14 +1108,32 @@ app.post('/api/test-provider', async (req, res) => {
 app.get('/api/health', (_req, res) => res.json({ ok: true, version: PKG_VERSION }));
 
 // SPA fallback: serve the React app for any non-API, non-asset route.
-if (HAS_NEW_UI) {
-  app.get(/^(?!\/api\/).*/, (req, res, next) => {
-    if (req.method !== 'GET') return next();
-    res.sendFile(join(WEBSITE_DIST, 'index.html'));
-  });
-}
+// 故意「无条件」注册：即便启动时前端缺失（HAS_NEW_UI=false），也要给一个可读的诊断页，
+// 而不是白屏 / 抛 send 的晦涩 NotFoundError（见 #81：AppImage 里 website/dist 没打进去）。
+app.get(/^(?!\/api\/).*/, (req, res, next) => {
+  if (req.method !== 'GET') return next();
+  const indexHtml = join(WEBSITE_DIST, 'index.html');
+  // 请求期再查一次：打包遗漏 / 文件被删时不让 res.sendFile 抛栈，直接给排查指引。
+  if (!existsSync(indexHtml)) {
+    res.status(503).type('html').send(
+      `<!doctype html><meta charset="utf-8">` +
+      `<title>Agency Orchestrator — 前端未就绪</title>` +
+      `<div style="font-family:system-ui;max-width:640px;margin:10vh auto;padding:0 24px;line-height:1.7">` +
+      `<h2>⚠️ Studio 前端产物缺失</h2>` +
+      `<p>服务已启动，但找不到前端文件 <code>${indexHtml}</code>。</p>` +
+      `<p>若你是<strong>桌面端</strong>用户：这是打包产物不完整（已知问题 #81），请下载更新后的版本；` +
+      `临时可改用网页版 <code>npm i -g agency-orchestrator &amp;&amp; ao web</code>。</p>` +
+      `<p>若你是<strong>从源码运行</strong>：请先执行 <code>npm run build:studio</code> 生成前端再重启。</p>` +
+      `</div>`
+    );
+    return;
+  }
+  res.sendFile(indexHtml);
+});
 
 app.listen(PORT, HOST, () => {
   const ui = HAS_NEW_UI ? 'Web Studio' : 'web UI (legacy)';
   console.log(`🌐 agency-orchestrator ${ui}: http://${HOST}:${PORT}`);
+  // 把解析到的前端路径打出来，前端缺失类问题（#81）一眼可查。
+  if (!HAS_NEW_UI) console.warn(`⚠️  未找到 React 前端产物：${join(WEBSITE_DIST, 'index.html')}（将回退 legacy UI / 诊断页）`);
 });

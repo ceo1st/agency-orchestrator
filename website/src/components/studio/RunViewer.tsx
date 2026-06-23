@@ -1,18 +1,22 @@
-import { Check, Copy, Download, Loader2, MessageSquare, Minus, Square, Terminal, X } from "lucide-react";
+import { Check, Copy, Download, Loader2, MessageSquare, Minus, Scale, Square, Terminal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useCopy } from "@/components/ui/copy-button";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { StepList } from "./StepList";
 import { useRunManager, type PendingInput } from "./RunManager";
+import { BaselineCompareOverlay } from "./BaselineCompareOverlay";
 import { downloadText, safeFilename } from "@/lib/download";
+import type { Workflow } from "@/lib/studio";
+import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 
 export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { runs, openId, open, stop, rerunWithFeedback, submitInput } = useRunManager();
   const run = runs.find((r) => r.id === openId) || null;
   const [showTerminal, setShowTerminal] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { copied, copy } = useCopy();
 
@@ -46,6 +50,7 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
   const doneCount = run.steps.filter((s) => s.status === "done").length;
 
   return (
+    <>
     <div className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6">
       <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-none border border-border/70 bg-background shadow-2xl sm:max-h-[84vh] sm:rounded-2xl">
         {/* header */}
@@ -143,6 +148,17 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
                 </Button>
               </>
             )}
+            {/* 价值时刻:工作流跑完后,一键对比"单个 AI"——直观看多智能体到底强在哪 */}
+            {!running && run.kind === "workflow" && run.state === "done" && run.source && (
+              <Button
+                size="sm"
+                onClick={() => { track("compare_open", { from: "run" }); setShowCompare(true); }}
+                title={lang === "en" ? "Run a single-shot baseline and blind-judge both" : "再跑一次单个 AI 基线并盲评,看多智能体强在哪"}
+              >
+                <Scale className="size-3.5" />
+                {lang === "en" ? "vs Single AI" : "对比单个 AI"}
+              </Button>
+            )}
             {!running && run.state === "done" && onViewHistory && (
               <Button size="sm" variant="ghost" onClick={() => onViewHistory()}>
                 {t.studio.run.viewHistory}
@@ -157,6 +173,15 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
         </div>
       </div>
     </div>
+    {showCompare && run.source && (
+      <BaselineCompareOverlay
+        wf={{ file: run.source.file, filename: run.source.file.split("/").pop() ?? run.source.file, name: run.title } as Workflow}
+        inputs={run.source.inputs ?? {}}
+        provider={run.source.provider}
+        onClose={() => setShowCompare(false)}
+      />
+    )}
+    </>
   );
 }
 

@@ -15,6 +15,20 @@ function estimateTokens(text: string): number {
   return Math.ceil(cjk * 1.5 + ascii / 4);
 }
 
+/** 构造「停顿中断」错误，带 stalled / noContent 标记，供 executor 给精准提示（不再首推增大超时）。 */
+function makeStallError(stallMs: number, contentLen: number, partial?: string): Error {
+  const secs = Math.max(1, Math.round(stallMs / 1000));
+  const detail = contentLen === 0
+    ? `provider ${secs}s 内未返回任何内容（0 token，多半输入过大或服务端卡住）`
+    : `provider 停顿超过 ${secs}s 未继续输出`;
+  const err = new Error(`stream stalled: ${detail}`);
+  (err as { stalled?: boolean }).stalled = true;
+  (err as { noContent?: boolean }).noContent = contentLen === 0;
+  if (partial) (err as { partialContent?: string }).partialContent = partial;
+  process.stderr.write(`\n  ⏱️  ${detail}，已主动中断（可调 AO_STREAM_STALL_MS）\n`);
+  return err;
+}
+
 export class OpenAICompatibleConnector implements LLMConnector {
   private apiKey: string;
   /** 只读暴露给外部 debug / 测试用，运行时不可变 */
@@ -63,8 +77,20 @@ export class OpenAICompatibleConnector implements LLMConnector {
       }
 
       const fetchTimeout = config.timeout || 300_000;
+      // 首字节/停顿超时：provider 迟迟不吐数据（输入过大 / 服务端卡死）时快速失败，
+      // 而不是干等到总超时（可被动态抬到 20+ 分钟）。可用 AO_STREAM_STALL_MS 覆盖；不超过总超时。
+      // 覆盖「等响应头」+「读 body」全程：连响应头都不来也能在 stallMs 内中断（不只 token 间隙）。
+      const stallMs = Math.min(Number(process.env.AO_STREAM_STALL_MS) || 90_000, fetchTimeout);
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), fetchTimeout);
+      const abortState = { stalled: false };
+      let stallTimer: ReturnType<typeof setTimeout> | undefined;
+      const armStall = () => {
+        clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => { abortState.stalled = true; controller.abort(); }, stallMs);
+      };
+      const clearStall = () => clearTimeout(stallTimer);
+      armStall(); // 从发起请求就开始计时（覆盖「等响应头」阶段）
 
       let response: Response;
       try {
@@ -86,6 +112,11 @@ export class OpenAICompatibleConnector implements LLMConnector {
         });
       } catch (err) {
         clearTimeout(timer);
+        clearStall();
+        // 等响应头阶段就被停顿检测中断（provider 连头都不发）
+        if (abortState.stalled) {
+          throw makeStallError(stallMs, 0);
+        }
         const url = `${this.baseUrl}/chat/completions`;
         const hint = !this.apiKey
           ? '\n  可能原因: 未设置 API Key，请检查环境变量（DEEPSEEK_API_KEY 或 OPENAI_API_KEY）或 .env 配置'
@@ -95,28 +126,35 @@ export class OpenAICompatibleConnector implements LLMConnector {
 
       if (!response.ok) {
         clearTimeout(timer);
+        clearStall();
         const text = await response.text();
         throw new Error(`API error ${response.status}: ${text}`);
       }
 
       let streamResult: { content: string; finishReason: string | null };
       try {
-        streamResult = await this.readStream(response);
+        // armStall 在 readStream 收到每段字节时被调用以重置停顿计时
+        streamResult = await this.readStream(response, { onData: armStall });
       } catch (err) {
         clearTimeout(timer);
-        // stream 断开，检查是否有部分内容
+        clearStall();
         const partial = (err as any).partialContent as string | undefined;
+        // 断点续写：拿到 >200 字符部分内容就续写（停顿中断也算，下一轮会重新计时）
         if (partial && partial.length > 200) {
           fullContent += partial;
           process.stderr.write(`  🔄 断点续写 (${continuation + 1}/${maxContinuations})，已累计 ${fullContent.length} 字符...\n`);
-          continue;  // 自动续写
+          continue;
         }
-        // 没有可用的部分内容，向上抛出
+        // 停顿中断且无可用部分内容 → 抛精准 stall 错误（带 noContent，供 executor 给对的提示）
+        if (abortState.stalled) {
+          throw makeStallError(stallMs, fullContent.length, fullContent.length > 200 ? fullContent : undefined);
+        }
         const streamErr = new Error(`streaming terminated (已收到 ${fullContent.length} 字符): ${err instanceof Error ? err.message : err}`);
         (streamErr as any).partialContent = fullContent.length > 200 ? fullContent : undefined;
         throw streamErr;
       } finally {
         clearTimeout(timer);
+        clearStall();
       }
 
       fullContent += streamResult.content;
@@ -156,7 +194,10 @@ export class OpenAICompatibleConnector implements LLMConnector {
    * 格式: data: {"choices":[{"delta":{"content":"token"}}]}\n\n
    * 结束: data: [DONE]\n\n
    */
-  private async readStream(response: Response): Promise<{ content: string; finishReason: string | null }> {
+  private async readStream(
+    response: Response,
+    opts?: { onData?: () => void },
+  ): Promise<{ content: string; finishReason: string | null }> {
     const reader = response.body?.getReader();
     if (!reader) throw new Error('Response body is null');
 
@@ -170,6 +211,7 @@ export class OpenAICompatibleConnector implements LLMConnector {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        opts?.onData?.();  // 连接还在产出字节，重置外层停顿计时
 
         buffer += decoder.decode(value, { stream: true });
 
@@ -209,10 +251,10 @@ export class OpenAICompatibleConnector implements LLMConnector {
       }
     } catch (err) {
       reader.cancel().catch(() => {});  // 释放连接资源
-      // 流被服务端断开（DeepSeek ~60s 超时等）
-      // 始终抛出错误让 executor 重试，部分内容附在 error 上供最后兜底
+      // 流被服务端断开（DeepSeek ~60s 超时）或被外层停顿检测 abort。
+      // 始终抛出错误让 chat 判断（停顿 / 部分内容），部分内容附在 error 上供兜底。
       const streamErr = new Error(`streaming terminated (已收到 ${content.length} 字符): ${err instanceof Error ? err.message : err}`);
-      (streamErr as any).partialContent = content.length > 200 ? content : undefined;
+      (streamErr as { partialContent?: string }).partialContent = content.length > 200 ? content : undefined;
       process.stderr.write(`\n  ⚠️  流式连接中断 (${err instanceof Error ? err.message : err})，已收到 ${content.length} 字符\n`);
       throw streamErr;
     }

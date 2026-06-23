@@ -309,7 +309,22 @@ export function dynamicInitialTimeout(defaultTimeout: number, inputChars: number
  * 把"streaming terminated / timeout"这种死胡同变成"下一步该怎么做"，是激活漏斗里
  * 用户决定去留的关键一刻。
  */
-export function timeoutFailureHint(provider: string): string {
+export function timeoutFailureHint(provider: string, opts?: { noContent?: boolean }): string {
+  // 0 token / 停顿中断：provider 根本没开始响应。增大超时无效（已等过了），首推换 provider / 拆分 / 收窄输入。
+  if (opts?.noContent) {
+    const lines = [
+      '',
+      '  💡 provider 全程未返回任何内容（0 token）——多半是输入过大或服务端卡住，不是 AO 在等。',
+      '     ⚠️ 增大超时无效（已等满仍是 0 token）。建议按顺序：',
+      '     1. 换更稳的 provider/model：如本机已登录的 claude-code（零配置、扛长生成）',
+      '     2. 拆分任务：把这步拆成多个更小的 step，每步输出更短',
+      '     3. 收窄输入：只用 depends_on 引用必要的上游 output，别把全部上游灌进 task',
+    ];
+    if (provider === 'deepseek') {
+      lines.push('     · DeepSeek 对超大输入/超长输出尤其容易卡死；换 provider 或拆细最有效');
+    }
+    return lines.join('\n');
+  }
   const lines = [
     '',
     '  💡 该步骤因超时/连接中断失败。可尝试 / On timeout, try:',
@@ -473,7 +488,8 @@ async function executeStep(
 
   // 超时/连接类失败：在错误信息后附上可操作指引（基于 effectiveConfig.provider）
   if (lastError && classifyError(lastError) === 'connection') {
-    lastError.message += timeoutFailureHint(effectiveConfig.provider);
+    const noContent = !!(lastError as any).noContent || !!(lastError as any).stalled;
+    lastError.message += timeoutFailureHint(effectiveConfig.provider, { noContent });
   }
   throw lastError || new Error(`step "${node.step.id}" 执行失败`);
 }
@@ -647,6 +663,7 @@ function classifyError(error: Error): 'rate_limit' | 'server_error' | 'connectio
   if (msg.includes('econnreset') || msg.includes('econnrefused') ||
       msg.includes('etimedout') || msg.includes('socket hang up') ||
       msg.includes('terminated') || msg.includes('aborted') ||
+      msg.includes('stalled') ||
       msg.includes('timeout') || msg.includes('超时'))
     return 'connection';
   return 'non_retryable';

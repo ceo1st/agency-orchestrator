@@ -282,12 +282,32 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
   useEffect(load, []);
 
   const eff = active || DEFAULT_PROVIDER;
+  // cli 项兼容新旧两种形态：{name,installed} 或裸字符串
+  const cliItems = (cfg?.cli ?? []).map((c) => (typeof c === "string" ? { name: c, installed: false } : c));
+  const installedCli = cfg?.installedCli ?? cliItems.filter((c) => c.installed).map((c) => c.name);
+  // 推荐零配置路径：本机已装 CLI、且当前选中的 provider 既不是它、又没配 key 时，给一条横幅引导一键切换。
+  const activeHasKey = !!cfg?.providers?.[eff]?.hasKey;
+  const showRecommend = installedCli.length > 0 && !installedCli.includes(eff) && !activeHasKey;
 
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
         {t.studio.providers.privacyBeforeLocal}<strong>{t.studio.providers.privacyLocal}</strong>{t.studio.providers.privacyBeforeCode}<code className="rounded bg-muted px-1 py-0.5">.local/web-keys.json</code>{t.studio.providers.privacyAfter}
       </div>
+
+      {/* 零配置推荐：探测到本机已装订阅制 CLI 时，引导一键切换，绕开 key 墙 */}
+      {showRecommend && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/[0.07] px-4 py-3 text-sm">
+          <span className="text-foreground">
+            {t.studio.providers.recommendPre}
+            <strong>{PROVIDER_LABELS[installedCli[0]] ?? installedCli[0]}</strong>
+            {t.studio.providers.recommendPost}
+          </span>
+          <Button size="sm" className="ml-auto" onClick={() => onSetActive(installedCli[0])}>
+            {t.studio.providers.recommendUse}
+          </Button>
+        </div>
+      )}
 
       {failed ? (
         <p className="py-10 text-center text-sm text-red-500">{t.studio.providers.loadFailed}</p>
@@ -320,11 +340,13 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
               <Terminal className="size-4 text-muted-foreground" /> {t.studio.providers.localCliTitle} <span className="font-normal text-muted-foreground">· {t.studio.providers.localCliHint}</span>
             </h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {cfg.cli.map((id) => (
-                <div key={id} className={cn("flex items-center justify-between rounded-2xl border bg-card/60 px-4 py-3", eff === id ? "border-primary/60" : "border-border/70")}>
+              {cliItems.map(({ name: id, installed }) => (
+                <div key={id} className={cn("flex items-center justify-between rounded-2xl border bg-card/60 px-4 py-3", installed ? "border-emerald-500/50" : eff === id ? "border-primary/60" : "border-border/70")}>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{PROVIDER_LABELS[id] ?? id}</span>
-                    <span className="block truncate text-[11px] text-muted-foreground">{t.studio.providers.cliRequirement}</span>
+                    <span className={cn("block truncate text-[11px]", installed ? "font-medium text-emerald-500" : "text-muted-foreground")}>
+                      {installed ? t.studio.providers.cliInstalledBadge : t.studio.providers.cliRequirement}
+                    </span>
                   </span>
                   <ActiveButton on={eff === id} onClick={() => onSetActive(id)} />
                 </div>
