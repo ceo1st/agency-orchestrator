@@ -8,6 +8,7 @@ import { useRunManager, type PendingInput } from "./RunManager";
 import { BaselineCompareOverlay } from "./BaselineCompareOverlay";
 import { downloadText, safeFilename } from "@/lib/download";
 import type { Workflow } from "@/lib/studio";
+import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 
 export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
@@ -151,7 +152,7 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
             {!running && run.kind === "workflow" && run.state === "done" && run.source && (
               <Button
                 size="sm"
-                onClick={() => setShowCompare(true)}
+                onClick={() => { track("compare_open", { from: "run" }); setShowCompare(true); }}
                 title={lang === "en" ? "Run a single-shot baseline and blind-judge both" : "再跑一次单个 AI 基线并盲评,看多智能体强在哪"}
               >
                 <Scale className="size-3.5" />

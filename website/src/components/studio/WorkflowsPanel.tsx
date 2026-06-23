@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
 import { api, getFavWorkflows, setFavWorkflows, type Workflow } from "@/lib/studio";
+import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
 import type { RunRequest } from "./RunManager";
@@ -193,6 +194,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
 
   const runOne = (w: Workflow) => {
     if (demo) return onInstallPrompt?.();
+    track("workflow_run", { file: w.filename });
     if (w.inputs && w.inputs.length) setInputsFor(w);
     else onRun({ kind: "workflow", title: w.name, file: w.file, provider: provider || undefined, cast: w.steps });
   };
@@ -200,6 +202,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
   // 对比单次基线：需引擎，demo 引导安装；有输入先填，再开对比视图
   const compareOne = (w: Workflow) => {
     if (demo) return onInstallPrompt?.();
+    track("compare_open", { from: "card" });
     if (w.inputs && w.inputs.length) setInputsFor(w); // 复用输入对话框（含「对比单次」按钮）
     else setBaseline({ wf: w, inputs: {} });
   };

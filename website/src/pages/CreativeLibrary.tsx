@@ -5,6 +5,7 @@ import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Search } from "lu
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSeo } from "@/lib/useSeo";
+import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import dataset from "@/content/creative-prompts.json";
 
@@ -27,7 +28,7 @@ const DATA = dataset as {
 function PromptCard({ p }: { p: CreativePrompt }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try { await navigator.clipboard.writeText(p.prompt); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* noop */ }
+    try { await navigator.clipboard.writeText(p.prompt); setCopied(true); track("creative_prompt_copy", { id: p.id, category: p.category, source: p.source }); setTimeout(() => setCopied(false), 1500); } catch { /* noop */ }
   };
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/60">

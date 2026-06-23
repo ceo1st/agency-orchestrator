@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, type ComposeResult, type Role, type Team, type Workflow } from "@/lib/studio";
+import { track } from "@/lib/track";
 import { demoRoles } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 import { ComposePreview } from "./ComposePreview";
@@ -181,6 +182,8 @@ export function RolesPicker({
     }
     setComposing(true);
     setComposeErr(null);
+    const mode = auto ? "auto" : "manual";
+    track("compose_start", { mode, role_count: auto ? 0 : count });
     try {
       const res = await api.compose({
         description: task.trim(),
@@ -189,6 +192,7 @@ export function RolesPicker({
         provider: provider || undefined,
         lang,
       });
+      track("compose_success", { mode });
       // Preview the composed team before running (not a black box).
       setPreview({ result: res, meta: null, loading: true });
       try {
@@ -199,6 +203,7 @@ export function RolesPicker({
         setPreview({ result: res, meta: null, loading: false });
       }
     } catch (e: any) {
+      track("compose_error", { mode });
       setComposeErr(e?.message || t.studio.roles.composeFailed);
     } finally {
       setComposing(false);
