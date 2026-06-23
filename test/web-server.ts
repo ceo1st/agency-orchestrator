@@ -96,6 +96,15 @@ try {
     // 成环：a → b → a，validateWorkflow 应拒
     const cycleBody = { ...okBody, edges: [{ id: 'a->b', source: 'a', target: 'b' }, { id: 'b->a', source: 'b', target: 'a' }] };
     assert(await post(base, '/api/workflows/graph', cycleBody) === 400, '/api/workflows/graph 成环 → 400 被校验拦截');
+
+    // ── 报告导出 /api/export ──
+    assert(await post(base, '/api/export', { format: 'docx' }) === 400, '/api/export 缺 markdown → 400');
+    assert(await post(base, '/api/export', { markdown: '# x', format: 'rtf' }) === 400, '/api/export 非法格式 → 400');
+    const expDocx = await fetch(base + '/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ markdown: '# 标题\n\n| a | b |\n|---|---|\n| 1 | 2 |\n', format: 'docx', name: '测试报告' }) });
+    assert(expDocx.status === 200 && (expDocx.headers.get('content-type') || '').includes('wordprocessingml'), `/api/export docx → 200 + docx mime(${expDocx.status})`);
+    const expSkill = await fetch(base + '/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ markdown: '# plan', format: 'skill', name: 's' }) });
+    const skillText = await expSkill.text();
+    assert(expSkill.status === 200 && skillText.startsWith('---\nname:'), '/api/export skill → 200 + frontmatter');
   }
 } finally {
   if (server) server.kill('SIGTERM');

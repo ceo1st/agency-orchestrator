@@ -796,6 +796,24 @@ app.post('/api/workflows/graph', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
 });
 
+// ── 报告导出:Markdown → Word / PDF / Excel / Skill / 可执行计划(确定性转换,见 src/export/convert.ts) ──
+app.post('/api/export', async (req, res) => {
+  const { markdown, format, name } = req.body || {};
+  if (!markdown || typeof markdown !== 'string') return res.status(400).json({ error: 'markdown required' });
+  const allowed = ['docx', 'pdf', 'xlsx', 'skill', 'plan'];
+  if (!allowed.includes(format)) return res.status(400).json({ error: `format must be one of ${allowed.join('/')}` });
+  try {
+    const { exportMarkdown } = await import('../dist/export/convert.js');
+    const r = await exportMarkdown(markdown, format, { name: typeof name === 'string' ? name : undefined });
+    const safe = (typeof name === 'string' && name.trim() ? name : 'report').replace(/[^一-鿿a-zA-Z0-9_-]+/g, '-').replace(/-+/g, '-').slice(0, 60) || 'report';
+    res.setHeader('Content-Type', r.mime);
+    // 中文文件名用 RFC 5987 编码,避免 header 非法字符
+    res.setHeader('Content-Disposition', `attachment; filename="export.${r.ext}"; filename*=UTF-8''${encodeURIComponent(safe)}.${r.ext}`);
+    res.setHeader('X-Export-Engine', r.engine);
+    res.send(r.buffer);
+  } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+
 // ── Teams / Loadouts: reusable role line-ups, shared with the `ao team` CLI ──
 // Stored in ~/.ao/teams (or AO_TEAMS_DIR) so CLI-saved and Studio-saved teams interoperate.
 app.get('/api/teams', async (_req, res) => {

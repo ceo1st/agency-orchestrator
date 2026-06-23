@@ -1,4 +1,4 @@
-import { Check, Copy, Download, Loader2, MessageSquare, Minus, Scale, Square, Terminal, X } from "lucide-react";
+import { Check, ChevronDown, Copy, Download, FileDown, Loader2, MessageSquare, Minus, Scale, Square, Terminal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useCopy } from "@/components/ui/copy-button";
@@ -7,7 +7,7 @@ import { StepList } from "./StepList";
 import { useRunManager, type PendingInput } from "./RunManager";
 import { BaselineCompareOverlay } from "./BaselineCompareOverlay";
 import { downloadText, safeFilename } from "@/lib/download";
-import type { Workflow } from "@/lib/studio";
+import { downloadExport, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,9 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
   const run = runs.find((r) => r.id === openId) || null;
   const [showTerminal, setShowTerminal] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [exportErr, setExportErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { copied, copy } = useCopy();
 
@@ -46,8 +49,30 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [run, open]);
 
+  const doExport = async (format: "docx" | "pdf" | "xlsx" | "skill" | "plan") => {
+    if (!run || !fullText) return;
+    setExportOpen(false);
+    setExporting(format);
+    setExportErr(null);
+    track("export", { format });
+    try {
+      await downloadExport(fullText, format, run.title);
+    } catch (e: unknown) {
+      setExportErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(null);
+    }
+  };
+
   if (!run) return null;
   const doneCount = run.steps.filter((s) => s.status === "done").length;
+  const EXPORTS: Array<{ fmt: "docx" | "pdf" | "xlsx" | "skill" | "plan"; label: string }> = [
+    { fmt: "docx", label: lang === "en" ? "Word (.docx)" : "Word 文档 (.docx)" },
+    { fmt: "pdf", label: "PDF" },
+    { fmt: "xlsx", label: lang === "en" ? "Excel (.xlsx)" : "Excel 表格 (.xlsx)" },
+    { fmt: "skill", label: lang === "en" ? "Save as Skill (.md)" : "存为 Skill (.md)" },
+    { fmt: "plan", label: lang === "en" ? "Executable plan (.md)" : "存为可执行计划 (.md)" },
+  ];
 
   return (
     <>
@@ -128,8 +153,8 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
 
         {/* footer */}
         <div className="flex items-center justify-between gap-2 border-t border-border/60 px-5 py-3">
-          <span className="truncate text-xs text-muted-foreground">
-            {running ? t.studio.run.backgroundHint : run.state === "done" ? t.studio.run.savedToHistory : ""}
+          <span className={cn("truncate text-xs", exportErr ? "text-red-500" : "text-muted-foreground")}>
+            {exportErr ? `导出失败：${exportErr}` : running ? t.studio.run.backgroundHint : run.state === "done" ? t.studio.run.savedToHistory : ""}
           </span>
           <div className="flex shrink-0 gap-2">
             {!!fullText && (
@@ -146,6 +171,30 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
                   <Download className="size-3.5" />
                   {t.studio.run.downloadMd}
                 </Button>
+                {/* 导出为 Word/PDF/Excel(给人)或 Skill/可执行计划(给机器)*/}
+                <div className="relative">
+                  <Button size="sm" variant="outline" onClick={() => setExportOpen((v) => !v)}>
+                    {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />}
+                    {lang === "en" ? "Export" : "导出"}
+                    <ChevronDown className="size-3 opacity-60" />
+                  </Button>
+                  {exportOpen && (
+                    <div className="absolute bottom-full right-0 z-10 mb-1 min-w-44 rounded-xl border border-border/60 bg-background/95 p-1.5 shadow-lg backdrop-blur-xl">
+                      {EXPORTS.map((e, i) => (
+                        <div key={e.fmt}>
+                          {i === 3 && <div className="my-1 border-t border-border/50" />}
+                          <button
+                            onClick={() => doExport(e.fmt)}
+                            disabled={!!exporting}
+                            className="block w-full rounded-lg px-3 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                          >
+                            {e.label}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </>
             )}
             {/* 价值时刻:工作流跑完后,一键对比"单个 AI"——直观看多智能体到底强在哪 */}

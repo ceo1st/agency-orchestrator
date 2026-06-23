@@ -137,6 +137,28 @@ export type SseHandler = (event: string, data: any) => void;
 
 const API = "/api";
 
+/** 把报告 Markdown 导出成 Word/PDF/Excel/Skill/计划,并触发浏览器下载。 */
+export async function downloadExport(markdown: string, format: "docx" | "pdf" | "xlsx" | "skill" | "plan", name: string): Promise<void> {
+  const res = await fetch(`${API}/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ markdown, format, name }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `导出失败 (${res.status})`);
+  const blob = await res.blob();
+  const cd = res.headers.get("content-disposition") || "";
+  const m = cd.match(/filename\*=UTF-8''([^;]+)/);
+  const fname = m ? decodeURIComponent(m[1]) : `${name}.${format}`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function getJSON<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
