@@ -3,7 +3,7 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、RootFlowAI（大模型 API 聚合平台）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  */
 
@@ -87,6 +87,29 @@ export const sponsors: Sponsor[] = [
     perk: {
       zh: "新用户注册立得 5 元平台体验金",
       en: "¥5 free platform credit for new sign-ups",
+    },
+  },
+  {
+    id: "rootflowai",
+    name: "RootFlowAI",
+    badge: "RF",
+    accent: "from-sky-600 to-slate-400",
+    logo: "/sponsors/logo-rootflowai-icon.png",
+    url: "https://rootflowai.com/register?utm_source=agency-agents-zh&utm_medium=sponsor&utm_campaign=web",
+    tier: "standard",
+    since: "2026-07",
+    featured: false,
+    tagline: {
+      zh: "绝不掺水的纯粹算力源",
+      en: "Pure, uncompromised compute — no dilution, no shortcuts",
+    },
+    description: {
+      zh: "感谢 RootFlowAI 赞助本项目！RootFlowAI 是面向开发者、团队与企业的大模型 API 聚合平台，聚合 Claude、GPT、Gemini、绘图、视频与多模态模型，支持价格对比、调用日志、服务状态监控与余额账单管理。提供企业级高并发保障、7×24 技术支持、合同签约、对公打款与开票服务，适用于 AI 编程、Agent 开发、业务系统集成与企业集采场景。",
+      en: "Thanks to RootFlowAI for sponsoring this project! RootFlowAI is a large-model API aggregation platform for developers, teams and enterprises, aggregating Claude, GPT, Gemini, image, video and multimodal models — with price comparison, call logs, service status monitoring and balance/billing management. It offers enterprise-grade high concurrency, 24/7 technical support, formal contracts, corporate payments and invoicing, suitable for AI coding, Agent development, business-system integration and enterprise procurement.",
+    },
+    perk: {
+      zh: "注册成功后，添加企业微信服务群即可领取 $10 免费体验额度",
+      en: "Register and join our WeCom support group to claim a $10 free trial credit",
     },
   },
 ];
