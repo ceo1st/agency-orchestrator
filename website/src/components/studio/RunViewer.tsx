@@ -153,8 +153,23 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
 
         {/* footer */}
         <div className="flex items-center justify-between gap-2 border-t border-border/60 px-5 py-3">
-          <span className={cn("truncate text-xs", exportErr ? "text-red-500" : "text-muted-foreground")}>
-            {exportErr ? `导出失败：${exportErr}` : running ? t.studio.run.backgroundHint : run.state === "done" ? t.studio.run.savedToHistory : ""}
+          <span className={cn("min-w-0 truncate text-xs", exportErr ? "text-red-500" : "text-muted-foreground")}>
+            {exportErr ? `导出失败：${exportErr}` : running ? t.studio.run.backgroundHint : run.state === "done" ? (
+              <>
+                {t.studio.run.savedToHistory}
+                {/* 保存位置:用户反馈"不知道文件存在哪"——显示绝对路径,点击复制 */}
+                {run.outputDir && (
+                  <button
+                    type="button"
+                    onClick={() => copy(run.outputDir!)}
+                    title={t.studio.run.copyPath}
+                    className="ml-2 inline-flex max-w-[320px] items-center gap-1 truncate align-bottom font-mono text-[11px] text-muted-foreground/80 hover:text-foreground"
+                  >
+                    📁 <span className="truncate">{run.outputDir}</span>
+                  </button>
+                )}
+              </>
+            ) : ""}
           </span>
           <div className="flex shrink-0 gap-2">
             {!!fullText && (

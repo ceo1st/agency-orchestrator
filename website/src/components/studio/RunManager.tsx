@@ -60,6 +60,8 @@ export interface RunInstance {
   runId?: string;
   /** 非空时表示某步正等待人工输入，前端应弹输入框 */
   pendingInput?: PendingInput | null;
+  /** 本次运行产物的保存目录（绝对路径,来自服务端 output-dir 事件） */
+  outputDir?: string;
 }
 
 interface RunManagerValue {
@@ -177,6 +179,9 @@ export function RunProvider({ children }: { children: ReactNode }) {
             break;
           case "workflow-summary":
             inst.summary = data.text;
+            break;
+          case "output-dir":
+            inst.outputDir = data.dir;
             break;
           case "stdout":
             inst.terminal += data.text;

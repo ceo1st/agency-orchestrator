@@ -518,6 +518,9 @@ app.post('/api/run', (req, res) => {
 
     // Trailing footer after the summary — never part of a step body.
     if (/^详细输出[:：]/.test(clean) || /^💡/.test(clean) || /^可选步骤/.test(clean) || /^steps[:：]/i.test(clean)) {
+      // 把输出目录单独发给前端展示"保存位置"(用户反馈:不知道文件存在哪)
+      const m = clean.match(/(?:详细输出|Detailed output)[:：]?\s*(.+)$/i);
+      if (m) send('output-dir', { dir: resolve(DATA_DIR, m[1].trim()) });
       currentStepId = null;
       return;
     }
@@ -729,6 +732,14 @@ app.post('/api/run-role', (req, res) => {
     if (/^完成\s*\|/.test(clean)) { send('step-done', { meta: clean.replace(/^完成\s*\|\s*/, '') }); return; }
     // Workflow summary
     if (/完成:\s*\d+\/\d+\s*步/.test(clean)) return;
+    // 终端装饰噪音不能混进内容：====== 分隔线尾随文本行会被 Markdown 解析成 setext H1
+    // (用户导出的 md 里"详细输出"上一行变超大标题的根因)；详细输出路径行单独发事件给 UI 展示
+    if (/^=+$/.test(clean)) return;
+    if (/^详细输出[:：]|^Detailed output[:：]?/i.test(clean)) {
+      const m = clean.match(/(?:详细输出|Detailed output)[:：]?\s*(.+)$/i);
+      if (m) send('output-dir', { dir: resolve(DATA_DIR, m[1].trim()) });
+      return;
+    }
     // Collect content
     if (collecting) {
       if (/^⏳/.test(clean)) return;
