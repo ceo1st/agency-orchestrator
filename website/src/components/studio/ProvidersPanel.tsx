@@ -1,8 +1,8 @@
-import { Check, Cloud, ExternalLink, Loader2, MonitorCog, Plus, Settings2, Sparkles, Terminal, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, ChevronDown, Cloud, ExternalLink, Loader2, MonitorCog, Plus, Settings2, Sparkles, Terminal, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, API_PROVIDERS, CLI_RELAY_GLOBAL_WRITE, CLI_RELAY_PRESETS, CLI_RELAY_SUPPORT, DEFAULT_PROVIDER, PROVIDER_LABELS, type ConfigResponse } from "@/lib/studio";
+import { api, API_PROVIDERS, CLI_RELAY_GLOBAL_WRITE, CLI_RELAY_PRESETS, CLI_RELAY_SUPPORT, DEFAULT_PROVIDER, PROVIDER_LABELS, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { ProviderConfigView, type ConfigTarget } from "./ProviderConfigView";
 
@@ -90,6 +90,68 @@ function ProviderRow({
             <Trash2 className="size-3.5" />
           </button>
         )}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * CLI 中转商行（如赞助商 Cubence）：一个中转商同时支持多个 CLI,每个 CLI 的中转配置
+ * 是独立的 —— 用一个「配置中转 ▾」下拉让用户选给哪个 CLI 配,而不是并排一堆裸按钮。
+ */
+function RelayVendorRow({ preset, onConfigure }: { preset: CliRelayPreset; onConfigure: (cliId: string) => void }) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-card/60 px-4 py-3 sm:col-span-2">
+      <span className="min-w-0">
+        <span className="flex items-center gap-1.5">
+          <span className="truncate text-sm font-semibold">{preset.name}</span>
+          {preset.sponsor && (
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
+              <Sparkles className="size-2.5" /> {t.studio.providers.sponsorTag}
+            </span>
+          )}
+        </span>
+        <span className="block truncate text-[11px] text-muted-foreground">{t.studio.providers.cliRelayVendorLine}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5">
+        {preset.signupUrl && (
+          <Button size="sm" asChild>
+            <a href={preset.signupUrl} target="_blank" rel="noreferrer">
+              {t.studio.providers.registerCta} <ExternalLink className="size-3" />
+            </a>
+          </Button>
+        )}
+        <div className="relative" ref={ref}>
+          <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
+            <Settings2 className="size-3.5" /> {t.studio.providers.cliRelayConfigureCta} <ChevronDown className="size-3 opacity-60" />
+          </Button>
+          {open && (
+            <div className="absolute right-0 top-full z-20 mt-1 min-w-44 rounded-xl border border-border/60 bg-background/95 p-1.5 shadow-lg backdrop-blur-xl">
+              {Object.keys(preset.baseUrls).map((cliId) => (
+                <button
+                  key={cliId}
+                  type="button"
+                  onClick={() => { setOpen(false); onConfigure(cliId); }}
+                  className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted"
+                >
+                  {PROVIDER_LABELS[cliId] ?? cliId}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </span>
     </div>
   );
@@ -262,40 +324,13 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
               <Terminal className="size-4 text-muted-foreground" /> {t.studio.providers.localCliTitle} <span className="font-normal text-muted-foreground">· {t.studio.providers.localCliHint}</span>
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              {/* CLI 中转商（如赞助商 Cubence）排区块首行：列表级可见,点对应 CLI 按钮直达中转配置(端点预填) */}
+              {/* CLI 中转商（如赞助商 Cubence）排区块首行：「配置中转 ▾」下拉选给哪个 CLI 配(端点预填) */}
               {relayPresets.map((r) => (
-                <div key={r.name} className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-card/60 px-4 py-3 sm:col-span-2">
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold">{r.name}</span>
-                      {r.sponsor && (
-                        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
-                          <Sparkles className="size-2.5" /> {t.studio.providers.sponsorTag}
-                        </span>
-                      )}
-                    </span>
-                    <span className="block truncate text-[11px] text-muted-foreground">{t.studio.providers.cliRelayVendorLine}</span>
-                  </span>
-                  <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                    {r.signupUrl && (
-                      <Button size="sm" asChild>
-                        <a href={r.signupUrl} target="_blank" rel="noreferrer">
-                          {t.studio.providers.registerCta} <ExternalLink className="size-3" />
-                        </a>
-                      </Button>
-                    )}
-                    {Object.keys(r.baseUrls).map((cliId) => (
-                      <Button
-                        key={cliId}
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditing({ kind: "cli-relay", id: cliId, name: PROVIDER_LABELS[cliId] ?? cliId, globalWrite: CLI_RELAY_GLOBAL_WRITE.has(cliId), initialBaseUrl: r.baseUrls[cliId] })}
-                      >
-                        {PROVIDER_LABELS[cliId] ?? cliId}
-                      </Button>
-                    ))}
-                  </span>
-                </div>
+                <RelayVendorRow
+                  key={r.name}
+                  preset={r}
+                  onConfigure={(cliId) => setEditing({ kind: "cli-relay", id: cliId, name: PROVIDER_LABELS[cliId] ?? cliId, globalWrite: CLI_RELAY_GLOBAL_WRITE.has(cliId), initialBaseUrl: r.baseUrls[cliId] })}
+                />
               ))}
               {cliItems.map(({ name: id, installed }) => {
                 const relayConfigured = !!cfg.providers[id]?.hasKey;
