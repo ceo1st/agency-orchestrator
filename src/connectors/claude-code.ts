@@ -14,7 +14,10 @@ import { writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { t } from '../i18n.js';
+import { decodeProcessOutput } from './cli-base.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
+
+const NOT_FOUND_PATTERN = /not recognized as an internal or external command|不是内部或外部命令|command not found|不是可运行的程序/i;
 
 export class ClaudeCodeConnector implements LLMConnector {
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {
@@ -54,8 +57,8 @@ export class ClaudeCodeConnector implements LLMConnector {
         shell: process.platform === 'win32',
       });
 
-      let stdout = '';
-      let stderr = '';
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
       let killed = false;
       let receivedBytes = 0;
       let lastProgressTime = 0;
@@ -67,7 +70,7 @@ export class ClaudeCodeConnector implements LLMConnector {
       }, timeout);
 
       child.stdout!.on('data', (chunk: Buffer) => {
-        stdout += chunk.toString();
+        stdoutChunks.push(chunk);
         receivedBytes += chunk.length;
         const now = Date.now();
         if (now - lastProgressTime > 10_000) {
@@ -76,7 +79,7 @@ export class ClaudeCodeConnector implements LLMConnector {
           process.stderr.write(`  ${t('stream.received', { size: kb })}\n`);
         }
       });
-      child.stderr!.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+      child.stderr!.on('data', (chunk: Buffer) => { stderrChunks.push(chunk); });
 
       child.stdin!.on('error', () => {});
       child.stdin!.write(stdinData);
@@ -103,7 +106,20 @@ export class ClaudeCodeConnector implements LLMConnector {
           return;
         }
 
+        const stdout = decodeProcessOutput(stdoutChunks);
+        const stderr = decodeProcessOutput(stderrChunks);
+
         if (code !== 0 && !stdout.trim()) {
+          // Windows 下 shell:true 走 cmd.exe，命令不存在时 Node 收不到 ENOENT
+          // （cmd.exe 自己吞了、改成打印错误 + 非零退出），这里单独识别
+          if (NOT_FOUND_PATTERN.test(stderr)) {
+            reject(new Error(
+              '找不到 claude 命令，请先安装 Claude Code CLI\n' +
+              '安装: npm install -g @anthropic-ai/claude-code\n' +
+              '参考: https://github.com/jnMetaCode/agency-orchestrator#llm-配置'
+            ));
+            return;
+          }
           reject(new Error(`Claude Code CLI 调用失败 (exit ${code}): ${stderr.slice(0, 500)}`));
           return;
         }

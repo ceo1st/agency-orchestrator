@@ -19,6 +19,32 @@ import { t } from '../i18n.js';
  */
 const ARG_SAFE_LIMIT = 4 * 1024;
 
+/**
+ * 解码子进程输出。Windows 下这些 CLI 都用 shell:true 启动（npm 全局装的是 .cmd
+ * shim，spawn 不走 shell 执行不了），一旦命令找不到，报错是 cmd.exe 自己吐的
+ * "'gemini' 不是内部或外部命令..."，用的是系统当前 ANSI/OEM 代码页（中文 Windows
+ * 通常是 GBK/CP936），不是 UTF-8。之前直接 toString('utf8') 会把这段本来很清楚的
+ * 报错解码成乱码，用户看到的是一堆问号方块，完全看不出"其实是命令没装/不在 PATH"。
+ * 这里先按严格 UTF-8 校验，非法字节序列（真正的 CLI 输出都应该是合法 UTF-8）就
+ * 判定为别的代码页，回退按 GBK 解码——对中文 Windows 用户是压倒性最常见的情况。
+ */
+export function decodeProcessOutput(chunks: Buffer[]): string {
+  const buf = Buffer.concat(chunks);
+  if (buf.length === 0) return '';
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    if (process.platform === 'win32') {
+      try {
+        return new TextDecoder('gbk').decode(buf);
+      } catch {
+        // 当前 Node 不含该 ICU 编码数据等极端情况，走最终兜底
+      }
+    }
+    return buf.toString('utf-8');
+  }
+}
+
 export interface CLIConnectorConfig {
   /** CLI 命令名 */
   command: string;
@@ -58,8 +84,8 @@ export class CLIBaseConnector implements LLMConnector {
         shell: process.platform === 'win32',
       });
 
-      let stdout = '';
-      let stderr = '';
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
       let killed = false;
       let receivedBytes = 0;
       let lastProgressTime = 0;
@@ -74,7 +100,7 @@ export class CLIBaseConnector implements LLMConnector {
         : null;
 
       child.stdout!.on('data', (chunk: Buffer) => {
-        stdout += chunk.toString();
+        stdoutChunks.push(chunk);
         receivedBytes += chunk.length;
         // 每 10 秒最多显示一次接收进度，让用户知道没卡死
         const now = Date.now();
@@ -84,7 +110,7 @@ export class CLIBaseConnector implements LLMConnector {
           process.stderr.write(`  ${t('stream.received', { size: kb })}\n`);
         }
       });
-      child.stderr!.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+      child.stderr!.on('data', (chunk: Buffer) => { stderrChunks.push(chunk); });
 
       if (useStdin && child.stdin) {
         child.stdin.on('error', () => {});  // 防止子进程提前退出导致 write EPIPE 崩溃
@@ -113,7 +139,23 @@ export class CLIBaseConnector implements LLMConnector {
           return;
         }
 
+        const stdout = decodeProcessOutput(stdoutChunks);
+        const stderr = decodeProcessOutput(stderrChunks);
+
         if (code !== 0 && !stdout.trim()) {
+          // Windows 下 shell:true 走 cmd.exe，命令不存在时 Node 收不到 ENOENT（cmd.exe
+          // 自己吞了、改成打印错误+非零退出），所以"命令未安装"在这里也要能识别，
+          // 不能只靠下面的 child.on('error') ENOENT 分支（那条在 Windows 这种情况下不会触发）。
+          const notFoundPattern = /not recognized as an internal or external command|不是内部或外部命令|command not found|不是可运行的程序/i;
+          const looksLikeNotFound = notFoundPattern.test(stderr);
+          if (looksLikeNotFound) {
+            reject(new Error(
+              `找不到 ${this.cfg.command} 命令，请先安装 ${this.cfg.displayName}\n` +
+              (this.cfg.installHint ? `安装: ${this.cfg.installHint}\n` : '') +
+              `参考: https://github.com/jnMetaCode/agency-orchestrator#llm-配置`
+            ));
+            return;
+          }
           // 启发式识别"首次未认证"类错误（各 CLI 工具首次运行时都要求登录），给中文引导
           const authPattern = /auth method|not authenticated|not logged in|please (login|sign[\s-]*in)|unauthorized|credentials|_API_KEY/i;
           const looksLikeAuth = authPattern.test(stderr);

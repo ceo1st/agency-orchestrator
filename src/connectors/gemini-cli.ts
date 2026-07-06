@@ -13,6 +13,7 @@ export class GeminiCLIConnector extends CLIBaseConnector {
     super({
       command: 'gemini',
       displayName: 'Gemini CLI',
+      installHint: 'npm install -g @google/gemini-cli',
       buildArgs: (prompt: string, config: LLMConfig) => {
         const args: string[] = [];
         if (config.model) args.push('-m', config.model);

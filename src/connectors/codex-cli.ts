@@ -13,6 +13,7 @@ export class CodexCLIConnector extends CLIBaseConnector {
     super({
       command: 'codex',
       displayName: 'OpenAI Codex CLI',
+      installHint: 'npm install -g @openai/codex',
       buildArgs: (prompt: string, config: LLMConfig) => {
         const args = ['exec', '--skip-git-repo-check', '--sandbox', 'read-only'];
         if (config.model) args.push('--model', config.model);

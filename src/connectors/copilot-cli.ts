@@ -13,6 +13,7 @@ export class CopilotCLIConnector extends CLIBaseConnector {
     super({
       command: 'copilot',
       displayName: 'GitHub Copilot CLI',
+      installHint: 'npm install -g @github/copilot',
       buildArgs: (prompt: string, config: LLMConfig) => {
         const args: string[] = [];
         if (config.model) args.push('--model', config.model);

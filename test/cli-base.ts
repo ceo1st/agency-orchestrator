@@ -1,7 +1,7 @@
 /**
  * cli-base.ts 测试：覆盖 CLI connector 通用错误处理
  */
-import { CLIBaseConnector } from '../src/connectors/cli-base.js';
+import { CLIBaseConnector, decodeProcessOutput } from '../src/connectors/cli-base.js';
 import type { LLMConfig } from '../src/types.js';
 
 let passed = 0;
@@ -92,6 +92,92 @@ await test('找不到命令 → ENOENT 提示安装', async () => {
     caught!.message.includes('找不到') && caught!.message.includes('Ghost CLI'),
     `应提示找不到命令，实际: ${caught!.message}`
   );
+});
+
+// ─── decodeProcessOutput：Windows GBK 乱码修复（用户反馈：Gemini CLI 报错显示乱码）───
+// 根因：shell:true 下命令找不到时,cmd.exe 自己吐 "'gemini' 不是内部或外部命令..."
+// 这段错误用的是系统代码页(中文 Windows 是 GBK/CP936),不是 UTF-8。之前直接
+// toString('utf8') 会把这段本该很清楚的报错解码成乱码。
+
+console.log('\n─── decodeProcessOutput 编码修复 ───');
+
+await test('合法 UTF-8 原样解码（不受影响）', async () => {
+  const buf = Buffer.from('正常的中文输出 hello', 'utf-8');
+  const out = decodeProcessOutput([buf]);
+  assert(out === '正常的中文输出 hello', `期望原样返回，实际: ${out}`);
+});
+
+await test('多个 chunk 拼接后再解码（不能按 chunk 边界切断多字节字符）', async () => {
+  // 把一个 UTF-8 中文字符的字节拆成两个 chunk,验证不会因为提前按 chunk toString() 而错乱
+  const full = Buffer.from('你好', 'utf-8');
+  const chunkA = full.subarray(0, 2); // "你" 的前两个字节(不完整)
+  const chunkB = full.subarray(2);
+  const out = decodeProcessOutput([chunkA, chunkB]);
+  assert(out === '你好', `期望 "你好"，实际: ${JSON.stringify(out)}`);
+});
+
+await test('Windows GBK 乱码修复：命令未找到的中文提示能正确解码', async () => {
+  // 真实 GBK 字节 —— python3: "'gemini' 不是内部或外部命令，也不是可运行的程序或批处理文件。".encode('gbk')
+  const gbkBytes = Buffer.from([
+    39, 103, 101, 109, 105, 110, 105, 39, 32, 178, 187, 202, 199, 196, 218, 178,
+    191, 187, 242, 205, 226, 178, 191, 195, 252, 193, 238, 163, 172, 210, 178,
+    178, 187, 202, 199, 191, 201, 212, 203, 208, 208, 181, 196, 179, 204, 208,
+    242, 187, 242, 197, 250, 180, 166, 192, 237, 206, 196, 188, 254, 161, 163,
+  ]);
+  const originalPlatform = process.platform;
+  Object.defineProperty(process, 'platform', { value: 'win32' });
+  try {
+    const out = decodeProcessOutput([gbkBytes]);
+    assert(out.includes('不是内部或外部命令'), `应正确解码为可读中文，实际: ${JSON.stringify(out)}`);
+    assert(!out.includes('�'), `不应含 UTF-8 替换字符（说明还是乱码），实际: ${JSON.stringify(out)}`);
+  } finally {
+    Object.defineProperty(process, 'platform', { value: originalPlatform });
+  }
+});
+
+await test('非 Windows 平台不做 GBK 回退（避免误判真正的 UTF-8 错误内容）', async () => {
+  const gbkBytes = Buffer.from([178, 187, 202, 199]); // 非法 UTF-8 字节序列
+  const originalPlatform = process.platform;
+  Object.defineProperty(process, 'platform', { value: 'darwin' });
+  try {
+    const out = decodeProcessOutput([gbkBytes]);
+    // 非 Windows 下应该走最终兜底 toString('utf-8')，产出替换字符，而不是强行按 GBK 解出中文
+    assert(out.includes('�'), `非 Windows 平台不应做 GBK 回退，实际: ${JSON.stringify(out)}`);
+  } finally {
+    Object.defineProperty(process, 'platform', { value: originalPlatform });
+  }
+});
+
+await test('命令未找到的 Windows 中文提示（GBK 乱码场景）能被识别并给安装提示', async () => {
+  // 模拟一个"进程"：直接用 sh 在 stderr 打印这段 GBK 字节，退出码非 0
+  const gbkBytes = Buffer.from([
+    39, 103, 101, 109, 105, 110, 105, 39, 32, 178, 187, 202, 199, 196, 218, 178,
+    191, 187, 242, 205, 226, 178, 191, 195, 252, 193, 238, 163, 172, 210, 178,
+    178, 187, 202, 199, 191, 201, 212, 203, 208, 208, 181, 196, 179, 204, 208,
+    242, 187, 242, 197, 250, 180, 166, 192, 237, 206, 196, 188, 254, 161, 163,
+  ]);
+  const originalPlatform = process.platform;
+  Object.defineProperty(process, 'platform', { value: 'win32' });
+  try {
+    // 用真实子进程把 GBK 字节写到 stderr，验证走完整的 chat() 流程（含 decodeProcessOutput）
+    const c = new CLIBaseConnector({
+      command: 'node',
+      displayName: 'Gemini CLI',
+      installHint: 'npm install -g @google/gemini-cli',
+      buildArgs: () => ['-e', `process.stderr.write(Buffer.from([${[...gbkBytes].join(',')}])); process.exit(1)`],
+    });
+    let caught: Error | null = null;
+    try {
+      await c.chat('', '', dummyConfig);
+    } catch (err) {
+      caught = err as Error;
+    }
+    assert(caught !== null, '应当 reject');
+    assert(caught!.message.includes('找不到'), `应识别为"命令未找到"，实际: ${caught!.message}`);
+    assert(caught!.message.includes('npm install -g @google/gemini-cli'), `应包含安装提示，实际: ${caught!.message}`);
+  } finally {
+    Object.defineProperty(process, 'platform', { value: originalPlatform });
+  }
 });
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
