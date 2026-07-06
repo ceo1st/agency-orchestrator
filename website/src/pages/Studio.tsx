@@ -2,6 +2,7 @@ import { BarChart3, Boxes, Download, History, KeyRound, Plug, TriangleAlert, Use
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { ModelSelect } from "@/components/studio/ModelSelect";
 import { ProviderSelect } from "@/components/studio/ProviderSelect";
 import { ProvidersPanel } from "@/components/studio/ProvidersPanel";
 import { RolesPicker } from "@/components/studio/RolesPicker";
@@ -134,6 +135,7 @@ function StudioInner() {
                 {status === "online" ? t.studio.shell.statusOnline : status === "offline" ? t.studio.shell.statusOffline : t.studio.shell.statusChecking}
               </span>
               <ProviderSelect value={provider} onChange={setProvider} />
+              <ModelSelect provider={provider} />
               <Button size="sm" variant="outline" onClick={() => setTab("providers")}>
                 <KeyRound className="size-4" />
                 <span className="hidden sm:inline">{t.studio.shell.keys}</span>
