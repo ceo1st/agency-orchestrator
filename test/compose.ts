@@ -3,6 +3,7 @@
  */
 import {
   autoFixVariableRefs,
+  autoFixMissingDependsOn,
   repairInvalidRolesInYaml,
   buildComposeSystemPrompt,
   buildComposeUserPrompt,
@@ -385,6 +386,162 @@ steps:
   // 这是已知 limitation，由 LLM repair 兜底。autoFix 自身只确保不指向"下游"
   assert(r.fixed === 1, `应仅记录 1 次替换（全局），实际 ${r.fixed}`);
   assert(r.details[0].from === 'review', `期望 from=review，实际 ${r.details[0].from}`);
+});
+
+// ─── autoFixMissingDependsOn（issue #87：变量名对，只是漏了 depends_on 边） ───
+
+console.log('\n─── autoFixMissingDependsOn ───');
+
+await test('复现 issue #87：连续 4 个 step 漏 depends_on，全部补齐后可通过校验', async () => {
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: collect_requirements
+    role: engineering/engineering-sre
+    task: "整理需求"
+    output: task_list
+
+  - id: edit_images
+    role: engineering/engineering-sre
+    task: "根据 {{task_list}} 优化图片"
+    output: edited_images_description
+
+  - id: quality_check
+    role: engineering/engineering-sre
+    task: "核对 {{task_list}} 和 {{edited_images_description}}"
+    output: quality_report
+
+  - id: determine_need_rework
+    role: engineering/engineering-sre
+    task: "根据 {{quality_report}} 判断是否返工"
+    output: rework_decision
+`);
+  const r = await autoFixMissingDependsOn(p);
+  assert(r.fixed === 4, `应修复 4 处，实际 ${r.fixed}: ${JSON.stringify(r.details)}`);
+  const { parseWorkflow, validateWorkflow } = await import('../src/core/parser.js');
+  const wf = parseWorkflow(p);
+  const errors = validateWorkflow(wf);
+  assert(errors.length === 0, `修复后应无校验错误，实际: ${JSON.stringify(errors)}`);
+});
+
+await test('depends_on 已是 flow 风格 [a] 时能正确追加而非覆盖', async () => {
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: a
+    role: engineering/engineering-sre
+    task: "A"
+    output: out_a
+
+  - id: b
+    role: engineering/engineering-sre
+    task: "B"
+    output: out_b
+
+  - id: merge
+    role: engineering/engineering-sre
+    task: "合并 {{out_a}} 和 {{out_b}}"
+    output: out_merge
+    depends_on: [a]
+`);
+  const r = await autoFixMissingDependsOn(p);
+  assert(r.fixed === 1, `应修复 1 处，实际 ${r.fixed}`);
+  assert(r.details[0].step === 'merge' && r.details[0].addedDep === 'b', `期望 merge → b，实际 ${JSON.stringify(r.details)}`);
+  const content = readFileSync(p, 'utf-8');
+  assert(/depends_on:\s*\[a,\s*b\]/.test(content), `应追加成 [a, b]，实际内容:\n${content}`);
+});
+
+await test('depends_on 已是多行列表风格时能正确追加', async () => {
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: a
+    role: engineering/engineering-sre
+    task: "A"
+    output: out_a
+
+  - id: b
+    role: engineering/engineering-sre
+    task: "B"
+    output: out_b
+
+  - id: merge
+    role: engineering/engineering-sre
+    task: "合并 {{out_a}} 和 {{out_b}}"
+    output: out_merge
+    depends_on:
+      - a
+`);
+  const r = await autoFixMissingDependsOn(p);
+  assert(r.fixed === 1, `应修复 1 处，实际 ${r.fixed}`);
+  const content = readFileSync(p, 'utf-8');
+  assert(/depends_on:\s*\n\s*- a\s*\n\s*- b/.test(content), `应追加一行 "- b"，实际内容:\n${content}`);
+});
+
+await test('会成环的修复应被拒绝（不引入循环依赖）', async () => {
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: step_a
+    role: engineering/engineering-sre
+    task: "用到 {{b_output}}"
+    output: a_output
+    depends_on: [step_b]
+
+  - id: step_b
+    role: engineering/engineering-sre
+    task: "用到 {{a_output}}"
+    output: b_output
+`);
+  const r = await autoFixMissingDependsOn(p);
+  assert(r.fixed === 0, `应拒绝成环修复，实际 fixed=${r.fixed}: ${JSON.stringify(r.details)}`);
+});
+
+await test('变量确实不存在时不误修（留给 autoFixVariableRefs / LLM 兜底）', async () => {
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: solo
+    role: engineering/engineering-sre
+    task: "凭空引用 {{ghost_var}}"
+    output: solo_out
+`);
+  const r = await autoFixMissingDependsOn(p);
+  assert(r.fixed === 0, `没有任何 step 产出该变量，不应修复，实际 ${r.fixed}`);
+});
+
+await test('task 文本里的假 "- id:" 示例片段不应被当成真实 step 边界（关键回归）', async () => {
+  // research 的 task 里举了个例子，恰好写了 "- id: quality_check"（和真实存在的
+  // 下游 step 同名）。早期实现按"文档里第一次出现的位置"当边界，会把 depends_on
+  // 错误地打进 research 自己（甚至造成自我依赖），而不是真正引用了 {{research_notes}}
+  // 却没连边的 quality_check。正确实现必须靠 YAML 结构（缩进）识别真实 step 边界，
+  // 忽略 task: | 块标量内部缩进更深的假匹配。
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: research
+    role: engineering/engineering-sre
+    task: |
+      做调研，并按下面格式给出示例配置：
+      steps:
+        - id: quality_check
+          role: engineering/engineering-sre
+          task: "参考示例"
+    output: research_notes
+
+  - id: quality_check
+    role: engineering/engineering-sre
+    task: "核对 {{research_notes}}"
+    output: quality_report
+`);
+  const r = await autoFixMissingDependsOn(p);
+  assert(r.fixed === 1, `应只修复 1 处，实际 ${r.fixed}: ${JSON.stringify(r.details)}`);
+  assert(r.details[0].step === 'quality_check' && r.details[0].addedDep === 'research',
+    `应该是 quality_check 依赖 research，实际: ${JSON.stringify(r.details)}`);
+  const content = readFileSync(p, 'utf-8');
+  // research 自己的 block（到真实 "- id: quality_check" 之前）不应含 depends_on
+  const researchBlock = content.split('  - id: quality_check\n')[0];
+  assert(!researchBlock.includes('depends_on'), `不应把 depends_on 插进 research 自己的 task 块里，research 块内容:\n${researchBlock}`);
+  const { parseWorkflow, validateWorkflow } = await import('../src/core/parser.js');
+  const wf = parseWorkflow(p);
+  const errors = validateWorkflow(wf);
+  assert(errors.length === 0, `修复后应校验通过，实际: ${JSON.stringify(errors)}`);
+  const researchStep = wf.steps.find((s: any) => s.id === 'research')!;
+  assert(!(researchStep.depends_on || []).includes('research'), `research 不应自我依赖，实际 depends_on: ${JSON.stringify(researchStep.depends_on)}`);
 });
 
 // ─── repairInvalidRolesInYaml（确定性角色修复）───

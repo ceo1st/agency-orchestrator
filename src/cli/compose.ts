@@ -91,9 +91,10 @@ function buildComposeSystemPromptEn(catalog: string, options?: { autoRun?: boole
 ## Important: Direct Run Mode
 
 This workflow will be executed immediately after generation, so:
-- **Do NOT** generate an inputs section
+- **Do NOT** generate an inputs section (the upfront form filled before running)
 - Embed all specific information from the user's description directly into each step's task
-- Ensure the workflow can run without any external inputs`
+- Ensure the workflow can start without any "before-run" form inputs
+- This does NOT affect using a human_input step mid-run to ask the user something (that's an in-flight pause, not an upfront form) — if the task genuinely needs the user to clarify something partway through, still use human_input rather than having the model guess`
     : `
 inputs:
   - name: variable_name
@@ -149,6 +150,12 @@ ${autoRun ? '      Include specific information from the user\'s description' : 
       Use {{previous_output}} to reference upstream step outputs
     output: output_variable_name
     depends_on: [upstream_step_id]  # Only add when there's a dependency
+
+  # When you need to ask the user something mid-run, use a human_input step (no role, actually pauses for input):
+  - id: ask_step_id
+    type: human_input
+    prompt: "The specific question to ask the user, can reference {{variable_name}} from earlier steps"
+    output: user_answer_variable  # the user's answer is injected downstream as this variable
 \`\`\`
 
 ## Design Principles
@@ -159,8 +166,9 @@ ${autoRun ? '      Include specific information from the user\'s description' : 
 - **Role naming**: Each step must have a name (approachable job title like "CEO", "Product Manager", "Tech Lead") and emoji, so anyone can instantly see who's speaking
 - **Detailed tasks**: Task descriptions should be specific — tell the role what to do and what format to output
 ${inputsDesignPrinciple}
+- **Use human_input when the user needs to clarify something — don't have a role "ask" in its task**: if the task genuinely can't proceed without more info from the user (personal preference, choosing between options, a specific detail not in inputs — classic case: registration/enrollment-type requests where you must ask the user's specifics partway through), insert a \`type: human_input\` step to ask them, and feed the answer downstream as its output variable. Writing "ask the user X" inside a regular role step's task does NOT work — the engine won't actually pause, the model will just make up an answer
 - **Final deliverable**: The last step must output the final deliverable the user wants (e.g., complete article, complete report), not review comments or suggestions. If there's a review step, it should output the revised final version, not a "list of suggestions"
-- **Clean final output (IMPORTANT)**: The LAST step's \`task\` MUST end with an explicit instruction to output ONLY the deliverable itself — no preamble/greeting, no "what I changed"/change-log, no formatting notes, no questions to the user, no suggestions to run \`ao\`/other commands, no "shall I continue?" closers. Append a line like: "⚠️ Output only the final deliverable itself — no preamble, no change-log, no meta-commentary, no questions, no tool/command suggestions."
+- **Clean final output (IMPORTANT)**: The LAST step's \`task\` MUST end with an explicit instruction to output ONLY the deliverable itself — no preamble/greeting, no "what I changed"/change-log, no formatting notes, no questions to the user, no suggestions to run \`ao\`/other commands, no "shall I continue?" closers. Append a line like: "⚠️ Output only the final deliverable itself — no preamble, no change-log, no meta-commentary, no questions, no tool/command suggestions." (If you genuinely need to ask the user something, use the human_input step above instead — not in the final step)
 
 ## Available Role Catalog
 
@@ -172,6 +180,7 @@ ${catalog}
 - **Variable names must use underscores**, no spaces. Correct: "market_analysis", "tech_report". Wrong: "market analysis", "tech report". All id, output, and depends_on values must be snake_case
 - **Variables must have a source**: every \`{{X}}\` referenced in a step's task MUST appear either as an \`inputs\` name OR as the \`output\` field of an earlier step. Do NOT invent variable names that no step produces
 - **Merge / aggregation steps**: if a step references \`{{a}}\`, \`{{b}}\`, \`{{c}}\` from upstream, its \`depends_on\` MUST list every upstream step that produces those outputs. Cross-check before emitting
+- **human_input steps don't need role/task/emoji/name** — only \`type: human_input\`, \`prompt\`, and \`output\`; its output variable can be depended on and \`{{referenced}}\` downstream just like a normal step
 - Only output the YAML code block, nothing else
 - Set concurrency to the maximum number of parallel steps
 - **Important: Split large tasks**. When writing long articles, don't let one step generate more than 800 words. Split by sections into multiple parallel steps (e.g., write_ch1, write_ch2, write_ch3), then use a merge step to rewrite into a coherent complete article
@@ -191,9 +200,10 @@ function buildComposeSystemPromptZh(catalog: string, options?: { autoRun?: boole
 ## 重要：直接运行模式
 
 这个工作流生成后会立即执行，所以：
-- **不要**生成 inputs 段
+- **不要**生成 inputs 段（运行前的表单输入）
 - 把用户描述中的所有具体信息直接写进每个 step 的 task 里
-- 确保工作流无需任何外部输入就能直接运行`
+- 确保工作流无需任何"运行前"输入就能直接启动
+- 这不影响中途用 human_input 步骤向用户提问（那是运行过程中的暂停提问，不是运行前的表单）——如果任务本质上需要用户中途澄清信息，仍然要用 human_input，不要为了凑"自包含"而让模型瞎猜`
     : `
 inputs:
   - name: variable_name
@@ -249,6 +259,12 @@ ${autoRun ? '      直接包含用户需求中的具体信息' : '      使用 {
       使用 {{previous_output}} 引用上游步骤的输出
     output: output_variable_name
     depends_on: [upstream_step_id]  # 仅在有依赖时添加
+
+  # 需要向用户询问/确认信息时，用 human_input 类型的步骤（无 role，运行到这一步会真的暂停等用户输入）：
+  - id: ask_step_id
+    type: human_input
+    prompt: "向用户提的具体问题，可用 {{variable_name}} 引用之前的变量"
+    output: user_answer_variable  # 用户的回答会作为这个变量注入下游 task
 \`\`\`
 
 ## 设计原则
@@ -259,8 +275,9 @@ ${autoRun ? '      直接包含用户需求中的具体信息' : '      使用 {
 - **角色命名**：每个步骤必须设置 name（通俗的公司职位名如"老板""产品经理""技术总监"）和 emoji，让小白也能一眼看懂谁在说话
 - **任务详细**：task 描述要具体，告诉角色要做什么、输出什么格式
 ${inputsDesignPrinciple}
+- **需要用户澄清时用 human_input，不要指望角色在 task 里"提问"**：如果任务本质上需要用户提供额外信息才能继续（如个人偏好、多个方案里选一个、inputs 里没给的具体细节——典型例子是报名/选课/选方案类需求，中途必须问用户具体情况），插入一个 \`type: human_input\` 的步骤向用户提问，把回答作为 output 变量给下游用。普通 role 步骤的 task 里写"请问用户 XXX"是无效的——引擎不会暂停等回答，模型只会自己编一个答案
 - **最终成品**：最后一个步骤必须输出用户想要的最终成品（如完整文章、完整报告），而不是审查意见或修改建议。如果有审校步骤，审校步骤应该直接输出修改后的定稿，而不是"修改建议列表"
-- **干净的最终产出（重要）**：最后一个步骤的 \`task\` 结尾必须显式要求"只输出成品本身"——不要开场白/寒暄、不要"我改了什么/复盘/修改说明"、不要排版备注小节、不要向用户提问或请其拍板、不要建议运行 \`ao\` 或其它命令、不要"要我继续吗"之类收尾。请在该 step 的 task 末尾追加一行类似：「⚠️ 只输出最终成品本身：不要开场白、不要复盘或说明、不要向用户提问、不要建议任何命令或后续动作。」
+- **干净的最终产出（重要）**：最后一个步骤的 \`task\` 结尾必须显式要求"只输出成品本身"——不要开场白/寒暄、不要"我改了什么/复盘/修改说明"、不要排版备注小节、不要向用户提问或请其拍板、不要建议运行 \`ao\` 或其它命令、不要"要我继续吗"之类收尾。请在该 step 的 task 末尾追加一行类似：「⚠️ 只输出最终成品本身：不要开场白、不要复盘或说明、不要向用户提问、不要建议任何命令或后续动作。」（需要问用户时用上面的 human_input 步骤，不要在最终步骤里问）
 
 ## 可用角色目录
 
@@ -272,6 +289,7 @@ ${catalog}
 - **变量名必须用下划线**，不能有空格。正确："market_analysis"、"tech_report"。错误："market analysis"、"tech report"。id、output、depends_on 中的值都必须用 snake_case
 - **变量必须有来源**：每个 task 中的 \`{{X}}\` 引用，X 必须是 \`inputs\` 中的某个 name，或者是前面某个 step 的 \`output\` 字段。不要凭空写一个没有任何 step 产生的变量名
 - **合并/汇总类步骤**：如果一个步骤的 task 里引用了 \`{{a}}\`、\`{{b}}\`、\`{{c}}\` 这些上游变量，它的 \`depends_on\` 必须列出所有产生这些 output 的上游 step。生成完后请逐一核对一遍
+- **human_input 步骤不需要 role/task/emoji/name**，只需要 \`type: human_input\`、\`prompt\`、\`output\`；它产出的 output 变量可以像普通 step 一样被下游 depends_on + {{引用}}
 - 只输出 YAML 代码块，不要输出其他内容
 - concurrency 设为并行步骤的最大数量
 - **重要：拆分大任务**。写长文章时，不要让一个步骤生成超过 800 字的内容。应该按章节拆分成多个并行步骤（如 write_ch1、write_ch2、write_ch3），最后用一个合并步骤重写为连贯的完整文章
@@ -550,10 +568,24 @@ async function runVariableFixChain(
   llmConfig: LLMConfig,
   lang: 'zh' | 'en'
 ): Promise<string[]> {
+  // 除了"未定义的变量"，"depends_on 指向不存在的 step"（如 image 3 那类：LLM 编了个不存在
+  // 的 step id 当依赖）也是同一类"DAG 没搭对"的错误，同样应该进这条修复链，而不是被
+  // hasVarError 的窄判断漏掉、悄悄留在最终输出里。
   const hasVarError = (errs: string[]) =>
-    errs.some(e => e.includes('未定义的变量') || e.toLowerCase().includes('undefined variable'));
+    errs.some(e => e.includes('未定义的变量') || e.includes('依赖不存在的 step') || e.toLowerCase().includes('undefined variable'));
 
   if (!hasVarError(initialErrors)) return initialErrors;
+
+  // 阶段 0：确定性修复"变量名没错，只是引用它的 step 忘了把产出该变量的 step
+  // 加进 depends_on"——这是 compose 最常见的一类错误（LLM 设计 DAG 时漏连边，
+  // 变量名本身对得上），比改名更精确，优先做。
+  const depFix = await autoFixMissingDependsOn(savedPath);
+  if (depFix.fixed > 0) {
+    console.log(`  自动补上了 ${depFix.fixed} 处缺失的 depends_on：`);
+    for (const f of depFix.details) console.log(`    step "${f.step}" → depends_on 加入 "${f.addedDep}"`);
+  }
+  const afterDepFix = await validateGenerated(savedPath);
+  if (!hasVarError(afterDepFix.errors)) return afterDepFix.errors;
 
   // 阶段 1: autoFix（启发式，只在 DAG 上游内替换）
   const fixResult = await autoFixVariableRefs(savedPath);
@@ -589,6 +621,145 @@ function extractUndefinedVarNames(errors: string[]): string[] {
     if (m) names.add(m[1]);
   }
   return [...names];
+}
+
+/**
+ * 修复"变量名本身是对的，只是引用它的 step 忘了把产出该变量的 step 加进 depends_on"
+ * 这类错误——parser.ts 的 validateWorkflow 会专门标出这种情况（"该变量由非上游 step
+ * 产出，需要把对应 step 加进 depends_on"），说明变量确实由某个 step 产出，只是 DAG
+ * 边没连上。直接在 YAML 里给该 step 补一条 depends_on，而不是像 autoFixVariableRefs
+ * 那样改名字（名字本来就没错）。
+ *
+ * 只在能安全定位 step 的文本块、且不会成环时才动手；识别不了的 YAML 形状（既不是
+ * `depends_on: [a, b]` 单行 flow 风格，也不是多行列表，也找不到 output 字段可插入）
+ * 就跳过，留给后面的 autoFixVariableRefs / LLM 修复兜底。
+ */
+export async function autoFixMissingDependsOn(yamlPath: string): Promise<{ fixed: number; details: { step: string; addedDep: string }[] }> {
+  const { parseWorkflow } = await import('../core/parser.js');
+  let workflow;
+  try {
+    workflow = parseWorkflow(yamlPath);
+  } catch {
+    return { fixed: 0, details: [] };
+  }
+
+  const stepById = new Map<string, any>();
+  for (const step of workflow.steps) stepById.set(step.id, step);
+
+  function upstreamStepIds(stepId: string): Set<string> {
+    const out = new Set<string>();
+    const stack = [stepId];
+    while (stack.length > 0) {
+      const cur = stack.pop()!;
+      const s = stepById.get(cur);
+      if (!s) continue;
+      for (const dep of s.depends_on || []) {
+        if (out.has(dep)) continue;
+        out.add(dep);
+        stack.push(dep);
+      }
+    }
+    return out;
+  }
+
+  // 按 "- id: xxx" 行切出每个 step 的文本块（含缩进），后续按顺序在同一份文本上打补丁。
+  //
+  // 关键坑：task 的自然语言描述里偶尔会出现示例 YAML 片段（如"参考格式：- id: xxx"），
+  // 这类假匹配不能只靠"id 是否真实存在"或"第一次出现"来过滤——假匹配完全可能引用一个
+  // 真实存在的 id（比如举例时提到了另一个 step 的 id），而且可能出现在真实定义之前。
+  // 唯一可靠的判据是 YAML 结构本身："- id:" 只有在缩进等于 steps 列表项的缩进时才是
+  // 真正的 step 边界；task: | 块标量内部的内容缩进必然比这更深。所以先从 "steps:" 之后
+  // 第一个列表项算出这份文件真正的 step 缩进，再只认这个缩进层级的匹配。
+  const out0 = readFileSync(yamlPath, 'utf-8');
+  const stepsKeyMatch = out0.match(/^steps:\s*$/m);
+  const stepItemIndentMatch = stepsKeyMatch
+    ? out0.slice(stepsKeyMatch.index! + stepsKeyMatch[0].length).match(/^([ \t]*)-\s*id:/m)
+    : null;
+  const canonicalIndent = stepItemIndentMatch ? stepItemIndentMatch[1] : null;
+  // 找不到 "steps:" 或第一个 step 列表项（YAML 形状异常）——放弃这份确定性修复，交给后续兜底
+  if (canonicalIndent === null) return { fixed: 0, details: [] };
+
+  const idLineRe = /^([ \t]*)-\s*id:\s*["']?([\w-]+)["']?.*$/gm;
+  const matches: { id: string; indent: string; index: number }[] = [];
+  let m: RegExpExecArray | null;
+  let out = out0;
+  while ((m = idLineRe.exec(out))) {
+    if (m[1] !== canonicalIndent) continue; // 缩进不对：块标量内部的假匹配，跳过
+    matches.push({ id: m[2], indent: m[1], index: m.index });
+  }
+  const blocks = matches.map((cur, i) => ({
+    id: cur.id,
+    indent: cur.indent,
+    start: cur.index,
+    end: i + 1 < matches.length ? matches[i + 1].index : out.length,
+  }));
+
+  const details: { step: string; addedDep: string }[] = [];
+  let offsetShift = 0;
+
+  for (const step of workflow.steps) {
+    const refs = step.task?.match(/\{\{(\w+)\}\}/g) || [];
+    if (refs.length === 0) continue;
+
+    for (const ref of refs) {
+      const varName = ref.slice(2, -2);
+      const upOutputs = new Set<string>();
+      for (const id of upstreamStepIds(step.id)) {
+        const s = stepById.get(id);
+        if (s?.output) upOutputs.add(s.output);
+      }
+      if (upOutputs.has(varName)) continue;
+
+      const producer = workflow.steps.find((s: any) => s.output === varName);
+      if (!producer || producer.id === step.id) continue;
+      if ((step.depends_on || []).includes(producer.id)) continue;
+      // 避免成环：producer 不能已经（间接）依赖当前 step
+      if (upstreamStepIds(producer.id).has(step.id)) continue;
+
+      const block = blocks.find(b => b.id === step.id);
+      if (!block) continue;
+      const blockText = out.slice(block.start + offsetShift, block.end + offsetShift);
+      const patched = insertDependsOn(blockText, producer.id);
+      if (patched && patched !== blockText) {
+        out = out.slice(0, block.start + offsetShift) + patched + out.slice(block.end + offsetShift);
+        offsetShift += patched.length - blockText.length;
+        step.depends_on = [...(step.depends_on || []), producer.id];
+        details.push({ step: step.id, addedDep: producer.id });
+      }
+    }
+  }
+
+  if (details.length > 0) writeFileSync(yamlPath, out, 'utf-8');
+  return { fixed: details.length, details };
+}
+
+/** 在单个 step 的文本块里插入一条 depends_on（支持单行 flow 风格 / 多行列表 / 完全没有该字段三种形状）。 */
+function insertDependsOn(blockText: string, newDep: string): string | null {
+  // Case A: 单行 flow 风格 `depends_on: [a, b]`（compose 生成的 YAML 里最常见的形态）
+  const flowRe = /^([ \t]*)depends_on:\s*\[([^\]]*)\](.*)$/m;
+  const flowMatch = blockText.match(flowRe);
+  if (flowMatch) {
+    const items = flowMatch[2].split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+    if (items.includes(newDep)) return blockText;
+    items.push(newDep);
+    return blockText.replace(flowRe, `${flowMatch[1]}depends_on: [${items.join(', ')}]${flowMatch[3]}`);
+  }
+  // Case B: 多行列表风格 `depends_on:\n  - a\n  - b`
+  const blockListRe = /^([ \t]*)depends_on:\s*\n((?:[ \t]*-\s*.+\n?)+)/m;
+  const blockListMatch = blockText.match(blockListRe);
+  if (blockListMatch) {
+    const itemIndentMatch = blockListMatch[2].match(/^([ \t]*)-/);
+    const itemIndent = itemIndentMatch ? itemIndentMatch[1] : blockListMatch[1] + '  ';
+    return blockText.replace(blockListRe, `${blockListMatch[0]}${itemIndent}- ${newDep}\n`);
+  }
+  // Case C: 完全没有 depends_on 字段 —— 插在 output 字段后面（每个 step 通常都有 output）
+  const outputRe = /^([ \t]*)output:\s*.+$/m;
+  const outputMatch = blockText.match(outputRe);
+  if (outputMatch) {
+    return blockText.replace(outputRe, `${outputMatch[0]}\n${outputMatch[1]}depends_on: [${newDep}]`);
+  }
+  // 找不到能安全插入的位置 —— 放弃，交给后续修复兜底
+  return null;
 }
 
 /**
