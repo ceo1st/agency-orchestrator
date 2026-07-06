@@ -269,27 +269,27 @@ export interface ConfigResponse {
   defaultProvider: string;
 }
 
-/** 预设的常见 OpenAI 兼容 endpoint —— 纯数据，点一下帮用户填 base_url，不是赞助商。 */
+/**
+ * 预设的常见 OpenAI 兼容 endpoint —— 点一下帮用户填名称+base_url。
+ * 收录原则：只收「官方大厂/模型厂商自己的端点」（用户刚需,且不和赞助商抢生意）；
+ * 第三方聚合商/中转商的展示位留给付费赞助商（通过远程清单 providers-manifest.json
+ * 上架,出现在云端 API 区,不进这个图库）。
+ */
 export interface CustomProviderPreset {
   name: string;
   baseUrl: string;
 }
 export const CUSTOM_PROVIDER_PRESETS: CustomProviderPreset[] = [
-  { name: "SiliconFlow 硅基流动", baseUrl: "https://api.siliconflow.cn/v1" },
-  { name: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1" },
+  { name: "阿里云 DashScope (Qwen)", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
   { name: "ModelScope 魔搭", baseUrl: "https://api-inference.modelscope.cn/v1" },
   { name: "火山方舟 Volcengine Ark", baseUrl: "https://ark.cn-beijing.volces.com/api/v3" },
   { name: "Zhipu GLM 智谱", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
   { name: "Moonshot Kimi", baseUrl: "https://api.moonshot.cn/v1" },
   { name: "MiniMax", baseUrl: "https://api.minimax.chat/v1" },
-  { name: "阿里云 DashScope (Qwen)", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
   { name: "StepFun 阶跃星辰", baseUrl: "https://api.stepfun.com/v1" },
   { name: "百川智能 Baichuan", baseUrl: "https://api.baichuan-ai.com/v1" },
   { name: "零一万物 01.AI", baseUrl: "https://api.lingyiwanwu.com/v1" },
-  { name: "Together AI", baseUrl: "https://api.together.xyz/v1" },
-  { name: "Groq", baseUrl: "https://api.groq.com/openai/v1" },
   { name: "Mistral AI", baseUrl: "https://api.mistral.ai/v1" },
-  { name: "Fireworks AI", baseUrl: "https://api.fireworks.ai/inference/v1" },
 ];
 
 const ACTIVE_KEY = "ao-active-provider";
@@ -558,14 +558,15 @@ export interface CliRelayPreset {
 }
 export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
   // Cubence（赞助商）—— 专业 API 中转服务商,支持 Claude Code / Codex / Gemini CLI;
-  // 端点来自 docs.cubence.com 官方接入文档（Codex 走 /v1,另两个是根路径）
+  // 主端点 api.cubence.com(与 cc-switch 预设一致;另有 api-cf/api-dmit/api-bwg 备用线路,
+  // 见 docs.cubence.com);Codex 走 /v1,另两个是根路径
   {
     name: "Cubence",
     sponsor: true,
     baseUrls: {
-      "claude-code": "https://api-dmit.cubence.com",
-      "gemini-cli": "https://api-dmit.cubence.com",
-      "codex-cli": "https://api-dmit.cubence.com/v1",
+      "claude-code": "https://api.cubence.com",
+      "gemini-cli": "https://api.cubence.com",
+      "codex-cli": "https://api.cubence.com/v1",
     },
   },
 ];

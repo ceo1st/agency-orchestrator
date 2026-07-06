@@ -262,6 +262,34 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
               <Terminal className="size-4 text-muted-foreground" /> {t.studio.providers.localCliTitle} <span className="font-normal text-muted-foreground">· {t.studio.providers.localCliHint}</span>
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
+              {/* CLI 中转商（如赞助商 Cubence）排区块首行：列表级可见,点对应 CLI 按钮直达中转配置(端点预填) */}
+              {relayPresets.map((r) => (
+                <div key={r.name} className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-card/60 px-4 py-3 sm:col-span-2">
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold">{r.name}</span>
+                      {r.sponsor && (
+                        <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {t.studio.providers.sponsorTag}
+                        </span>
+                      )}
+                    </span>
+                    <span className="block truncate text-[11px] text-muted-foreground">{t.studio.providers.cliRelayVendorLine}</span>
+                  </span>
+                  <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                    {Object.keys(r.baseUrls).map((cliId) => (
+                      <Button
+                        key={cliId}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditing({ kind: "cli-relay", id: cliId, name: PROVIDER_LABELS[cliId] ?? cliId, globalWrite: CLI_RELAY_GLOBAL_WRITE.has(cliId), initialBaseUrl: r.baseUrls[cliId] })}
+                      >
+                        {PROVIDER_LABELS[cliId] ?? cliId}
+                      </Button>
+                    ))}
+                  </span>
+                </div>
+              ))}
               {cliItems.map(({ name: id, installed }) => {
                 const relayConfigured = !!cfg.providers[id]?.hasKey;
                 const statusLine = installed
@@ -293,34 +321,6 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
                 );
               })}
 
-              {/* CLI 中转商（如赞助商 Cubence）：列表级可见,点对应 CLI 按钮直达中转配置(端点预填) */}
-              {relayPresets.map((r) => (
-                <div key={r.name} className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-card/60 px-4 py-3 sm:col-span-2">
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold">{r.name}</span>
-                      {r.sponsor && (
-                        <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {t.studio.providers.sponsorTag}
-                        </span>
-                      )}
-                    </span>
-                    <span className="block truncate text-[11px] text-muted-foreground">{t.studio.providers.cliRelayVendorLine}</span>
-                  </span>
-                  <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                    {Object.keys(r.baseUrls).map((cliId) => (
-                      <Button
-                        key={cliId}
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditing({ kind: "cli-relay", id: cliId, name: PROVIDER_LABELS[cliId] ?? cliId, globalWrite: CLI_RELAY_GLOBAL_WRITE.has(cliId), initialBaseUrl: r.baseUrls[cliId] })}
-                      >
-                        {PROVIDER_LABELS[cliId] ?? cliId}
-                      </Button>
-                    ))}
-                  </span>
-                </div>
-              ))}
             </div>
           </section>
         </>
