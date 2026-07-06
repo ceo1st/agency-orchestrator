@@ -82,12 +82,14 @@ function buildLLMConfig(provider) {
   let saved = {};
   try { saved = readKeys()[p] || {}; } catch {}
   // deepseek/openai/apinebula/agnes/rootflowai 等聚合 API 的默认模型统一在 api-providers.ts
-  // 注册,新增一家不用改这里;claude 走原生 SDK,不在那张表里,单独判断。
+  // 注册,新增一家不用改这里;claude 走原生 SDK,不在那张表里,单独判断;
+  // 远程清单上架的赞助商(remoteProviderSpec)默认模型/端点来自清单。
+  const remote = remoteProviderSpec(p);
   const defModel = p === 'claude' ? 'claude-sonnet-4-20250514'
-    : API_PROVIDER_MAP[p]?.defaultModel; // ollama / custom: model must come from saved config
+    : API_PROVIDER_MAP[p]?.defaultModel || remote?.defaultModel; // ollama / custom: model must come from saved config
   const model = saved.model || defModel;
   if (model) cfg.model = model;
-  const defBase = p === 'ollama' ? (saved.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434') : undefined;
+  const defBase = p === 'ollama' ? (saved.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434') : remote?.baseUrl;
   const base = saved.baseUrl || defBase;
   if (base) cfg.base_url = base;
   // 自定义供应商没有注册在 KEY_ENV 里,没有专属 env 变量名可用 —— 直接把 key 放进
@@ -127,6 +129,50 @@ const KEY_ENV = {
 function readKeys() {
   try { return JSON.parse(readFileSync(KEYS_FILE, 'utf-8')) || {}; } catch { return {}; }
 }
+
+// ── 远程供应商清单（赞助商上/下架不发版）─────────────────────────────────────
+// 清单托管在官网(website/public/providers-manifest.json → ao.aiolaola.com),改官网仓
+// push 即生效。这里启动时拉取+6h 缓存;拉不到静默回退为空(内置供应商不受影响)。
+// 远程 provider 走"自定义供应商"同一运行通道(base_url/key 直传),引擎零改动。
+// 安全约束:只接受 https 的 baseUrl,id 不能覆盖内置 provider(防清单被篡改后劫持内置流量)。
+const MANIFEST_URL = process.env.AO_MANIFEST_URL || 'https://ao.aiolaola.com/providers-manifest.json';
+const MANIFEST_TTL = 6 * 60 * 60 * 1000;
+const EMPTY_MANIFEST = { providers: [], relayPresets: [], removedProviders: [] };
+let manifestCache = { data: null, fetchedAt: 0 };
+async function getRemoteManifest() {
+  const now = Date.now();
+  if (manifestCache.data && now - manifestCache.fetchedAt < MANIFEST_TTL) return manifestCache.data;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const r = await fetch(MANIFEST_URL, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (r.ok) {
+      const j = await r.json();
+      const idRe = /^[a-z][a-z0-9-]{1,30}$/;
+      const providers = (Array.isArray(j?.providers) ? j.providers : []).filter((p) =>
+        p && typeof p.id === 'string' && idRe.test(p.id) && !KEY_ENV[p.id] && p.id !== 'ollama' &&
+        typeof p.name === 'string' && p.name.trim() &&
+        typeof p.baseUrl === 'string' && /^https:\/\//.test(p.baseUrl)
+      );
+      const relayPresets = (Array.isArray(j?.relayPresets) ? j.relayPresets : []).filter((r2) =>
+        r2 && typeof r2.name === 'string' && r2.baseUrls && typeof r2.baseUrls === 'object' &&
+        Object.values(r2.baseUrls).every((u) => typeof u === 'string' && /^https:\/\//.test(u))
+      );
+      const removedProviders = (Array.isArray(j?.removedProviders) ? j.removedProviders : []).filter((x) => typeof x === 'string');
+      manifestCache = { data: { providers, relayPresets, removedProviders }, fetchedAt: now };
+      return manifestCache.data;
+    }
+  } catch { /* 网络失败/超时 → 走下面的短缓存空回退 */ }
+  // 失败时缓存空结果 10 分钟：避免离线环境下每个请求都白等 3s 超时
+  manifestCache = { data: EMPTY_MANIFEST, fetchedAt: now - MANIFEST_TTL + 10 * 60 * 1000 };
+  return manifestCache.data;
+}
+// 同步读取(给 buildLLMConfig 等同步路径用):启动预热后 manifestCache 常驻内存
+function remoteProviderSpec(id) {
+  return (manifestCache.data?.providers ?? []).find((p) => p.id === id);
+}
+getRemoteManifest(); // 启动预热,不阻塞
 function writeKeys(obj) {
   mkdirSync(dirname(KEYS_FILE), { recursive: true });
   writeFileSync(KEYS_FILE, JSON.stringify(obj, null, 2), 'utf-8');
@@ -1036,7 +1082,8 @@ app.get('/api/usage', (_req, res) => {
 });
 
 // ── Key config: report which providers have a key (never returns the key) ──
-app.get('/api/config', (_req, res) => {
+app.get('/api/config', async (_req, res) => {
+  const manifest = await getRemoteManifest();
   const saved = readKeys();
   const providers = {};
   for (const [provider, cfg] of Object.entries(KEY_ENV)) {
@@ -1076,6 +1123,19 @@ app.get('/api/config', (_req, res) => {
       supportsBaseUrl: true,
     };
   }
+  // 远程清单上架的赞助商：默认端点/模型来自清单,用户没自定义时直接回显清单值,
+  // 保存 key 时会连同端点一起落盘 → 运行链路与自定义供应商完全一致。
+  for (const meta of manifest.providers) {
+    if (customProviders.some((c) => c.id === meta.id)) continue; // 用户自建同名的优先
+    providers[meta.id] = {
+      family: 'api',
+      hasKey: !!saved[meta.id]?.apiKey,
+      fromEnv: false,
+      baseUrl: saved[meta.id]?.baseUrl || meta.baseUrl,
+      model: saved[meta.id]?.model || meta.defaultModel || '',
+      supportsBaseUrl: true,
+    };
+  }
   // 探测本机已安装的订阅制 CLI（可零配置直接用，无需在 AO 配 key）。
   const installedCli = detectInstalledCliProviders();
   const cli = CLI_PROVIDERS.map((name) => ({ name, installed: installedCli.includes(name) }));
@@ -1088,6 +1148,9 @@ app.get('/api/config', (_req, res) => {
     installedCli,
     recommended,
     customProviders,
+    remoteProviders: manifest.providers,
+    relayPresets: manifest.relayPresets,
+    removedProviders: manifest.removedProviders,
     defaultProvider: process.env.AO_PROVIDER || 'apinebula',
   });
 });
@@ -1117,9 +1180,10 @@ app.post('/api/config', (req, res) => {
       return res.status(500).json({ error: err?.message || String(err) });
     }
   }
-  // 自定义供应商没有 KEY_ENV 项（没有专属 env 变量名），但仍然走 saved[provider] 这套
-  // 存法 —— 跟已注册 provider 唯一的区别是"清空时不用去删 process.env"（因为压根没写过）。
-  const isCustom = readCustomProviders(CUSTOM_PROVIDERS_FILE).some((p) => p.id === provider);
+  // 自定义供应商/远程清单供应商没有 KEY_ENV 项（没有专属 env 变量名），但仍然走
+  // saved[provider] 这套存法 —— 跟已注册 provider 唯一的区别是"清空时不用去删
+  // process.env"（因为压根没写过）。
+  const isCustom = readCustomProviders(CUSTOM_PROVIDERS_FILE).some((p) => p.id === provider) || !!remoteProviderSpec(provider);
   const isKeyed = !!KEY_ENV[provider] || isCustom;
   if (!provider || (!isKeyed && provider !== 'ollama')) return res.status(400).json({ error: 'unknown provider' });
   const saved = readKeys();
@@ -1203,7 +1267,8 @@ app.delete('/api/custom-providers/:id', (req, res) => {
 // ── Test a provider's key with a minimal real API call ──
 app.post('/api/test-provider', async (req, res) => {
   const { provider } = req.body || {};
-  const isCustomProvider = readCustomProviders(CUSTOM_PROVIDERS_FILE).some((p) => p.id === provider);
+  await getRemoteManifest();
+  const isCustomProvider = readCustomProviders(CUSTOM_PROVIDERS_FILE).some((p) => p.id === provider) || !!remoteProviderSpec(provider);
   if (!provider || (!KEY_ENV[provider] && provider !== 'ollama' && !isCustomProvider)) return res.status(400).json({ ok: false, error: 'unknown provider' });
   // 自定义供应商没有专属 env 变量名，key 只存在 saved[provider].apiKey 里。
   const key = provider === 'ollama' ? 'n/a' : (KEY_ENV[provider] ? process.env[KEY_ENV[provider].key] : readKeys()[provider]?.apiKey);
@@ -1233,8 +1298,9 @@ app.post('/api/test-provider', async (req, res) => {
       // OPENAI_BASE_URL + gpt-4o-mini 去测,对聚合商大概率 404。
       const saved = readKeys()[provider] || {};
       const spec = API_PROVIDER_MAP[provider];
-      const base = (saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
-      const model = saved.model || spec?.defaultModel || 'gpt-4o-mini';
+      const remote = remoteProviderSpec(provider);
+      const base = (saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl || remote?.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+      const model = saved.model || spec?.defaultModel || remote?.defaultModel || 'gpt-4o-mini';
       r = await fetch(`${base}/chat/completions`, {
         method: 'POST', signal: ctrl.signal,
         headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
@@ -1258,11 +1324,13 @@ app.post('/api/test-provider', async (req, res) => {
 // body 可带 baseUrl/apiKey 覆盖：add-custom 场景用户刚填了还没保存也能先拉列表。
 app.post('/api/provider-models', async (req, res) => {
   const { provider, baseUrl: overrideBase, apiKey: overrideKey } = req.body || {};
+  await getRemoteManifest();
   const saved = provider ? (readKeys()[provider] || {}) : {};
   const spec = provider ? API_PROVIDER_MAP[provider] : null;
+  const remote = provider ? remoteProviderSpec(provider) : null;
   const isClaude = provider === 'claude';
   const base = String(
-    overrideBase || saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl ||
+    overrideBase || saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl || remote?.baseUrl ||
     (isClaude ? 'https://api.anthropic.com/v1' : '')
   ).replace(/\/+$/, '');
   const key = overrideKey || saved.apiKey || (spec ? process.env[spec.envKey] : '') || (isClaude ? process.env.ANTHROPIC_API_KEY : '');

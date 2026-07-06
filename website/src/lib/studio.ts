@@ -241,6 +241,18 @@ export interface CustomProviderMeta {
   createdAt: number;
 }
 
+/** 远程清单上架的赞助商供应商（官网 providers-manifest.json,上/下架不发版）。 */
+export interface RemoteProviderMeta {
+  id: string;
+  name: string;
+  note?: string;
+  homepageUrl?: string;
+  baseUrl: string;
+  defaultModel?: string;
+  modelSuggestions?: string[];
+  sponsor?: boolean;
+}
+
 export interface ConfigResponse {
   providers: Record<string, ProviderKeyStatus>;
   cli: (string | CliProviderStatus)[];
@@ -250,6 +262,10 @@ export interface ConfigResponse {
   recommended?: string;
   /** 用户自己加的自定义供应商（任意 OpenAI 兼容 endpoint）。 */
   customProviders?: CustomProviderMeta[];
+  /** 远程清单：增量上架的赞助商 / CLI 中转商 / 下架的内置 id。 */
+  remoteProviders?: RemoteProviderMeta[];
+  relayPresets?: CliRelayPreset[];
+  removedProviders?: string[];
   defaultProvider: string;
 }
 

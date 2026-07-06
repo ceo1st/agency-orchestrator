@@ -2,7 +2,7 @@ import { ArrowLeft, Check, Download, ExternalLink, Eye, EyeOff, Loader2, Plug, P
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, CLI_RELAY_PRESETS, CUSTOM_PROVIDER_PRESETS, type ConfigResponse } from "@/lib/studio";
+import { api, CLI_RELAY_PRESETS, CUSTOM_PROVIDER_PRESETS, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,11 +30,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function ProviderConfigView({
   target,
   status,
+  relayPresets = CLI_RELAY_PRESETS,
   onClose,
   onSaved,
 }: {
   target: ConfigTarget;
   status?: ConfigResponse["providers"][string];
+  /** CLI 中转商预设（内置 + 远程清单增量,由父组件合并传入） */
+  relayPresets?: CliRelayPreset[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -316,11 +319,11 @@ export function ProviderConfigView({
                   {p.cliRelayBackedUp} {backups.map((b) => b.split("/").pop()).join(", ")}
                 </p>
               )}
-              {CLI_RELAY_PRESETS.some((r) => r.baseUrls[providerId]) && (
+              {relayPresets.some((r) => r.baseUrls[providerId]) && (
                 <div>
                   <label className={labelCls}>{p.cliRelayPresetsLabel}</label>
                   <div className="flex flex-wrap gap-1.5">
-                    {CLI_RELAY_PRESETS.filter((r) => r.baseUrls[providerId]).map((r) => (
+                    {relayPresets.filter((r) => r.baseUrls[providerId]).map((r) => (
                       <button
                         key={r.name}
                         type="button"

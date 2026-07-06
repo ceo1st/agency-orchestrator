@@ -1,0 +1,13 @@
+{
+  "_docs": "AO 远程供应商清单：上/下架赞助商不用发 npm/桌面版,改这个文件 push 官网仓即可(Vercel 自动部署)。本地引擎 web/server.js 启动时拉取(6h 缓存,拉不到用内置兜底)。providers=增量上架的聚合 API 赞助商(走自定义供应商通道,引擎零改动);relayPresets=增量 CLI 中转商;removedProviders=需要下架的内置供应商 id。安全约束:baseUrl 必须 https,id 不能覆盖内置 provider。",
+  "_schema": {
+    "providers": [{ "id": "small-caps-kebab", "name": "显示名", "note": "一句话说明(可选)", "homepageUrl": "https://...(可选)", "baseUrl": "https://api.example.com/v1", "defaultModel": "model-id(可选)", "modelSuggestions": ["model-a"], "sponsor": true }],
+    "relayPresets": [{ "name": "中转商名", "sponsor": true, "baseUrls": { "claude-code": "https://...", "gemini-cli": "https://...", "codex-cli": "https://.../v1" } }],
+    "removedProviders": ["要下架的内置 provider id"]
+  },
+  "version": 1,
+  "updatedAt": "2026-07-07",
+  "providers": [],
+  "relayPresets": [],
+  "removedProviders": []
+}

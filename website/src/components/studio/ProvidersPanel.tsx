@@ -134,6 +134,12 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
       : { line: t.studio.providers.keyNotSet, tone: "muted" };
   };
 
+  // CLI 中转商 = 内置预设 + 远程清单增量（同名以内置为准）
+  const relayPresets = [
+    ...CLI_RELAY_PRESETS,
+    ...(cfg?.relayPresets ?? []).filter((r) => !CLI_RELAY_PRESETS.some((b) => b.name === r.name)),
+  ];
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -167,7 +173,7 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
               <Cloud className="size-4 text-primary" /> {t.studio.providers.cloudApiTitle} <span className="font-normal text-muted-foreground">· {t.studio.providers.cloudApiHint}</span>
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              {API_META.map((m) => {
+              {API_META.filter((m) => !(cfg.removedProviders ?? []).includes(m.id)).map((m) => {
                 const st = keyStatus(m.id);
                 return (
                   <ProviderRow
@@ -180,6 +186,22 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
                     active={eff === m.id}
                     onSetActive={() => onSetActive(m.id)}
                     onEdit={() => setEditing({ kind: "api", id: m.id, name: displayName(m.id, m.name), hint: displayHint(m.id, m.hint), defaultBaseUrl: m.defaultBaseUrl, suggestions: m.modelSuggestions })}
+                  />
+                );
+              })}
+              {/* 远程清单上架的赞助商:官网 push 即上/下架,不用发版。运行链路同自定义供应商 */}
+              {(cfg.remoteProviders ?? []).map((m) => {
+                const st = keyStatus(m.id);
+                return (
+                  <ProviderRow
+                    key={m.id}
+                    name={m.name}
+                    statusLine={st.line}
+                    statusTone={st.tone}
+                    sponsor={m.sponsor}
+                    active={eff === m.id}
+                    onSetActive={() => onSetActive(m.id)}
+                    onEdit={() => setEditing({ kind: "api", id: m.id, name: m.name, hint: m.note || m.homepageUrl, defaultBaseUrl: m.baseUrl, suggestions: m.modelSuggestions })}
                   />
                 );
               })}
@@ -272,7 +294,7 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
               })}
 
               {/* CLI 中转商（如赞助商 Cubence）：列表级可见,点对应 CLI 按钮直达中转配置(端点预填) */}
-              {CLI_RELAY_PRESETS.map((r) => (
+              {relayPresets.map((r) => (
                 <div key={r.name} className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-card/60 px-4 py-3 sm:col-span-2">
                   <span className="min-w-0">
                     <span className="flex items-center gap-1.5">
@@ -307,6 +329,7 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
       {editing && (
         <ProviderConfigView
           target={editing}
+          relayPresets={relayPresets}
           status={
             editing.kind === "api" || editing.kind === "cli-relay"
               ? cfg?.providers[editing.id]
