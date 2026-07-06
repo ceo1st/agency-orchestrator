@@ -1,7 +1,7 @@
 /**
  * custom-providers.ts 测试 —— 自定义供应商的元数据 CRUD + id 校验
  */
-import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider } from '../src/utils/custom-providers.js';
+import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../src/utils/custom-providers.js';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -93,6 +93,32 @@ test('文件不存在时读取返回空数组', () => {
   const p = tmpFile(); // 只生成路径，不真的写文件
   const list = readCustomProviders(p);
   assert(Array.isArray(list) && list.length === 0, '应返回空数组');
+});
+
+test('更新名称/备注/官网,id 与 createdAt 不变', () => {
+  const p = tmpFile();
+  addCustomProvider(p, { id: 'a', name: '旧名', note: '旧备注', homepageUrl: 'https://old.com' });
+  const before = readCustomProviders(p)[0];
+  updateCustomProvider(p, 'a', { name: '新名', note: '新备注', homepageUrl: 'https://new.com' });
+  const after = readCustomProviders(p)[0];
+  assert(after.name === '新名' && after.note === '新备注' && after.homepageUrl === 'https://new.com', `更新未生效: ${JSON.stringify(after)}`);
+  assert(after.id === 'a' && after.createdAt === before.createdAt, 'id/createdAt 不应变');
+});
+
+test('更新时传空串清除可选字段,空名称被忽略', () => {
+  const p = tmpFile();
+  addCustomProvider(p, { id: 'a', name: '名字', note: '备注', homepageUrl: 'https://x.com' });
+  updateCustomProvider(p, 'a', { name: '  ', note: '', homepageUrl: '' });
+  const after = readCustomProviders(p)[0];
+  assert(after.name === '名字', `空名称不应覆盖,实际: ${after.name}`);
+  assert(after.note === undefined && after.homepageUrl === undefined, `空串应清除可选字段: ${JSON.stringify(after)}`);
+});
+
+test('更新不存在的 id 不报错也不新增', () => {
+  const p = tmpFile();
+  addCustomProvider(p, { id: 'a', name: 'A' });
+  updateCustomProvider(p, 'ghost', { name: 'X' });
+  assert(readCustomProviders(p).length === 1, '不应新增条目');
 });
 
 test('文件内容损坏时读取返回空数组（不崩）', () => {

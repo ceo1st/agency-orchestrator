@@ -184,6 +184,25 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
   return res.json();
 }
 
+async function putJSON<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let msg = `${res.status}`;
+    try {
+      const j = await res.json();
+      msg = j.error || msg;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
 async function delJSON<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`, { method: "DELETE" });
   if (!res.ok) {
@@ -342,7 +361,12 @@ export const api = {
     postJSON<{ ok: boolean; latencyMs?: number; error?: string; note?: string }>("/test-provider", { provider }),
   createCustomProvider: (body: { id: string; name: string; note?: string; homepageUrl?: string; baseUrl: string; apiKey?: string; model?: string }) =>
     postJSON<{ ok: boolean }>("/custom-providers", body),
+  // 拉取供应商真实可用模型列表（OpenAI 兼容 GET /models）；baseUrl/apiKey 可覆盖（未保存时先试拉）
+  providerModels: (body: { provider?: string; baseUrl?: string; apiKey?: string }) =>
+    postJSON<{ ok: boolean; models?: string[]; error?: string }>("/provider-models", body),
   deleteCustomProvider: (id: string) => delJSON<{ ok: boolean }>(`/custom-providers/${encodeURIComponent(id)}`),
+  updateCustomProvider: (id: string, body: { name?: string; note?: string; homepageUrl?: string }) =>
+    putJSON<{ ok: boolean }>(`/custom-providers/${encodeURIComponent(id)}`, body),
   roles: (lang?: string) => getJSON<Role[]>(`/roles${lang === "en" ? "?lang=en" : ""}`),
   role: (category: string, id: string, lang?: string) =>
     getJSON<Role>(`/roles/${category}/${id}${lang === "en" ? "?lang=en" : ""}`),
@@ -471,6 +495,8 @@ export interface ApiProviderMeta {
   /** 下拉选择器里的短名，缺省用 name（如 Claude 卡片名带 "(Anthropic)" 后缀，下拉里只要短名） */
   shortName?: string;
   hint: string;
+  /** 默认接入点（展示用,和后端 src/connectors/api-providers.ts 保持一致）——留空 base_url 时实际用的就是它 */
+  defaultBaseUrl?: string;
   flagship?: boolean;
   sponsor?: boolean;
   modelSuggestions?: string[];
@@ -478,15 +504,15 @@ export interface ApiProviderMeta {
 
 export const API_PROVIDERS: ApiProviderMeta[] = [
   // 旗舰赞助商 APINEBULA —— 置顶 + 金色高亮（大屏特有）
-  { id: "apinebula", name: "APINEBULA", hint: "apinebula.com", flagship: true, modelSuggestions: ["gpt-5.5", "claude-opus-4", "gemini-2.5-pro", "deepseek-chat"] },
+  { id: "apinebula", name: "APINEBULA", hint: "apinebula.com", defaultBaseUrl: "https://apinebula.com/v1", flagship: true, modelSuggestions: ["gpt-5.5", "claude-opus-4", "gemini-2.5-pro", "deepseek-chat"] },
   // 普通赞助商 CompShare —— 次于旗舰，中性「赞助商」标记
-  { id: "compshare", name: "CompShare", hint: "console.compshare.cn", sponsor: true, modelSuggestions: ["deepseek-ai/DeepSeek-R1", "deepseek-ai/DeepSeek-V3"] },
+  { id: "compshare", name: "CompShare", hint: "console.compshare.cn", defaultBaseUrl: "https://api.modelverse.cn/v1", sponsor: true, modelSuggestions: ["deepseek-ai/DeepSeek-R1", "deepseek-ai/DeepSeek-V3"] },
   // 普通赞助商 RootFlowAI —— 前 3 位，紧跟两家旗舰/赞助商之后
-  { id: "rootflowai", name: "RootFlowAI", hint: "rootflowai.com", sponsor: true, modelSuggestions: ["claude-sonnet-4-6", "claude-opus-4-7", "gpt-5.5", "gemini-3.1-pro-preview"] },
-  { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
-  { id: "claude", name: "Claude (Anthropic)", shortName: "Claude", hint: "console.anthropic.com", modelSuggestions: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022"] },
-  { id: "openai", name: "OpenAI", hint: "gpt-4o {etc} · platform.openai.com", modelSuggestions: ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "gpt-4.1"] },
-  { id: "agnes", name: "Agnes AI", hint: "agnes-2.0-flash · agnes-ai.com", modelSuggestions: ["agnes-2.0-flash", "agnes-1.5-flash"] },
+  { id: "rootflowai", name: "RootFlowAI", hint: "rootflowai.com", defaultBaseUrl: "https://api.rootflowai.com/v1", sponsor: true, modelSuggestions: ["claude-sonnet-4-6", "claude-opus-4-7", "gpt-5.5", "gemini-3.1-pro-preview"] },
+  { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
+  { id: "claude", name: "Claude (Anthropic)", shortName: "Claude", hint: "console.anthropic.com", defaultBaseUrl: "https://api.anthropic.com/v1", modelSuggestions: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022"] },
+  { id: "openai", name: "OpenAI", hint: "gpt-4o {etc} · platform.openai.com", defaultBaseUrl: "https://api.openai.com/v1", modelSuggestions: ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "gpt-4.1"] },
+  { id: "agnes", name: "Agnes AI", hint: "agnes-2.0-flash · agnes-ai.com", defaultBaseUrl: "https://apihub.agnes-ai.com/v1", modelSuggestions: ["agnes-2.0-flash", "agnes-1.5-flash"] },
 ];
 
 export const API_PROVIDER_MAP: Record<string, ApiProviderMeta> = Object.fromEntries(
@@ -506,6 +532,27 @@ export const API_PROVIDER_MAP: Record<string, ApiProviderMeta> = Object.fromEntr
 export const CLI_RELAY_SUPPORT = new Set(["claude-code", "gemini-cli", "codex-cli"]);
 /** 中转配置是"全局生效"（写用户 home 目录下的真实 CLI 配置文件）而非仅影响 AO 子进程的 provider。 */
 export const CLI_RELAY_GLOBAL_WRITE = new Set(["codex-cli"]);
+
+/** CLI 中转商预设：点一下自动填对应 CLI 的 base_url（不同 CLI 的端点可能不同），token 用户自己填。 */
+export interface CliRelayPreset {
+  name: string;
+  sponsor?: boolean;
+  /** provider id → 该 CLI 应填的中转 base_url */
+  baseUrls: Record<string, string>;
+}
+export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
+  // Cubence（赞助商）—— 专业 API 中转服务商,支持 Claude Code / Codex / Gemini CLI;
+  // 端点来自 docs.cubence.com 官方接入文档（Codex 走 /v1,另两个是根路径）
+  {
+    name: "Cubence",
+    sponsor: true,
+    baseUrls: {
+      "claude-code": "https://api-dmit.cubence.com",
+      "gemini-cli": "https://api-dmit.cubence.com",
+      "codex-cli": "https://api-dmit.cubence.com/v1",
+    },
+  },
+];
 
 export const PROVIDERS = [...API_PROVIDERS.map((p) => p.id), "claude-code", "gemini-cli", "openclaw-cli", "ollama"];
 

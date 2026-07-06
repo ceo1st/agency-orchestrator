@@ -16,7 +16,7 @@ import yaml from 'js-yaml';
 import { detectInstalledCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
-import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider } from '../dist/utils/custom-providers.js';
+import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个
@@ -1173,6 +1173,24 @@ app.post('/api/custom-providers', (req, res) => {
   res.json({ ok: true });
 });
 
+// 更新自定义供应商的展示元数据（名称/备注/官网）；连接信息走 POST /api/config,id 不可改
+app.put('/api/custom-providers/:id', (req, res) => {
+  const { id } = req.params;
+  if (!readCustomProviders(CUSTOM_PROVIDERS_FILE).some((p) => p.id === id)) {
+    return res.status(404).json({ error: 'not found' });
+  }
+  const { name, note, homepageUrl } = req.body || {};
+  if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+    return res.status(400).json({ error: 'name required' });
+  }
+  updateCustomProvider(CUSTOM_PROVIDERS_FILE, id, {
+    name: typeof name === 'string' ? name : undefined,
+    note: typeof note === 'string' ? note : undefined,
+    homepageUrl: typeof homepageUrl === 'string' ? homepageUrl : undefined,
+  });
+  res.json({ ok: true });
+});
+
 app.delete('/api/custom-providers/:id', (req, res) => {
   const { id } = req.params;
   removeCustomProvider(CUSTOM_PROVIDERS_FILE, id);
@@ -1229,6 +1247,44 @@ app.post('/api/test-provider', async (req, res) => {
       return res.json({ ok: false, error: `HTTP ${r.status} ${txt}` });
     }
     return res.json({ ok: true, latencyMs });
+  } catch (e) {
+    return res.json({ ok: false, error: e?.name === 'AbortError' ? '超时（12s）' : (e?.message || String(e)) });
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+// ── 拉取供应商的真实可用模型列表（OpenAI 兼容 GET /models；claude 走 Anthropic 原生端点）──
+// body 可带 baseUrl/apiKey 覆盖：add-custom 场景用户刚填了还没保存也能先拉列表。
+app.post('/api/provider-models', async (req, res) => {
+  const { provider, baseUrl: overrideBase, apiKey: overrideKey } = req.body || {};
+  const saved = provider ? (readKeys()[provider] || {}) : {};
+  const spec = provider ? API_PROVIDER_MAP[provider] : null;
+  const isClaude = provider === 'claude';
+  const base = String(
+    overrideBase || saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl ||
+    (isClaude ? 'https://api.anthropic.com/v1' : '')
+  ).replace(/\/+$/, '');
+  const key = overrideKey || saved.apiKey || (spec ? process.env[spec.envKey] : '') || (isClaude ? process.env.ANTHROPIC_API_KEY : '');
+  if (!base) return res.status(400).json({ ok: false, error: 'baseUrl required' });
+  if (!key) return res.json({ ok: false, error: '未设置 API key' });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const headers = isClaude
+      ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' }
+      : { authorization: `Bearer ${key}` };
+    const r = await fetch(`${base}/models`, { signal: ctrl.signal, headers });
+    if (!r.ok) {
+      const txt = (await r.text().catch(() => '')).slice(0, 200);
+      return res.json({ ok: false, error: `HTTP ${r.status} ${txt}` });
+    }
+    const j = await r.json().catch(() => ({}));
+    const models = (Array.isArray(j.data) ? j.data : Array.isArray(j.models) ? j.models : [])
+      .map((m) => (typeof m === 'string' ? m : m?.id))
+      .filter((id) => typeof id === 'string' && id)
+      .sort();
+    return res.json({ ok: true, models });
   } catch (e) {
     return res.json({ ok: false, error: e?.name === 'AbortError' ? '超时（12s）' : (e?.message || String(e)) });
   } finally {

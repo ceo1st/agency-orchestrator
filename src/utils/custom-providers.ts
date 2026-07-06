@@ -55,3 +55,20 @@ export function removeCustomProvider(path: string, id: string): CustomProviderMe
   writeCustomProviders(path, list);
   return list;
 }
+
+/** 更新自定义供应商的展示元数据（名称/备注/官网）。id 不可改（它是 provider 标识,被 web-keys.json 和工作流引用）。 */
+export function updateCustomProvider(
+  path: string,
+  id: string,
+  patch: Partial<Pick<CustomProviderMeta, 'name' | 'note' | 'homepageUrl'>>,
+): CustomProviderMeta[] {
+  const list = readCustomProviders(path);
+  const item = list.find((p) => p.id === id);
+  if (item) {
+    if (patch.name !== undefined && patch.name.trim()) item.name = patch.name.trim();
+    if (patch.note !== undefined) item.note = patch.note.trim() || undefined;
+    if (patch.homepageUrl !== undefined) item.homepageUrl = patch.homepageUrl.trim() || undefined;
+    writeCustomProviders(path, list);
+  }
+  return list;
+}
