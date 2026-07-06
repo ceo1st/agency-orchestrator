@@ -517,6 +517,8 @@ export interface ApiProviderMeta {
   defaultBaseUrl?: string;
   /** 注册/领取 key 的直达链接（赞助商带推广参数） */
   signupUrl?: string;
+  /** true=模型公司官方 API(如 DeepSeek/Anthropic/OpenAI),false/缺省=聚合平台 */
+  vendor?: boolean;
   flagship?: boolean;
   sponsor?: boolean;
   modelSuggestions?: string[];
@@ -529,9 +531,9 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   { id: "compshare", name: "CompShare", hint: "console.compshare.cn", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents", sponsor: true, modelSuggestions: ["deepseek-ai/DeepSeek-R1", "deepseek-ai/DeepSeek-V3"] },
   // 普通赞助商 RootFlowAI —— 前 3 位，紧跟两家旗舰/赞助商之后
   { id: "rootflowai", name: "RootFlowAI", hint: "rootflowai.com", defaultBaseUrl: "https://api.rootflowai.com/v1", signupUrl: "https://rootflowai.com/register?utm_source=agency-agents-zh&utm_medium=sponsor&utm_campaign=studio", sponsor: true, modelSuggestions: ["claude-sonnet-4-6", "claude-opus-4-7", "gpt-5.5", "gemini-3.1-pro-preview"] },
-  { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
-  { id: "claude", name: "Claude (Anthropic)", shortName: "Claude", hint: "console.anthropic.com", defaultBaseUrl: "https://api.anthropic.com/v1", modelSuggestions: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022"] },
-  { id: "openai", name: "OpenAI", hint: "gpt-4o {etc} · platform.openai.com", defaultBaseUrl: "https://api.openai.com/v1", modelSuggestions: ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "gpt-4.1"] },
+  { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
+  { id: "claude", name: "Claude (Anthropic)", shortName: "Claude", hint: "console.anthropic.com", defaultBaseUrl: "https://api.anthropic.com/v1", vendor: true, modelSuggestions: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022"] },
+  { id: "openai", name: "OpenAI", hint: "gpt-4o {etc} · platform.openai.com", defaultBaseUrl: "https://api.openai.com/v1", vendor: true, modelSuggestions: ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "gpt-4.1"] },
   { id: "agnes", name: "Agnes AI", hint: "agnes-2.0-flash · agnes-ai.com", defaultBaseUrl: "https://apihub.agnes-ai.com/v1", modelSuggestions: ["agnes-2.0-flash", "agnes-1.5-flash"] },
 ];
 
