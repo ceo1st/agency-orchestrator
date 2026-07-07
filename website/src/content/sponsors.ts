@@ -3,7 +3,7 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、RootFlowAI（大模型 API 聚合平台）、Cubence（API 中转服务商）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、RootFlowAI（大模型 API 聚合平台）、Cubence（API 中转服务商）、CCSub（AI API 中转平台）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  */
 
@@ -135,6 +135,29 @@ export const sponsors: Sponsor[] = [
       en: "10% off your first purchase",
     },
     couponCode: "AGENCY",
+  },
+  {
+    id: "ccsub",
+    name: "CCSub",
+    badge: "CC",
+    accent: "from-emerald-600 to-slate-800",
+    logo: "/sponsors/logo-ccsub-icon.png",
+    url: "https://www.ccsub.net/register?ref=8G5W4JK4",
+    tier: "standard",
+    since: "2026-07",
+    featured: false,
+    tagline: {
+      zh: "稳定、实惠的 AI API 中转平台 · Claude Code 官方订阅的超强平替",
+      en: "Stable, affordable AI API relay · a drop-in replacement for a Claude.ai subscription",
+    },
+    description: {
+      zh: "感谢 CCSub 赞助本项目！CCSub 是稳定、实惠的 AI API 中转平台，是 Claude Code 官方订阅的超强平替。一个 API Key 即可调用 Claude Opus 4.8、Sonnet 4.6、Haiku 4.5、GPT-5、Gemini、DeepSeek 全系列模型，价格约为官方直连的 1/3，全球直连无需梯子。兼容 Claude Code、Codex、Cursor、Cline、Continue、Windsurf 等所有主流 AI 编程工具。",
+      en: "Thanks to CCSub for sponsoring this project! CCSub is a stable, affordable AI API relay platform — a drop-in replacement for a Claude.ai subscription. One API key gives you access to Claude Opus 4.8, Sonnet, Haiku, GPT-5, Gemini and DeepSeek at roughly 30% of direct API cost, with no VPN required from anywhere in the world. Compatible with Claude Code, Codex, Cursor, Cline, Continue, Windsurf and all major AI coding tools.",
+    },
+    perk: {
+      zh: "注册即送 $5 体验额度",
+      en: "$5 free credit on sign-up",
+    },
   },
 ];
 
