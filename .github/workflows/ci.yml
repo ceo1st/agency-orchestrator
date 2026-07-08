@@ -27,6 +27,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # web-server 冒烟测试会请求 SPA 深层路由，需要前端产物存在（否则 server 返回 503 → 测试挂）。
+      # 与 release.yml 对齐：test 前构建 Studio。
+      - name: Build Studio
+        run: npm run build:studio
+
       # 确认构建出的 dist/cli.js 实现了源码声明的所有命令（防 #80：发布陈旧 dist）
       - name: Verify CLI command parity
         run: node scripts/verify-cli.mjs
