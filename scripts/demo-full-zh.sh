@@ -39,7 +39,7 @@ sleep 0.5
 
 # Header
 printf "\n"
-printf "  \033[36m\033[1m\033[4mAgency Orchestrator v0.5.0\033[0m\n"
+printf "  \033[36m\033[1m\033[4mAgency Orchestrator v0.8.1\033[0m\n"
 printf "\n"
 printf "  \033[33m\xe2\x9a\x99\033[0m  正在智能编排工作流...\n"
 sleep 1.8
