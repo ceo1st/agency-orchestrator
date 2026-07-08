@@ -96,7 +96,7 @@ const zh = {
   },
   evalNote: {
     title: "模型能力决定多智能体的价值（我们做了评测）",
-    body: "在中等价位的有能力模型上，多智能体产出明显优于单次 prompt；但本地小模型（如 llama3 8B 级）能力不足时，多角色交接反而会放大漂移。追求质量请用有能力的模型。",
+    body: "在有能力的模型上（DeepSeek 这类便宜的就够、本地 70B+ 也行），多智能体产出明显优于单次 prompt；只有用 8B 级小模型时，多角色交接才会放大漂移。不必花大钱，只是别用太小的模型。",
     link: "查看完整评测结论",
   },
   providers: {
@@ -702,7 +702,7 @@ const en: typeof zh = {
   },
   evalNote: {
     title: "Model capability decides multi-agent value (we measured it)",
-    body: "On a capable mid-tier model, multi-agent output clearly beats a one-shot prompt; but with weak local models (llama3 8B class), hand-offs amplify drift. For quality, use a capable model.",
+    body: "On a capable model (cheap ones like DeepSeek are plenty; local 70B+ works too), multi-agent output clearly beats a one-shot prompt; only with 8B-class small models do hand-offs amplify drift. No need to spend big — just don't use a tiny model.",
     link: "Read the full eval findings",
   },
   providers: {

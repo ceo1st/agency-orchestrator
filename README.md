@@ -18,7 +18,8 @@
 > 觉得有用？请点个 **Star** — 帮助更多人发现这个项目。
 
 <p align="center">
-  <img src="./demo-zh.gif" alt="ao compose --run demo" width="700">
+  <img src="./demo-studio-zh.gif" alt="网页 Studio：一句话，AI 自动组队" width="820"><br/>
+  <em>网页 Studio：打一句话，AI 自动从 200+ 专家里组队并运行</em>
 </p>
 
 ---
@@ -33,11 +34,6 @@
 > 🆕 **零配置首跑**：本机已登录 Claude Code / Gemini CLI 等？AO 自动探测并直接用，连 API key 都不用配。
 
 <p align="center">
-  <img src="./docs/screenshots/studio-roles-zh.png" alt="Studio · 角色组队：从 200+ 专家里勾选，AI 自动合成团队" width="800"><br/>
-  <em>角色组队：从 200+ 专家里勾选，AI 自动合成团队并运行</em>
-</p>
-
-<p align="center">
   <img src="./docs/screenshots/studio-workflows-zh.png" alt="Studio · 工作流模板：内置模板一键运行" width="800"><br/>
   <em>工作流：内置模板一键运行，也能对比多个模板</em>
 </p>
@@ -49,9 +45,15 @@
 
 ## 一句话出结果
 
+也可以纯命令行——一条命令，一句话出结果：
+
 ```bash
 ao compose "我是一个程序员，想用AI做自媒体副业，目标月入2万，帮我做完整规划" --run
 ```
+
+<p align="center">
+  <img src="./demo-zh.gif" alt="ao compose 命令行演示" width="700">
+</p>
 
 5 个 AI 角色自动分工协作：
 
