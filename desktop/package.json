@@ -1,7 +1,7 @@
 {
   "name": "agency-orchestrator-desktop",
   "private": true,
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Agency Orchestrator — desktop app (Electron)",
   "main": "main.cjs",
   "scripts": {
@@ -17,6 +17,7 @@
   "build": {
     "appId": "com.jnmetacode.agency-orchestrator",
     "productName": "Agency Orchestrator",
+    "afterSign": "scripts/afterSign.cjs",
     "directories": {
       "output": "release"
     },
