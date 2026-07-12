@@ -12,6 +12,7 @@
 - **compose 学会两件事**：给关键步骤自动写 `acceptance`；识别金融/医疗/法律/花真金白银类任务时，在最终步前自动插 `type: approval` 签字闸门（重大决策必须用户放行）。
 - **「我的工作流」资产化**（#92、agents-zh#98）：独立分区**置顶第一屏**、按最近修改倒序、点 ☆ 置顶常用；卡片新增**下载 YAML**（拿到 CLI / 其他机器直接用）与**删除**（服务端严格限用户目录，内置模板不可删）。
 - **画布编辑器增强**：普通节点新增「验收标准」编辑框；approval / human_input 节点显示专属编辑器（暂停说明 + 提示语），不再显示无意义的角色下拉。
+- **新增供应商：火山引擎（赞助商）**：字节火山方舟 Ark 直连（OpenAI 兼容 `/api/v3`，key 走官方 `ARK_API_KEY`，默认豆包 doubao-seed-2-1-pro）+ 给本地编码 CLI 配中转的预设（Anthropic 兼容 `/api/compatible`，三档模型自动映射，对齐 cc-switch）；注册领 2500 万 Tokens。
 
 ### Changed
 - **删除确认改应用内弹框**：替代带 "127.0.0.1 显示" 抬头的原生 `window.confirm`（新 ConfirmDialog 组件可复用；Button 新增 destructive 变体）；文件已被外部删除时幂等成功。
