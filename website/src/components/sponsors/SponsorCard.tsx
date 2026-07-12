@@ -1,6 +1,6 @@
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { sponsorUrl, type Sponsor } from "@/content/sponsors";
+import { sponsorLogo, sponsorUrl, type Sponsor } from "@/content/sponsors";
 import { PerkText } from "./PerkText";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +62,7 @@ export function SponsorCard({ sponsor }: { sponsor: Sponsor }) {
       <div className="flex items-center gap-3.5">
         {s.logo ? (
           <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl border border-border/60 bg-white shadow">
-            <img src={s.logo} alt={s.name} className="h-9 w-9 object-contain" />
+            <img src={sponsorLogo(s, lang)} alt={s.name} className="h-9 w-9 object-contain" />
           </span>
         ) : (
           <span

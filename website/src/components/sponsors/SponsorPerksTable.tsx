@@ -1,7 +1,7 @@
 import { ExternalLink, Sparkles } from "lucide-react";
 import { CopyButton } from "@/components/ui/copy-button";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { sponsorUrl, sponsors } from "@/content/sponsors";
+import { sponsorLogo, sponsorUrl, sponsors } from "@/content/sponsors";
 
 export function SponsorPerksTable() {
   const { t, lang } = useLanguage();
@@ -37,7 +37,7 @@ export function SponsorPerksTable() {
                   <span className="flex items-center gap-3">
                     {sp.logo ? (
                       <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/60 bg-white shadow-sm">
-                        <img src={sp.logo} alt={sp.name} className="size-9 object-contain" />
+                        <img src={sponsorLogo(sp, lang)} alt={sp.name} className="size-9 object-contain" />
                       </span>
                     ) : (
                       <span className={`grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-lg shadow-sm ${sp.accent ?? "from-primary to-fuchsia-500"}`}>
