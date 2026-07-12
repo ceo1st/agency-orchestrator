@@ -58,14 +58,15 @@ export function ProviderConfigView({
   const [baseUrl, setBaseUrl] = useState(
     (isRelay && (target as { initialBaseUrl?: string }).initialBaseUrl) || status?.baseUrl || addPrefill?.baseUrl || (isOllama ? "http://localhost:11434" : ""),
   );
-  // 已配置过(status)优先，其次预设自带的模型初值，最后空 —— 选中转预设时三档自动填好
+  // 模型初值与 baseUrl 同一先例：从中转预设行进来时预设优先（用户点的就是"用这家"），
+  // 其次已保存配置，最后空。注意不能用 ??——存过一次空字符串就会永远吞掉预设预填。
   const relayInit = isRelay ? (target as { initialSonnetModel?: string; initialOpusModel?: string; initialHaikuModel?: string; initialModel?: string }) : {};
-  const [model, setModel] = useState(status?.model ?? relayInit.initialModel ?? addPrefill?.model ?? "");
+  const [model, setModel] = useState(relayInit.initialModel || status?.model || addPrefill?.model || "");
   // claude-code 中转的模型映射（Sonnet/Opus/Haiku 档位 → 中转商实际模型，对齐 cc-switch）
   const isCcRelay = isRelay && target.kind === "cli-relay" && target.id === "claude-code";
-  const [sonnetModel, setSonnetModel] = useState(status?.sonnetModel ?? relayInit.initialSonnetModel ?? "");
-  const [opusModel, setOpusModel] = useState(status?.opusModel ?? relayInit.initialOpusModel ?? "");
-  const [haikuModel, setHaikuModel] = useState(status?.haikuModel ?? relayInit.initialHaikuModel ?? "");
+  const [sonnetModel, setSonnetModel] = useState(relayInit.initialSonnetModel || status?.sonnetModel || "");
+  const [opusModel, setOpusModel] = useState(relayInit.initialOpusModel || status?.opusModel || "");
+  const [haikuModel, setHaikuModel] = useState(relayInit.initialHaikuModel || status?.haikuModel || "");
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

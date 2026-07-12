@@ -197,12 +197,14 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
     : id === "apinebula" ? t.studio.providers.apinebulaName
     : id === "rootflowai" ? t.studio.providers.rootflowaiName
     : id === "cubence" ? t.studio.providers.cubenceName
+    : id === "volcengine" ? t.studio.providers.volcengineName
     : fallback;
   const displayHint = (id: string, fallback: string) =>
     id === "compshare" ? t.studio.providers.compshareHint
     : id === "apinebula" ? t.studio.providers.apinebulaHint
     : id === "rootflowai" ? t.studio.providers.rootflowaiHint
     : id === "cubence" ? t.studio.providers.cubenceHint
+    : id === "volcengine" ? t.studio.providers.volcengineHint
     : fallback.replace("{etc}", t.studio.providers.etc);
 
   const keyStatus = (id: string): { line: string; tone: "muted" | "ok" } => {

@@ -39,6 +39,10 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   // CCSub（赞助商）—— AI API 中转：一个 key 通 Claude / GPT / Gemini / DeepSeek 全家桶，
   // 统一端点 www.ccsub.net 同时兼容 Anthropic 与 OpenAI 协议（此处走 OpenAI 兼容 /v1）
   { id: 'ccsub', envKey: 'CCSUB_API_KEY', envBase: 'CCSUB_BASE_URL', defaultBaseUrl: 'https://www.ccsub.net/v1', defaultModel: 'claude-sonnet-5' },
+  // 火山引擎（赞助商）—— 字节跳动火山方舟 Ark：豆包 / Kimi / GLM 等模型。直连走 OpenAI 兼容
+  // 主数据面 /api/v3；key 用官方环境变量名 ARK_API_KEY（console.volcengine.com/ark 创建）。
+  // 给 Claude Code / Codex 配中转的另一用法见前端 CLI_RELAY_PRESETS（Anthropic 兼容 /api/compatible）。
+  { id: 'volcengine', envKey: 'ARK_API_KEY', envBase: 'VOLCENGINE_BASE_URL', defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-seed-2-1-pro-260628' },
 ];
 
 export const API_PROVIDER_MAP: Record<string, ApiProviderSpec> = Object.fromEntries(

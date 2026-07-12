@@ -438,7 +438,7 @@ export function groupModelsByVendor(models: string[]): [string, string[]][] {
 
 // 有正方形图标素材的赞助商/供应商 → website/public/sponsors/logo-<id>-icon.png（served at /sponsors/…）。
 // 只对确有文件的 id 返回路径，避免其它供应商拿到 404 的 <img>。
-const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub"]);
+const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine"]);
 export function providerLogo(id: string): string | undefined {
   return PROVIDER_LOGO_IDS.has(id) ? `/sponsors/logo-${id}-icon.png` : undefined;
 }
@@ -649,6 +649,9 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // CCSub（赞助商）—— 一个 key 通 Claude/GPT/Gemini/DeepSeek 全家桶,官方约 1/3 价,注册送 $5;
   // 统一端点 www.ccsub.net 同时兼容 Anthropic 与 OpenAI（此处直连走 OpenAI 兼容 /v1）
   { id: "ccsub", name: "CCSub", hint: "www.ccsub.net · 注册送 $5", defaultBaseUrl: "https://www.ccsub.net/v1", signupUrl: "https://www.ccsub.net/register?ref=8G5W4JK4", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
+  // 火山引擎（赞助商）—— 字节跳动火山方舟：豆包/Kimi/GLM 等，注册领 2500 万 Tokens；
+  // 直连走 OpenAI 兼容 /api/v3（配 key 后可点「获取模型列表」拉全量），Claude Code 中转见 CLI_RELAY_PRESETS
+  { id: "volcengine", name: "火山引擎", hint: "ark.cn-beijing.volces.com", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", sponsor: true, modelSuggestions: ["doubao-seed-2-1-pro-260628"] },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   { id: "claude", name: "Claude (Anthropic)", shortName: "Claude", hint: "console.anthropic.com", defaultBaseUrl: "https://api.anthropic.com/v1", vendor: true, modelSuggestions: ["claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"] },
   { id: "openai", name: "OpenAI", hint: "gpt-5.5 {etc} · platform.openai.com", defaultBaseUrl: "https://api.openai.com/v1", vendor: true, modelSuggestions: ["gpt-5.5", "gpt-5.4-mini", "gpt-4o"] },
@@ -681,6 +684,10 @@ export interface CliRelayPreset {
   signupUrl?: string;
   /** provider id → 该 CLI 应填的中转 base_url */
   baseUrls: Record<string, string>;
+  /** 可选的 Claude Code 三档模型映射预填（中转商模型名 ≠ claude 官方名时用，对齐 cc-switch） */
+  sonnetModel?: string;
+  opusModel?: string;
+  haikuModel?: string;
 }
 export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
   // Cubence（赞助商）—— 专业 API 中转服务商,支持 Claude Code / Codex / Gemini CLI;
@@ -695,6 +702,21 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
       "gemini-cli": "https://api.cubence.com",
       "codex-cli": "https://api.cubence.com/v1",
     },
+  },
+  // 火山引擎（赞助商）—— 火山方舟给 Claude Code 配中转走 Anthropic 兼容端点 /api/compatible，
+  // Codex 走主数据面 /api/v3（原生 Responses API）；豆包模型名 ≠ claude 官方名，三档统一映射
+  // doubao-seed-2-1-pro（端点与模型对齐 cc-switch 的「豆包 Seed」预设）。gemini-cli 无对应端点，不列。
+  {
+    name: "火山引擎",
+    sponsor: true,
+    signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh",
+    baseUrls: {
+      "claude-code": "https://ark.cn-beijing.volces.com/api/compatible",
+      "codex-cli": "https://ark.cn-beijing.volces.com/api/v3",
+    },
+    sonnetModel: "doubao-seed-2-1-pro-260628",
+    opusModel: "doubao-seed-2-1-pro-260628",
+    haikuModel: "doubao-seed-2-1-pro-260628",
   },
 ];
 
