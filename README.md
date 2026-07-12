@@ -203,6 +203,7 @@ steps:
   - id: summary
     role: "product/product-manager"
     task: "综合反馈输出结论：\n\n{{tech_report}}\n\n{{design_report}}"
+    acceptance: "1. 明确给出通过/不通过结论  2. 列出必须解决的问题"  # 可选：验收标准，注入 prompt 并作评审依据
     depends_on: [tech_review, design_review]
 ```
 

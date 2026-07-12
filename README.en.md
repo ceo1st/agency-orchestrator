@@ -193,6 +193,7 @@ steps:
   - id: summary
     role: "product/product-manager"
     task: "Synthesize feedback:\n\n{{tech_report}}\n\n{{design_report}}"
+    acceptance: "1. Clear go/no-go verdict  2. List must-fix issues"  # optional: injected at prompt tail, used as review yardstick
     depends_on: [tech_review, design_review]
 ```
 

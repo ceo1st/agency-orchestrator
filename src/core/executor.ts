@@ -186,6 +186,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           status: node.status as StepResult['status'],
           output: node.result,
           output_var: node.step.output,
+          acceptance: node.acceptance ?? node.step.acceptance,
           error: node.error,
           duration: (node.endTime || 0) - (node.startTime || 0),
           tokens: node.tokenUsage || { input: 0, output: 0 },
@@ -401,6 +402,17 @@ async function executeStep(
   // 引导专家在原稿基础上按意见修改，而不是从零重写。
   if (opts.feedback && opts.feedback.stepId === node.step.id && opts.feedback.text.trim()) {
     userMessage += buildFeedbackBlock(opts.feedback.text, opts.feedback.previousOutput);
+  }
+
+  // 验收标准：追加在任务最末（含反馈块之后），让"产出必须满足什么"是模型看到的最后指令。
+  // 渲染后的文本存回 node，随 StepResult 进 metadata（查看器展示 / 盲评锚点用同一份文本）。
+  if (node.step.acceptance) {
+    const acc = renderTemplate(node.step.acceptance, opts.context);
+    node.acceptance = acc;
+    const zh = /[一-鿿]/.test(acc);
+    userMessage += zh
+      ? `\n\n⚠️ 交付验收标准——产出必须全部满足以下条件，交付前逐条自检：\n${acc}`
+      : `\n\nAcceptance criteria — the deliverable MUST satisfy ALL of the following (self-check before delivering):\n${acc}`;
   }
 
   // 步骤级 LLM 配置覆盖

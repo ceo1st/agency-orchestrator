@@ -105,6 +105,7 @@ steps:
   - id: step_id
     role: "category/role-name"       # from agency-agents-zh
     task: "Task with {{variables}}"
+    acceptance: "1. checkable condition…"  # optional: injected at prompt tail, shown with output, judge anchor in --compare
     output: output_variable
     skill: "test-driven-development" # optional: inject a methodology playbook (see `ao skills`)
     depends_on: [other_step]         # DAG dependency

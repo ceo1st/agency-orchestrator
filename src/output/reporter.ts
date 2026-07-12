@@ -33,7 +33,10 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     const duration = step.duration ? `${(step.duration / 1000).toFixed(1)}s` : '';
     // 标签按该步内容语言自动选：英文角色/产出 → "Step"，中文 → "步骤"
     const stepLabel = /[一-鿿]/.test(`${name}${step.output || ''}`) ? '步骤' : 'Step';
-    const header = `> ${emoji} **${name}** | ${stepLabel} ${i + 1}/${result.steps.length}${duration ? ` | ${duration}` : ''}\n\n---\n\n`;
+    // 验收标准放头部引用块内（web 端按 '\n---\n' 截头取正文，标准不混入产出本体）
+    const accLabel = /[一-鿿]/.test(step.acceptance || '') ? '✅ 验收标准' : '✅ Acceptance';
+    const accBlock = step.acceptance ? `> ${accLabel}: ${step.acceptance.replace(/\n/g, '\n> ')}\n` : '';
+    const header = `> ${emoji} **${name}** | ${stepLabel} ${i + 1}/${result.steps.length}${duration ? ` | ${duration}` : ''}\n${accBlock}\n---\n\n`;
     const body = step.output || step.error || '(无输出)';
     writeFileSync(join(stepsDir, filename), header + body, 'utf-8');
   }
@@ -111,6 +114,7 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
       agentEmoji: s.agentEmoji,
       status: s.status,
       output_var: s.output_var,
+      acceptance: s.acceptance,
       duration: `${(s.duration / 1000).toFixed(1)}s`,
       tokens: s.tokens,
     })),

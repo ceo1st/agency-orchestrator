@@ -10,7 +10,7 @@ import { Markdown } from "./Markdown";
 import type { RunRequest } from "./RunManager";
 
 function DetailPane({ id, provider, onRun }: { id: string; provider: string; onRun: (r: RunRequest) => void }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [run, setRun] = useState<RunSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -147,6 +147,12 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
               </div>
               {isOpen && s.content && (
                 <div className="max-h-[60vh] overflow-auto border-t border-border/60 px-3 py-2.5">
+                  {s.acceptance && (
+                    <div className="mb-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] px-3 py-2 text-xs">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">{lang === "en" ? "✅ Acceptance criteria" : "✅ 验收标准"}</span>
+                      <p className="mt-1 whitespace-pre-wrap leading-relaxed text-muted-foreground">{s.acceptance}</p>
+                    </div>
+                  )}
                   <Markdown>{s.content}</Markdown>
                 </div>
               )}

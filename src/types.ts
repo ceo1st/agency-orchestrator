@@ -35,6 +35,7 @@ export interface StepDefinition {
   name?: string;              // 自定义显示名（覆盖角色文件的 name）
   emoji?: string;             // 自定义 emoji（覆盖角色文件的 emoji）
   task: string;               // 任务描述，支持 {{变量}} 模板
+  acceptance?: string;        // 验收标准（支持 {{变量}}）：注入 prompt 末尾要求产出满足，随产出展示，并作盲评评分锚点
   output?: string;            // 输出变量名
   skill?: string;             // 给本步挂一个方法论 skill（注入 system prompt），如 "test-driven-development"
   skills?: string[];          // 多个 skill（与 skill 合并）
@@ -65,6 +66,7 @@ export interface DAGNode {
   tokenUsage?: { input: number; output: number };
   agentName?: string;         // 角色显示名（如"趋势研究员"）
   agentEmoji?: string;        // 角色 emoji
+  acceptance?: string;        // 执行时渲染后的验收标准（executeStep 写入，进 StepResult/metadata）
 }
 
 /** LLM Connector 相关类型 */
@@ -112,6 +114,7 @@ export interface StepResult {
   status: 'completed' | 'failed' | 'skipped';
   output?: string;
   output_var?: string;            // 输出变量名（用于 resume 时重建 context）
+  acceptance?: string;            // 该步的验收标准（渲染后），随 metadata 存档供查看器展示
   error?: string;
   duration: number;
   tokens: { input: number; output: number };

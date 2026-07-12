@@ -152,15 +152,21 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
       }
     }
 
+    // acceptance 必须是字符串（YAML 里写成列表/映射会让运行期模板渲染直接崩）
+    if (step.acceptance !== undefined && typeof step.acceptance !== 'string') {
+      errors.push(`step "${step.id}" 的 acceptance 必须是字符串（多条标准用多行文本或 "1. …\\n2. …" 列出）`);
+    }
+
     // 检查 {{变量}} 引用：必须来自 inputs，或来自当前 step 的 DAG 上游 step.output
     // （之前只检查"任意 step 是否产出该变量"，让"早期 step 引用下游 output"这种
     // 拓扑反向错误漏过 validate，到 run 阶段才崩。和 autoFix 的拓扑约束对齐）
-    // 范围: step.task / step.condition / step.loop.exit_condition / step.prompt
+    // 范围: step.task / step.condition / step.loop.exit_condition / step.prompt / step.acceptance
     const refTexts: string[] = [];
     if (step.task) refTexts.push(step.task);
     if (step.condition) refTexts.push(step.condition);
     if (step.loop?.exit_condition) refTexts.push(step.loop.exit_condition);
     if (step.prompt) refTexts.push(step.prompt);
+    if (typeof step.acceptance === 'string') refTexts.push(step.acceptance);
 
     const varRefs: string[] = [];
     for (const text of refTexts) {

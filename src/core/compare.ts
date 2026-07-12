@@ -63,19 +63,24 @@ export function parseJudge(raw: string): JudgeScore | null {
   }
 }
 
-/** 单向评审一次：A、B 两份产出对同一任务打分。解析失败重试一次。 */
+/** 单向评审一次：A、B 两份产出对同一任务打分。解析失败重试一次。
+ *  acceptance 非空时作为首要评分锚点（工作流声明的验收标准，两份产出用同一把尺）。 */
 export async function judgeOnce(
   judgeLlm: LLMConfig,
   taskDesc: string,
   outA: string,
   outB: string,
+  acceptance?: string,
 ): Promise<JudgeScore | null> {
   const conn = createConnector(judgeLlm);
   const prompt = [
     '你是严格、客观的内容质量评审。下面是针对同一任务的两份产出，请对比。',
     `任务：${taskDesc}`,
+    ...(acceptance ? ['', `交付验收标准（首要评判依据，逐条核对两份产出是否满足）：\n${acceptance}`] : []),
     '', '【产出 A】', trunc(outA), '', '【产出 B】', trunc(outB), '',
-    '评判维度：完整性、具体性、可用性、是否直接可交付。',
+    acceptance
+      ? '评判维度：验收标准满足度优先，其次完整性、具体性、可用性、是否直接可交付。'
+      : '评判维度：完整性、具体性、可用性、是否直接可交付。',
     '只输出一行 JSON，不要任何额外文字：{"scoreA": 1-10, "scoreB": 1-10, "reason": "一句话理由"}',
   ].join('\n');
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -123,9 +128,10 @@ export async function compareOutputs(
   taskDesc: string,
   multiOutput: string,
   baselineOutput: string,
+  acceptance?: string,
 ): Promise<CompareVerdict | null> {
-  const j1 = await judgeOnce(judgeLlm, taskDesc, multiOutput, baselineOutput); // A=multi, B=base
-  const j2 = await judgeOnce(judgeLlm, taskDesc, baselineOutput, multiOutput); // A=base,  B=multi
+  const j1 = await judgeOnce(judgeLlm, taskDesc, multiOutput, baselineOutput, acceptance); // A=multi, B=base
+  const j2 = await judgeOnce(judgeLlm, taskDesc, baselineOutput, multiOutput, acceptance); // A=base,  B=multi
   if (!j1 || !j2) return null;
   return aggregateVerdict(j1, j2);
 }

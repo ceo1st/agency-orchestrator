@@ -49,6 +49,8 @@ export interface RunStepSummary {
   duration?: string;
   tokens?: { input: number; output: number };
   content?: string;
+  /** 该步声明的验收标准（运行时渲染后），来自 metadata.json */
+  acceptance?: string;
 }
 
 export interface RunSummary {

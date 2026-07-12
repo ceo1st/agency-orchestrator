@@ -350,9 +350,11 @@ export async function compareWorkflowVsBaseline(
   const baselineTask = buildBaselineTask(workflow.name, workflow.description, effInputs);
   const baselineOutput = await runBaseline(genLlm, baselineTask);
 
-  // 3) 双向盲评
+  // 3) 双向盲评。最终步声明了 acceptance 就作评分锚点（用运行时渲染后的文本；
+  //    两份产出同一把尺——这正是"验收写成数据"优于再叠一个 Reviewer Agent 的地方）
   const judgeLlm = options?.judgeLlm ?? genLlm;
-  const verdict = await compareOutputs(judgeLlm, baselineTask, multiOutput, baselineOutput);
+  const finalAcceptance = [...result.steps].reverse().find(s => s.status === 'completed')?.acceptance;
+  const verdict = await compareOutputs(judgeLlm, baselineTask, multiOutput, baselineOutput, finalAcceptance);
 
   return { multiOutput, baselineOutput, verdict, result };
 }
