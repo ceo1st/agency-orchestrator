@@ -3,6 +3,8 @@
 **English** | [中文](./README.md)
 
 > **One sentence in, a full plan out — multiple AI roles collaborate automatically.**
+>
+> **It's your one-person company: you're the boss, AI is the team — auto-assembled, asking your sign-off on big calls, delivering against acceptance criteria.**
 
 [![CI](https://github.com/jnMetaCode/agency-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/jnMetaCode/agency-orchestrator/actions)
 [![npm version](https://img.shields.io/npm/v/agency-orchestrator)](https://www.npmjs.com/package/agency-orchestrator)

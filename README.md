@@ -3,6 +3,8 @@
 **中文** | [English](./README.en.md)
 
 > **一句话，让多个 AI 角色自动协作，几分钟出完整方案。**
+>
+> **也是你的「一人公司」：你当老板，AI 当团队——自动组队、重大决策请你签字、按验收标准交付。**
 
 [![CI](https://github.com/jnMetaCode/agency-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/jnMetaCode/agency-orchestrator/actions)
 [![npm version](https://img.shields.io/npm/v/agency-orchestrator)](https://www.npmjs.com/package/agency-orchestrator)
@@ -28,6 +30,7 @@
 
 不想敲命令行？本地跑一条 `ao web`，浏览器里勾选专家、运行工作流、查看产物、实时介入——全程图形界面，全中英双语。
 
+> 🆕 **「一人公司」系列模板**：做产品 / 做内容 / 做投研 + 全员大会，关键步骤带验收标准（`acceptance`），投研含老板签字闸门——交付的是可验收的工作成果，不承诺奇迹。
 > 🆕 **AI 自动组队**：不知道选哪些专家？角色页一句话、不选角色，AI 自动从全部专家里挑人组队并运行。
 > 🆕 **可视化画布**：工作流可在画布上拖拽节点 / 连线（自动防环）/ 改任务·角色 / 保存，运行时节点按状态实时点亮。
 > 🆕 **创意库**：内置图像生成提示词库（Nano Banana / Gemini，可搜索 / 分类 / 一键复制）。

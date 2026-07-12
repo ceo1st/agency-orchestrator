@@ -26,7 +26,7 @@ const zh = {
     title: "一句话，让 agency-agents 的专家",
     titleHighlight: "自动组队协作",
     subtitle:
-      "描述需求 → AI 自动拆解任务 → 从 216 位专家中选角 → 按 DAG 并行执行 → 几分钟出一份完整方案。专家来自开源库 agency-agents，AO 负责把他们编排成一支团队。",
+      "把你的「一人公司」开起来——你当老板，AI 当团队。描述需求 → AI 自动拆解任务 → 从 216 位专家中选角 → 按 DAG 并行执行 → 重大决策请你签字 → 按验收标准交付完整方案。专家来自开源库 agency-agents，AO 负责把他们编排成一支团队。",
     ctaDownload: "下载客户端",
     ctaPrimary: "在 GitHub 上查看",
     ctaSecondary: "看赞助商权益",
@@ -656,7 +656,7 @@ const en: typeof zh = {
     title: "One sentence in, agency-agents' experts",
     titleHighlight: "team up automatically",
     subtitle:
-      "Describe what you need → AI decomposes the task → picks from 184 experts → runs them in parallel as a DAG → a full plan in minutes. The experts come from the open-source agency-agents library; AO orchestrates them into a team.",
+      "Run your one-person company — you're the boss, AI is the team. Describe what you need → AI decomposes the task → picks from 184 experts → runs them in parallel as a DAG → asks for your sign-off on big calls → delivers against acceptance criteria. The experts come from the open-source agency-agents library; AO orchestrates them into a team.",
     ctaDownload: "Download app",
     ctaPrimary: "View on GitHub",
     ctaSecondary: "Sponsor perks",
