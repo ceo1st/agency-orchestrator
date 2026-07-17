@@ -30,6 +30,8 @@ export class ClaudeConnector implements LLMConnector {
     const requestTimeout = config.timeout && config.timeout > 0 ? config.timeout : undefined;
     const response = await this.client.messages.create(
       {
+        // 供应商专有参数（如 thinking 预算）铺底，核心字段随后覆盖
+        ...(config.params ?? {}),
         model: config.model!,
         max_tokens: config.max_tokens || 4096,
         ...(config.temperature !== undefined ? { temperature: config.temperature } : {}),

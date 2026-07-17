@@ -36,6 +36,8 @@ Prefer not to use the command line? Run `ao web` locally and pick experts, run w
 </p>
 
 > Launch: `ao web` (local — your API key stays on your machine, never uploaded). A [desktop client download](https://github.com/jnMetaCode/agency-orchestrator/releases/latest) (Electron · macOS / Windows / Linux) is also available.
+>
+> **Docker / NAS** (amd64/arm64): `docker run -d -p 8088:8088 -v ao-data:/data ghcr.io/jnmetacode/agency-orchestrator:latest`, then open `http://<host>:8088` — keys are configured in the Providers tab and persist in the mounted volume. A ready-made [docker-compose.yml](./docker-compose.yml) is in the repo root.
 
 ---
 

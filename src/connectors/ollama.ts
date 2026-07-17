@@ -30,6 +30,8 @@ export class OllamaConnector implements LLMConnector {
           options: {
             num_predict: numPredict,
             num_ctx: numCtx,
+            // 供应商专有参数并入 ollama options（top_k/repeat_penalty 等）
+            ...(config.params ?? {}),
             ...(config.temperature !== undefined ? { temperature: config.temperature } : {}),
           },
         }),

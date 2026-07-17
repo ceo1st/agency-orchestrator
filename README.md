@@ -120,6 +120,7 @@ npm install -g agency-orchestrator
 > - **桌面客户端**（[下载](https://github.com/jnMetaCode/agency-orchestrator/releases/latest)）**自带引擎与 Node，双击即用，无需** `npm i -g agency-orchestrator`。只有想在终端用 `ao` 命令、或接进脚本 / CI 时才需要装 CLI。
 > - 用 `--provider claude-code`（或 `gemini-cli` / `codex-cli` 等）时，需要**本机已安装并登录对应 CLI**；AO 会自动探测已装的，零配置直接用。用 API key 类（deepseek/openai…）则配好 key 即可，无需装任何 CLI。
 > - **自定义目录**：产物 / 数据目录用 `AO_DATA_DIR`（桌面端默认指向 userData），角色库用 `AO_AGENTS_DIR`，统一工作区用 `AO_HOME`。
+> - **Docker / NAS 部署**（amd64/arm64）：`docker run -d -p 8088:8088 -v ao-data:/data ghcr.io/jnmetacode/agency-orchestrator:latest`，打开 `http://主机IP:8088`，密钥在页面「供应商」里配（存进挂载卷，重启不丢）。也可用仓库根的 [docker-compose.yml](./docker-compose.yml) 一键起。
 
 ### 第 2 步：一句话跑起来
 

@@ -48,6 +48,17 @@ await ov.chat('s', 'u', { provider: 'openai', model: 'o1', max_tokens: 100 });
 assert(captured !== null && 'max_completion_tokens' in captured!.body, 'AO_OPENAI_TOKENS_PARAM 覆盖生效');
 delete process.env.AO_OPENAI_TOKENS_PARAM;
 
+// 供应商专有参数透传（#90）：params 原样并入请求体，但不能覆盖核心字段
+const pp = new OpenAICompatibleConnector({ apiKey: 'k', baseUrl: `http://127.0.0.1:${port}/v1` });
+await pp.chat('s', 'u', {
+  provider: 'deepseek', model: 'deepseek-reasoner', max_tokens: 100,
+  params: { reasoning_effort: 'high', top_p: 0.9, stream: false, model: '不许覆盖' },
+});
+assert(captured !== null && captured!.body.reasoning_effort === 'high', 'params.reasoning_effort 透传进请求体 (#90)');
+assert(captured !== null && captured!.body.top_p === 0.9, 'params.top_p 透传进请求体');
+assert(captured !== null && captured!.body.stream === true, 'params 不能覆盖 stream（流式解析保护）');
+assert(captured !== null && captured!.body.model === 'deepseek-reasoner', 'params 不能覆盖 model');
+
 srv.close();
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

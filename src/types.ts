@@ -19,6 +19,7 @@ export interface LLMConfig {
   agent?: string;             // openclaw-cli 专用：agent ID（默认 "main"）
   max_tokens?: number;        // 默认 4096
   temperature?: number;       // 采样温度。未设置=用 provider 默认；设 0=近确定性（可复现、适合评测/抽取类任务）
+  params?: Record<string, unknown>; // 供应商专有参数，原样并入请求体（如 DeepSeek/OpenAI 的 reasoning 档位、Anthropic thinking）。核心字段（model/messages/stream 等）不可被覆盖
   timeout?: number;           // 单步超时 ms。未设置时按 provider 默认（API 120000 / CLI·ollama 600000）并按输入规模动态抬高首次超时（每 1K 字符 +8s，最多 +600000）。因超时触发重试时，下一次 timeout 自动 x1.5（上限 3600000 / 60min）。设为 0 表示不限时；显式设置则不做动态调整
   retry?: number;             // 失败重试次数，默认 3
 }

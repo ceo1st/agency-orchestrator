@@ -104,6 +104,9 @@ export class OpenAICompatibleConnector implements LLMConnector {
           },
           signal: controller.signal,
           body: JSON.stringify({
+            // 供应商专有参数（thinking/reasoning 档位等）先铺底，核心字段随后覆盖——
+            // params 永远不能改掉 model/stream/messages，避免把流式解析搞挂
+            ...(config.params ?? {}),
             model: config.model!,
             [this.tokenParam]: config.max_tokens || 4096,
             ...(config.temperature !== undefined ? { temperature: config.temperature } : {}),
