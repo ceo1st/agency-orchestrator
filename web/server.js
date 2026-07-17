@@ -18,7 +18,7 @@ import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-provider
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, repairClaudeConfig } from '../dist/utils/claude-repair.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
-import { PREMIUM_SPONSOR, rotatingStandardSponsor } from '../dist/utils/sponsor-guide.js';
+import { rotatingSponsors } from '../dist/utils/sponsor-guide.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个
@@ -78,7 +78,7 @@ const CLI_PROVIDERS = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 
 // per-provider overrides the user saved in the Studio (model name, custom base_url).
 // Already YAML-safe (no undefined fields) — used for compose, run args and run-role.
 function buildLLMConfig(provider) {
-  const p = provider || process.env.AO_PROVIDER || 'apinebula';
+  const p = provider || process.env.AO_PROVIDER || 'duoyuanx';
   const cfg = { provider: p, max_tokens: 4096 };
   if (CLI_PROVIDERS.includes(p)) return cfg; // local CLI: no model/key/base needed
   let saved = {};
@@ -107,7 +107,7 @@ const isAllowedWorkflow = (file) => ALLOWED_WORKFLOW_DIRS.some(d => isInside(fil
 
 // R2.2 首跑守卫：compose 要用的 provider 是否已有可用凭证（网页/桌面同后端）。保守——不确定不拦。
 function composeProviderReady(provider) {
-  const p = provider || process.env.AO_PROVIDER || 'apinebula';
+  const p = provider || process.env.AO_PROVIDER || 'duoyuanx';
   let saved = {}; try { saved = readKeys()[p] || {}; } catch {}
   if (saved.apiKey) return true;                                       // 已配 key（含 CLI 中转 / 自定义供应商）
   if (CLI_PROVIDERS.includes(p)) return detectInstalledCliProviders().includes(p); // 订阅制 CLI 零配置
@@ -987,11 +987,12 @@ app.post('/api/compose', async (req, res) => {
     return res.status(400).json({
       code: 'no_credentials',
       error: 'no_credentials',
-      provider: provider || process.env.AO_PROVIDER || 'apinebula',
+      provider: provider || process.env.AO_PROVIDER || 'duoyuanx',
       installedCli: detectInstalledCliProviders(),
-      // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档固定第一——档位专属权益；
-      // 第二位在标准档里按天轮换，同档雨露均沾，且避免多个赠额并排稀释转化
-      sponsors: [PREMIUM_SPONSOR, rotatingStandardSponsor()],
+      // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档（多元探索）持有默认
+      // provider 位（上面的 provider 字段兜底就是它），不占横幅；横幅 = 其余
+      // 6 家（旗舰+标准）按天轮换 2 家，等份轮值
+      sponsors: rotatingSponsors(),
     });
   }
   // roles 可为空 = AI 自动组队：让 LLM 从全量角色目录里自己挑专家（对应 CLI `ao compose "一句话"`，
@@ -1418,7 +1419,7 @@ app.get('/api/config', async (_req, res) => {
   const cli = CLI_PROVIDERS.map((name) => ({ name, installed: installedCli.includes(name) }));
   // 推荐 provider：已装的 CLI 优先（零配置）> 已配 key 的 provider > 默认。前端据此默认选中并给提示。
   const keyedWithKey = Object.entries(providers).find(([, p]) => p.hasKey)?.[0];
-  const recommended = installedCli[0] || keyedWithKey || (process.env.AO_PROVIDER || 'apinebula');
+  const recommended = installedCli[0] || keyedWithKey || (process.env.AO_PROVIDER || 'duoyuanx');
   res.json({
     providers,
     cli,
@@ -1428,7 +1429,7 @@ app.get('/api/config', async (_req, res) => {
     remoteProviders: manifest.providers,
     relayPresets: manifest.relayPresets,
     removedProviders: manifest.removedProviders,
-    defaultProvider: process.env.AO_PROVIDER || 'apinebula',
+    defaultProvider: process.env.AO_PROVIDER || 'duoyuanx',
   });
 });
 

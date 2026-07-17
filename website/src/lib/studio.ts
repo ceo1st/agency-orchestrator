@@ -601,7 +601,9 @@ export function runRole(
 }
 
 // 默认 provider：旗舰赞助商 APINEBULA（取代原来的 DeepSeek 默认）
-export const DEFAULT_PROVIDER = "apinebula";
+// 默认 provider 位 = 进阶赞助商定制权益（2026-07-17 调整：apinebula → duoyuanx，
+// 与服务端 AO_PROVIDER 兜底、无凭证引导首位保持一致）
+export const DEFAULT_PROVIDER = "duoyuanx";
 
 /**
  * 需要 API key 的云端聚合 provider 的统一注册表（Studio 前端专用）。

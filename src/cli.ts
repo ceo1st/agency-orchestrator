@@ -31,7 +31,7 @@ import { t, detectLang } from './i18n.js';
 import { loadEnvFile, writeEnvFile, ensureEnvGitignored } from './utils/env-loader.js';
 import { parseDuration } from './utils/duration.js';
 import { defaultOutputDir, defaultWorkflowsDir } from './utils/paths.js';
-import { PREMIUM_SPONSOR, rotatingStandardSponsor } from './utils/sponsor-guide.js';
+import { rotatingSponsors } from './utils/sponsor-guide.js';
 
 // Auto-load ./.env (shell env wins; no overwrite)
 loadEnvFile();
@@ -715,11 +715,11 @@ function printFirstRunGuide(provider: string): void {
   }
   L('');
   L(`  ② 用「送额度」的聚合/中转（几十秒拿 key，一个 key 通 Claude/GPT/Gemini 全家桶）：`);
-  // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档固定第一，标准档按天轮换第二位
-  const rot = rotatingStandardSponsor();
-  L(`       · ${PREMIUM_SPONSOR.name} ${PREMIUM_SPONSOR.bonus} → ${PREMIUM_SPONSOR.url}`);
-  L(`       · ${rot.name}${rot.bonus ? ` ${rot.bonus}` : ''} → ${rot.url}`);
-  L(`       拿到 key：ao compose "…" --run --provider duoyuanx --api-key <你的key>`);
+  // 赞助商位规则（src/utils/sponsor-guide.ts）：多元探索持有默认 provider 位不占此处；
+  // 这里是其余 6 家（旗舰+标准）按天轮换 2 家
+  const rots = rotatingSponsors();
+  for (const s of rots) L(`       · ${s.name}${s.bonus ? ` ${s.bonus}` : ''} → ${s.url}`);
+  L(`       拿到 key：ao compose "…" --run --provider ${rots[0].providerId} --api-key <你的key>`);
   L('');
   L(`  ③ 本地免费跑（需先装 Ollama 并拉好模型，建议 70B+）：`);
   L(`       ao compose "…" --run --provider ollama --model llama3`);
