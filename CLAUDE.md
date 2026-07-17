@@ -105,7 +105,8 @@ steps:
   - id: step_id
     role: "category/role-name"       # from agency-agents-zh
     task: "Task with {{variables}}"
-    acceptance: "1. checkable condition…"  # optional: injected at prompt tail, shown with output, judge anchor in --compare
+    acceptance: "1. checkable condition…"  # optional: injected at prompt tail; output auto-verified against it after the step runs (fail → one auto-rework round); judge anchor in --compare
+    verify: false                    # optional: opt this step out of acceptance auto-verify (top-level `verify: false` disables whole workflow; CLI --verify/--no-verify overrides; default on)
     output: output_variable
     skill: "test-driven-development" # optional: inject a methodology playbook (see `ao skills`)
     depends_on: [other_step]         # DAG dependency

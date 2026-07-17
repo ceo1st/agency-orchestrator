@@ -15,6 +15,7 @@ import { evaluateCondition } from './condition.js';
 import { loadAgent } from '../agents/loader.js';
 import { collectSkillNames, injectSkills } from '../skills/loader.js';
 import { createConnector } from '../connectors/factory.js';
+import { verifyAcceptance, buildReworkBlock, formatFailedItems } from './verify.js';
 import { createInterface } from 'node:readline';
 
 export interface ExecutorOptions {
@@ -37,6 +38,13 @@ export interface ExecutorOptions {
    * 按意见修改重做（而非从零重写）。配合 --resume --from <stepId> 使用。
    */
   feedback?: { stepId: string; text: string; previousOutput?: string };
+  /**
+   * acceptance 自动核验：写了 acceptance 的步骤产出后自动逐条核对，未过则带着
+   * 未满足条目自动返工一轮（复用对话式返工范式）。验收不过是质量信号而非执行错误，
+   * 步骤不会因此 failed。产品入口（run()）按 CLI flag > YAML 顶层 verify > 默认开
+   * 计算后传入；库级直调 executeDAG 不传 = 不核验（向后兼容）。step.verify: false 单步关闭。
+   */
+  verify?: boolean;
   /**
    * 调用方提供的步骤结果收集数组：executor 增量写入（每步完成即可见），
    * 供 SIGTERM/SIGINT 中断时把已完成步骤落盘成 metadata（否则中断的 run 无痕）。
@@ -152,6 +160,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           maxRetry,
           onStepStart,
           feedback: options.feedback,
+          verify: options.verify,
         }))
       );
 
@@ -192,6 +201,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           output: node.result,
           output_var: node.step.output,
           acceptance: node.acceptance ?? node.step.acceptance,
+          verification: node.verification,
           error: node.error,
           duration: (node.endTime || 0) - (node.startTime || 0),
           tokens: node.tokenUsage || { input: 0, output: 0 },
@@ -257,6 +267,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
             n.startTime = undefined;
             n.endTime = undefined;
             n.tokenUsage = undefined;
+            n.verification = undefined;
           }
 
           levelIndex = backToLevel;
@@ -355,6 +366,7 @@ async function executeStep(
     maxRetry: number;
     onStepStart?: (node: DAGNode) => void;
     feedback?: { stepId: string; text: string; previousOutput?: string };
+    verify?: boolean;
   }
 ): Promise<string> {
   node.status = 'running';
@@ -402,6 +414,8 @@ async function executeStep(
 
   // 渲染任务模板
   let userMessage = renderTemplate(node.step.task, opts.context);
+  // 渲染后的纯任务描述（不含反馈块/验收尾巴），验收核验时给验收员当"任务"上下文
+  const renderedTask = userMessage;
 
   // 对话式返工：若本步是反馈目标，把"上一版产出 + 用户意见"追加到任务后，
   // 引导专家在原稿基础上按意见修改，而不是从零重写。
@@ -446,69 +460,126 @@ async function executeStep(
   // - 上限是防误配置放飞的保险丝（retry 10 次可能放大到几十小时），
   //   真要超过 1 小时单步请用 timeout: 0 / --timeout 0 完全不限时
   const defaultTimeout = effectiveIsCLI ? 600_000 : effectiveIsLocal ? 600_000 : 120_000;
-  const inputChars = systemPrompt.length + userMessage.length;
-  const baseTimeout = effectiveConfig.timeout !== undefined
-    ? effectiveConfig.timeout
-    : dynamicInitialTimeout(defaultTimeout, inputChars);
   const effectiveMaxRetry = effectiveConfig.retry ?? opts.maxRetry;
   const TIMEOUT_CAP = 3_600_000;
 
-  // 带重试的 LLM 调用（timeout 在网络超时类错误重试时自动延长）
-  let lastError: Error | null = null;
-  let attemptTimeout = baseTimeout;
-  for (let attempt = 0; attempt <= effectiveMaxRetry; attempt++) {
-    try {
-      // attemptTimeout 同时传给 connector（控制内层 fetch/CLI timeout）和 withTimeout（外层兜底），
-      // 否则 connector 内部还按旧 timeout 硬断，递增就白加了
-      const attemptConfig = { ...effectiveConfig, timeout: attemptTimeout };
-      const result = await withTimeout(
-        effectiveConnector.chat(systemPrompt, userMessage, attemptConfig),
-        attemptTimeout
-      );
-      node.tokenUsage = { input: result.usage.input_tokens, output: result.usage.output_tokens };
-      return result.content;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (attempt < effectiveMaxRetry && isRetryable(lastError)) {
-        const errorClass = classifyError(lastError);
-        // connection 类错误（超时/ECONNRESET/aborted/socket hang up 等）→ 下一次 timeout x1.5
-        // 上限 900s，0=不限时保持不变，rate_limit / server_error 保持原值避免无谓放大
-        let nextTimeout = attemptTimeout;
-        if (errorClass === 'connection' && attemptTimeout > 0 && attemptTimeout < TIMEOUT_CAP) {
-          nextTimeout = Math.min(Math.round(attemptTimeout * 1.5), TIMEOUT_CAP);
+  // token 跨调用累加（验收返工会二次生成，核验本身也计入本步成本）
+  const tokenTotal = { input: 0, output: 0 };
+  const addTokens = (t: { input: number; output: number }): void => {
+    tokenTotal.input += t.input;
+    tokenTotal.output += t.output;
+    node.tokenUsage = { ...tokenTotal };
+  };
+
+  // 带重试的 LLM 调用（timeout 在网络超时类错误重试时自动延长）。
+  // 抽成局部函数：验收返工的二次生成走同一套 retry/timeout/兜底策略。
+  const callLLM = async (message: string): Promise<string> => {
+    let lastError: Error | null = null;
+    let attemptTimeout = effectiveConfig.timeout !== undefined
+      ? effectiveConfig.timeout
+      : dynamicInitialTimeout(defaultTimeout, systemPrompt.length + message.length);
+    for (let attempt = 0; attempt <= effectiveMaxRetry; attempt++) {
+      try {
+        // attemptTimeout 同时传给 connector（控制内层 fetch/CLI timeout）和 withTimeout（外层兜底），
+        // 否则 connector 内部还按旧 timeout 硬断，递增就白加了
+        const attemptConfig = { ...effectiveConfig, timeout: attemptTimeout };
+        const result = await withTimeout(
+          effectiveConnector.chat(systemPrompt, message, attemptConfig),
+          attemptTimeout
+        );
+        addTokens({ input: result.usage.input_tokens, output: result.usage.output_tokens });
+        return result.content;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        if (attempt < effectiveMaxRetry && isRetryable(lastError)) {
+          const errorClass = classifyError(lastError);
+          // connection 类错误（超时/ECONNRESET/aborted/socket hang up 等）→ 下一次 timeout x1.5
+          // 上限 900s，0=不限时保持不变，rate_limit / server_error 保持原值避免无谓放大
+          let nextTimeout = attemptTimeout;
+          if (errorClass === 'connection' && attemptTimeout > 0 && attemptTimeout < TIMEOUT_CAP) {
+            nextTimeout = Math.min(Math.round(attemptTimeout * 1.5), TIMEOUT_CAP);
+          }
+          // 分级退避：rate_limit 最长，connection 中等，server_error 最短
+          const baseByClass = effectiveIsCLI
+            ? { rate_limit: 15_000, connection: 10_000, server_error: 5_000 }
+            : { rate_limit: 5_000,  connection: 2_000,  server_error: 1_000 };
+          const base = baseByClass[errorClass as keyof typeof baseByClass] || 1_000;
+          const jitter = Math.random() * 0.3;  // 0-30% 抖动，防止并发步骤同时重试
+          const delay = Math.round(base * Math.pow(2, attempt) * (1 + jitter));
+          const extendHint = nextTimeout !== attemptTimeout
+            ? `（timeout 延长至 ${Math.round(nextTimeout / 1000)}s）`
+            : '';
+          process.stderr.write(`\n  ⚠️  ${node.step.id} 失败 (${lastError.message.slice(0, 80)})，${Math.round(delay / 1000)}s 后重试${extendHint} (${attempt + 1}/${effectiveMaxRetry})...\n`);
+          attemptTimeout = nextTimeout;
+          await sleep(delay);
+          continue;
         }
-        // 分级退避：rate_limit 最长，connection 中等，server_error 最短
-        const baseByClass = effectiveIsCLI
-          ? { rate_limit: 15_000, connection: 10_000, server_error: 5_000 }
-          : { rate_limit: 5_000,  connection: 2_000,  server_error: 1_000 };
-        const base = baseByClass[errorClass as keyof typeof baseByClass] || 1_000;
-        const jitter = Math.random() * 0.3;  // 0-30% 抖动，防止并发步骤同时重试
-        const delay = Math.round(base * Math.pow(2, attempt) * (1 + jitter));
-        const extendHint = nextTimeout !== attemptTimeout
-          ? `（timeout 延长至 ${Math.round(nextTimeout / 1000)}s）`
-          : '';
-        process.stderr.write(`\n  ⚠️  ${node.step.id} 失败 (${lastError.message.slice(0, 80)})，${Math.round(delay / 1000)}s 后重试${extendHint} (${attempt + 1}/${effectiveMaxRetry})...\n`);
-        attemptTimeout = nextTimeout;
-        await sleep(delay);
-        continue;
+        break;  // 不可重试的错误，立即停止
       }
-      break;  // 不可重试的错误，立即停止
     }
+
+    // 重试全部耗尽：检查是否有部分内容可兜底
+    if (lastError && (lastError as any).partialContent) {
+      const partial = (lastError as any).partialContent as string;
+      process.stderr.write(`\n  ⚠️  ${node.step.id} 重试耗尽，使用部分结果 (${partial.length} 字符)\n`);
+      return partial;
+    }
+
+    // 超时/连接类失败：在错误信息后附上可操作指引（基于 effectiveConfig.provider）
+    if (lastError && classifyError(lastError) === 'connection') {
+      const noContent = !!(lastError as any).noContent || !!(lastError as any).stalled;
+      lastError.message += timeoutFailureHint(effectiveConfig.provider, { noContent });
+    }
+    throw lastError || new Error(`step "${node.step.id}" 执行失败`);
+  };
+
+  const content = await callLLM(userMessage);
+
+  // acceptance 自动核验 + 一轮自动返工。验收不过是质量信号而非执行错误：
+  // 步骤不会因此 failed，最坏情况是返回"带 ⚠️ 标记的返工版"照常流向下游。
+  const verifyEnabled = opts.verify === true && node.step.verify !== false;
+  if (!verifyEnabled || !node.acceptance || !content.trim()) {
+    return content;
   }
 
-  // 重试全部耗尽：检查是否有部分内容可兜底
-  if (lastError && (lastError as any).partialContent) {
-    const partial = (lastError as any).partialContent as string;
-    process.stderr.write(`\n  ⚠️  ${node.step.id} 重试耗尽，使用部分结果 (${partial.length} 字符)\n`);
-    return partial;
+  const check1 = await verifyAcceptance(effectiveConnector, effectiveConfig, renderedTask, content, node.acceptance);
+  addTokens(check1.tokens);
+  if (!check1.verdict) {
+    // 核验不可用（网络错误 / 两次解析失败）→ 跳过核验，不拦产出（检查员宕机不停产线）
+    process.stderr.write(`\n  ⚠️  ${node.step.id} 验收核验不可用，已跳过核验\n`);
+    return content;
+  }
+  if (check1.verdict.pass) {
+    node.verification = { pass: true, failed: [], reworked: false };
+    return content;
   }
 
-  // 超时/连接类失败：在错误信息后附上可操作指引（基于 effectiveConfig.provider）
-  if (lastError && classifyError(lastError) === 'connection') {
-    const noContent = !!(lastError as any).noContent || !!(lastError as any).stalled;
-    lastError.message += timeoutFailureHint(effectiveConfig.provider, { noContent });
+  const failed1 = formatFailedItems(check1.verdict.failed);
+  process.stderr.write(`\n  ⟳ ${node.step.id} 验收未过（${failed1.length} 条未满足），自动返工一轮...\n`);
+  let reworked: string;
+  try {
+    reworked = await callLLM(userMessage + buildReworkBlock(check1.verdict.failed, content));
+  } catch (err) {
+    // 返工生成失败（重试耗尽）→ 保留第一版：质检加严绝不能反过来搞挂本已成功的步骤
+    const msg = err instanceof Error ? err.message.slice(0, 80) : String(err);
+    process.stderr.write(`\n  ⚠️  ${node.step.id} 返工生成失败（${msg}），保留原产出\n`);
+    node.verification = { pass: false, failed: failed1, reworked: false };
+    return content;
   }
-  throw lastError || new Error(`step "${node.step.id}" 执行失败`);
+
+  const check2 = await verifyAcceptance(effectiveConnector, effectiveConfig, renderedTask, reworked, node.acceptance);
+  addTokens(check2.tokens);
+  if (check2.verdict?.pass) {
+    node.verification = { pass: true, failed: [], reworked: true };
+  } else if (check2.verdict) {
+    node.verification = { pass: false, failed: formatFailedItems(check2.verdict.failed), reworked: true };
+    process.stderr.write(`\n  ⚠️  ${node.step.id} 返工后仍有 ${check2.verdict.failed.length} 条未满足\n`);
+  } else {
+    // 复核不可用 → 保守：沿用第一轮未满足条目、记未通过（宁可多标 ⚠️，不冒充通过）
+    node.verification = { pass: false, failed: failed1, reworked: true };
+    process.stderr.write(`\n  ⚠️  ${node.step.id} 返工后复核不可用，验收状态按未通过记录\n`);
+  }
+  return reworked;
 }
 
 /**

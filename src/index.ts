@@ -93,6 +93,11 @@ export async function run(
      * 在原稿基础上修改重做。需配合 resumeDir + fromStep 使用。
      */
     feedback?: string;
+    /**
+     * acceptance 自动核验+未过自动返工一轮。优先级：此选项（CLI --verify/--no-verify）
+     * > YAML 顶层 verify > 默认开。只影响写了 acceptance 的步骤。
+     */
+    verify?: boolean;
     /** 覆盖 LLM 配置（例如来自 ao demo） */
     llmOverride?: Partial<import('./types.js').LLMConfig>;
     /**
@@ -317,6 +322,7 @@ export async function run(
     inputs: inputMap,
     skipStepIds,
     feedback: feedbackOption,
+    verify: options?.verify ?? workflow.verify ?? true,
     stepResultsSink: partialSteps,
     onBatchStart: quiet ? undefined : useWatch ? (nodes) => {
       for (const node of nodes) {

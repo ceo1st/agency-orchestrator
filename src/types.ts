@@ -6,6 +6,7 @@ export interface WorkflowDefinition {
   agents_dir: string;
   llm: LLMConfig;
   concurrency?: number;       // 最大并行步骤数，默认 2
+  verify?: boolean;           // acceptance 自动核验+未过自动返工一轮（默认开）。false = 整个工作流关闭
   inputs?: InputDefinition[];
   steps: StepDefinition[];
 }
@@ -35,7 +36,8 @@ export interface StepDefinition {
   name?: string;              // 自定义显示名（覆盖角色文件的 name）
   emoji?: string;             // 自定义 emoji（覆盖角色文件的 emoji）
   task: string;               // 任务描述，支持 {{变量}} 模板
-  acceptance?: string;        // 验收标准（支持 {{变量}}）：注入 prompt 末尾要求产出满足，随产出展示，并作盲评评分锚点
+  acceptance?: string;        // 验收标准（支持 {{变量}}）：注入 prompt 末尾要求产出满足；产出后自动核验，未过自动返工一轮；随产出展示，并作盲评评分锚点
+  verify?: boolean;           // false = 本步关闭 acceptance 自动核验（优先级高于顶层 verify）
   output?: string;            // 输出变量名
   skill?: string;             // 给本步挂一个方法论 skill（注入 system prompt），如 "test-driven-development"
   skills?: string[];          // 多个 skill（与 skill 合并）
@@ -67,6 +69,17 @@ export interface DAGNode {
   agentName?: string;         // 角色显示名（如"趋势研究员"）
   agentEmoji?: string;        // 角色 emoji
   acceptance?: string;        // 执行时渲染后的验收标准（executeStep 写入，进 StepResult/metadata）
+  verification?: StepVerification; // acceptance 自动核验结果（executeStep 写入）
+}
+
+/**
+ * acceptance 自动核验结果。验收不过是质量信号而非执行错误：步骤不会因此 failed，
+ * 最坏情况是"带 ⚠️ 标记的返工版"照常流向下游。
+ */
+export interface StepVerification {
+  pass: boolean;              // 最终产出是否通过核验（返工后复核不可用时保守记 false）
+  failed: string[];           // 未满足条目（"条目（原因）"），pass=true 时为空
+  reworked: boolean;          // 是否触发过自动返工
 }
 
 /** LLM Connector 相关类型 */
@@ -121,4 +134,5 @@ export interface StepResult {
   duration: number;
   tokens: { input: number; output: number };
   iterations?: number;          // 该步骤实际执行次数（循环场景 > 1）
+  verification?: StepVerification; // acceptance 自动核验结果（进 metadata，查看器/summary 展示）
 }

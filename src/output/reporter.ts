@@ -3,8 +3,18 @@
  */
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import type { WorkflowResult } from '../types.js';
+import type { WorkflowResult, StepVerification } from '../types.js';
 import type { DAGNode } from '../types.js';
+
+/**
+ * 验收核验结果 → 一句人读状态（CLI 行 / summary / 步骤文件头共用一份措辞）。
+ * 无核验（没写 acceptance / 关闭 / 核验器不可用）返回 null，展示层不加噪音。
+ */
+export function formatVerification(v: StepVerification | undefined): string | null {
+  if (!v) return null;
+  if (v.pass) return v.reworked ? '验收 ✓（返工 1 轮后通过）' : '验收 ✓';
+  return `验收 ⚠️ ${v.failed.length} 条未满足${v.reworked ? '（已返工 1 轮）' : ''}`;
+}
 
 /**
  * 保存工作流执行结果到文件
@@ -36,7 +46,12 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     // 验收标准放头部引用块内（web 端按 '\n---\n' 截头取正文，标准不混入产出本体）
     const accLabel = /[一-鿿]/.test(step.acceptance || '') ? '✅ 验收标准' : '✅ Acceptance';
     const accBlock = step.acceptance ? `> ${accLabel}: ${step.acceptance.replace(/\n/g, '\n> ')}\n` : '';
-    const header = `> ${emoji} **${name}** | ${stepLabel} ${i + 1}/${result.steps.length}${duration ? ` | ${duration}` : ''}\n${accBlock}\n---\n\n`;
+    // 核验结果也放头部引用块（同 acceptance：web 端按 '\n---\n' 截头，不混入产出本体）
+    const verifLine = formatVerification(step.verification);
+    const verifBlock = verifLine
+      ? `> 🔍 ${verifLine}${step.verification!.failed.length ? `\n> ${step.verification!.failed.map(f => `· ${f}`).join('\n> ')}` : ''}\n`
+      : '';
+    const header = `> ${emoji} **${name}** | ${stepLabel} ${i + 1}/${result.steps.length}${duration ? ` | ${duration}` : ''}\n${accBlock}${verifBlock}\n---\n\n`;
     const body = step.output || step.error || '(无输出)';
     writeFileSync(join(stepsDir, filename), header + body, 'utf-8');
   }
@@ -80,7 +95,8 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     const name = step.agentName || step.role || step.id;
     const duration = step.duration ? ` | ${(step.duration / 1000).toFixed(1)}s` : '';
 
-    summaryLines.push(`${status} **[${filename}](steps/${filename})**${isFinal ? ' ⭐ 最终成品' : ''}  `);
+    const verifBadge = formatVerification(step.verification);
+    summaryLines.push(`${status} **[${filename}](steps/${filename})**${isFinal ? ' ⭐ 最终成品' : ''}${verifBadge ? ` · ${verifBadge}` : ''}  `);
     summaryLines.push(`  ${emoji} ${name}${duration}  `);
     if (step.status === 'failed' && step.error) {
       summaryLines.push(`  失败原因: ${step.error}  `);
@@ -116,6 +132,7 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
       status: s.status,
       output_var: s.output_var,
       acceptance: s.acceptance,
+      verification: s.verification,
       // 失败原因（含"运行被中断"）随档案保存，历史查看器展示失败步骤时用
       error: s.error,
       duration: `${(s.duration / 1000).toFixed(1)}s`,
@@ -141,7 +158,11 @@ export function printStepResult(node: DAGNode, stepIndex: number, totalSteps: nu
   console.log(`\n  ── [${stepIndex}/${totalSteps}] ${emoji} ${name} (${node.step.id}) ──`);
 
   if (node.status === 'completed') {
-    console.log(`  完成 | ${duration.toFixed(1)}s | ${tokens}`);
+    const verif = formatVerification(node.verification);
+    console.log(`  完成 | ${duration.toFixed(1)}s | ${tokens}${verif ? ` | ${verif}` : ''}`);
+    if (node.verification && !node.verification.pass) {
+      for (const f of node.verification.failed) console.log(`    ⚠️ ${f}`);
+    }
     if (node.result) {
       console.log('');
       for (const line of node.result.split('\n')) {

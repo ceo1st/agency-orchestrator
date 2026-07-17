@@ -62,6 +62,7 @@ export function parseWorkflow(filePath: string): WorkflowDefinition {
     agents_dir: (doc.agents_dir as string) || './agents',
     llm: doc.llm as WorkflowDefinition['llm'],
     concurrency: (doc.concurrency as number) || 2,
+    verify: doc.verify as boolean | undefined,
     inputs: doc.inputs as WorkflowDefinition['inputs'],
     steps,
   };
@@ -74,6 +75,11 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
   const errors: string[] = [];
   const stepIds = new Set(workflow.steps.map(s => s.id));
   const stepById = new Map(workflow.steps.map(s => [s.id, s]));
+
+  // verify 开关必须是布尔（YAML 里写成 "false" 字符串会被当 truthy，静默反转语义）
+  if (workflow.verify !== undefined && typeof workflow.verify !== 'boolean') {
+    errors.push(`顶层 verify 必须是布尔值（true/false，不要加引号）`);
+  }
 
   // step.output 唯一性检查：两个 step 不能 output 到同一个变量名
   // 否则下游引用拿到的值取决于 context Map 的写入顺序，不可预期
@@ -155,6 +161,9 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
     // acceptance 必须是字符串（YAML 里写成列表/映射会让运行期模板渲染直接崩）
     if (step.acceptance !== undefined && typeof step.acceptance !== 'string') {
       errors.push(`step "${step.id}" 的 acceptance 必须是字符串（多条标准用多行文本或 "1. …\\n2. …" 列出）`);
+    }
+    if (step.verify !== undefined && typeof step.verify !== 'boolean') {
+      errors.push(`step "${step.id}" 的 verify 必须是布尔值（true/false，不要加引号）`);
     }
 
     // 检查 {{变量}} 引用：必须来自 inputs，或来自当前 step 的 DAG 上游 step.output

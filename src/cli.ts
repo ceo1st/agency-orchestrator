@@ -138,6 +138,7 @@ async function handleRun(): Promise<void> {
     console.error('  或: ao run --team <名字> "你的任务"   # 用已保存的团队跑新任务');
     console.error('  --materialize <目录>     把开发步产出的「### 路径 + 代码围栏」文件块落盘成真实项目脚手架');
     console.error('  --export <格式>          把本次产出导出:docx/pdf/xlsx(给人)或 skill/plan(给编码 agent 执行)');
+    console.error('  --no-verify              关闭 acceptance 自动核验（默认：写了 acceptance 的步骤产出后自动核验，未过自动返工一轮）');
     console.error('  --compare                跑完后再跑单次基线 + 盲评，并排对比多智能体 vs 单次');
     console.error('  --judge-provider/--judge-model   --compare 时指定评审模型(默认用生成模型)');
     process.exit(1);
@@ -224,6 +225,7 @@ async function handleRun(): Promise<void> {
       resumeDir: resumeDir ? resolve(resumeDir) : undefined,
       fromStep,
       feedback,
+      verify: parseVerifyFlag(),
       llmOverride,
       signalFlush: true,
     });
@@ -519,6 +521,7 @@ async function handleCompose(): Promise<void> {
       const result = await run(resolve(savedPath), inputs, {
         quiet: false,
         signalFlush: true,
+        verify: parseVerifyFlag(),
         // 用 compose 时同样的 provider 执行，避免 YAML 里写的 provider 和用户实际可用的不一致
         // CLI provider 单步调用可能很慢（1-20 分钟），给足超时；用户显式 --timeout 优先
         llmOverride: {
@@ -674,6 +677,13 @@ function parseTemperatureArg(): number | undefined {
   return temp;
 }
 
+/** 解析 --verify/--no-verify 三态：true 强制开 / false 强制关 / undefined 按 YAML 顶层 verify（默认开）。 */
+function parseVerifyFlag(): boolean | undefined {
+  if (args.includes('--no-verify')) return false;
+  if (args.includes('--verify')) return true;
+  return undefined;
+}
+
 const COMPOSE_CLI_PROVIDERS = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
 
 /** R2.1：判断 compose 要用的 provider 是否已有可用凭证。保守——不确定时返回 true（不拦已能跑的配置）。 */
@@ -804,6 +814,7 @@ async function runWithTeam(teamRef: string): Promise<void> {
       quiet: args.includes('--quiet') || args.includes('-q'),
       signalFlush: true,
       watch: args.includes('--watch'),
+      verify: parseVerifyFlag(),
       outputDir: getArgValue('--output') || defaultOutputDir(),
       llmOverride: {
         provider,
