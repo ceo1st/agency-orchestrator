@@ -582,6 +582,9 @@ app.post('/api/run', (req, res) => {
   // Parse CLI output into structured events
   let lineBuffer = '';
   let currentStepId = null;
+  // 验收未过时，"完成 | … | 验收 ⚠️" 行之后紧跟若干 "⚠️ 未满足条目" 行——
+  // 它们是核验详情而非步骤产出，转成 step-verify-item 事件，别混进正文。
+  let inVerifyItems = false;
 
   function parseLine(raw) {
     const clean = raw.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\r/g, '').trim();
@@ -617,9 +620,17 @@ app.post('/api/run', (req, res) => {
     // currentStepId set here — clearing it would drop the whole step body.
     const metaMatch = clean.match(/^完成\s*\|\s*(.+)/);
     if (metaMatch && currentStepId) {
+      inVerifyItems = /验收\s*⚠️/.test(metaMatch[1]);
       send('step-done', { id: currentStepId, meta: metaMatch[1] });
       return;
     }
+
+    // Verification detail lines right after a "完成 | … | 验收 ⚠️" line
+    if (inVerifyItems && currentStepId && /^⚠️\s*/.test(clean)) {
+      send('step-verify-item', { id: currentStepId, text: clean.replace(/^⚠️\s*/, '') });
+      return;
+    }
+    inVerifyItems = false;
 
     // Workflow summary: "完成: 5/5 步 | ..." — end of all step output.
     if (/完成:\s*\d+\/\d+\s*步/.test(clean)) {

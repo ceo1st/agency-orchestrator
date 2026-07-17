@@ -23,6 +23,11 @@ export function StepList({
       {steps.map((s) => {
         const running = s.status === "running";
         const pending = s.status === "pending";
+        // CLI 结果行形如 "33.1s | 345 tokens | 验收 ✓"——把验收段拆出来做成彩色徽章
+        const verifMatch = s.meta?.match(/^(.*?)(?:\s*\|\s*)?(验收\s*[✓⚠️].*)$/);
+        const baseMeta = verifMatch ? verifMatch[1] : s.meta;
+        const verifText = verifMatch?.[2];
+        const verifPass = verifText?.includes("✓");
         return (
           <div
             key={s.id}
@@ -50,7 +55,17 @@ export function StepList({
                 {s.status === "done" && <Check className="size-3.5 shrink-0 text-emerald-500" />}
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                {s.meta && <span className="hidden text-xs text-muted-foreground sm:inline">{s.meta}</span>}
+                {baseMeta && <span className="hidden text-xs text-muted-foreground sm:inline">{baseMeta}</span>}
+                {verifText && (
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                      verifPass ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                    )}
+                  >
+                    {verifText}
+                  </span>
+                )}
                 {s.content && <CopyButton value={s.content} label={t.studio.shell.copy} copiedLabel={t.studio.shell.copied} />}
                 {s.content && (
                   <button
@@ -64,6 +79,17 @@ export function StepList({
                 )}
               </div>
             </div>
+
+            {!pending && !!s.verifyItems?.length && (
+              <div className="border-t border-border/60 bg-amber-500/[0.06] px-4 py-2.5 text-xs">
+                <span className="font-semibold text-amber-600 dark:text-amber-400">{t.studio.shell.verifyUnmet}</span>
+                <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                  {s.verifyItems.map((it, i) => (
+                    <li key={i}>· {it}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {!pending && (
               <div className="max-h-[460px] overflow-auto border-t border-border/60 px-4 py-3">

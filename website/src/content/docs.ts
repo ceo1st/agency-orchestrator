@@ -183,8 +183,8 @@ steps:
           {
             heading: { zh: "字段说明", en: "Field reference" },
             body: {
-              zh: "- `id`：步骤唯一标识，被 `depends_on` 引用\n- `role`：专家，格式 `category/role-name`\n- `task`：任务描述，可用 `{{变量}}` 插值\n- `output`：把本步产出存成变量，供下游引用\n- `depends_on`：依赖的步骤数组，决定 DAG\n- `condition`：条件执行（见「循环与条件」）\n- `loop`：循环块（见「循环与条件」）",
-              en: "- `id`: unique step id, referenced by `depends_on`\n- `role`: an expert, as `category/role-name`\n- `task`: the task, with `{{var}}` interpolation\n- `output`: save this step's output as a variable for downstream\n- `depends_on`: array of step deps, defines the DAG\n- `condition`: conditional execution (see Loops & conditions)\n- `loop`: loop block (see Loops & conditions)",
+              zh: "- `id`：步骤唯一标识，被 `depends_on` 引用\n- `role`：专家，格式 `category/role-name`\n- `task`：任务描述，可用 `{{变量}}` 插值\n- `output`：把本步产出存成变量，供下游引用\n- `depends_on`：依赖的步骤数组，决定 DAG\n- `condition`：条件执行（见「循环与条件」）\n- `loop`：循环块（见「循环与条件」）\n- `acceptance`：验收标准，跑完自动核验（见「验收与自动核验」）\n- `verify: false`：本步关闭自动核验",
+              en: "- `id`: unique step id, referenced by `depends_on`\n- `role`: an expert, as `category/role-name`\n- `task`: the task, with `{{var}}` interpolation\n- `output`: save this step's output as a variable for downstream\n- `depends_on`: array of step deps, defines the DAG\n- `condition`: conditional execution (see Loops & conditions)\n- `loop`: loop block (see Loops & conditions)\n- `acceptance`: acceptance criteria, auto-verified after the step runs (see Acceptance & auto-verify)\n- `verify: false`: opt this step out of auto-verify",
             },
           },
           {
@@ -306,6 +306,42 @@ steps:
               zh: "- `--feedback` 省略 `--resume` 时默认 `--resume last`\n- 必须配 `--from` 指定要改哪一步\n- 改完后下游步骤自动用新产出重跑",
               en: "- `--feedback` implies `--resume last` when `--resume` is omitted\n- Requires `--from` to pick the step\n- Downstream steps automatically rerun with the revised output",
             },
+          },
+        ],
+      },
+      {
+        slug: "acceptance",
+        title: { zh: "验收与自动核验", en: "Acceptance & auto-verify" },
+        sections: [
+          {
+            heading: { zh: "acceptance 字段", en: "The acceptance field" },
+            body: {
+              zh: "给关键步骤（至少是最终交付步）写 `acceptance:`，列 2-5 条产出必须满足的**可核对**条件——要具体可查（「包含 X/Y/Z 三节」「每条建议标注风险」），不要空话（「高质量」）。它会注入该步 prompt 末尾，并在 `--compare` 盲评时作为评分锚点。",
+              en: "Give key steps (at minimum the final deliverable step) an `acceptance:` field: 2-5 **checkable** conditions the output must satisfy — concrete ('contains sections X/Y/Z', 'every recommendation states its risk'), never vague ('high quality'). It is injected at the step's prompt tail and anchors the blind judge in `--compare`.",
+            },
+            code: `  - id: write_report
+    role: "product/product-analyst"
+    task: "基于 {{research}} 写投资分析报告"
+    acceptance: |
+      1. 包含「机会 / 风险 / 建议」三节
+      2. 每条建议都标注风险等级
+      3. 结尾给出明确的行动清单
+    output: report`,
+          },
+          {
+            heading: { zh: "自动核验 + 一轮自动返工（默认开）", en: "Auto-verify + one rework round (on by default)" },
+            body: {
+              zh: "写了 `acceptance` 的步骤跑完后，引擎用同一 provider **逐条核对**验收标准；未过则把「上一版产出 + 未满足条目」交回同一专家针对性返工一轮再复核。验收从「注入 prompt 的嘱咐」变成「跑完真的有人对着查」的机制。\n\n验收不过是**质量信号**而非执行错误：步骤不会因此失败，最坏得到带 ⚠️ 标记的返工版照常流向下游；核验器自身故障会自动跳过核验，不拦产线。核验状态显示在 CLI 结果行、`summary.md`、`metadata.json` 与 Studio 的运行/历史面板。",
+              en: "After a step with `acceptance` runs, the engine **checks each item** with the same provider; on failure it hands the previous output + unmet items back to the same expert for one targeted rework round, then re-checks. Acceptance goes from 'a note injected into the prompt' to 'someone actually checks after the run'.\n\nA failed check is a **quality signal**, not an execution error: the step never fails because of it — worst case a ⚠️-flagged reworked version flows downstream as usual; if the verifier itself errors, verification is skipped without blocking the pipeline. Verification status shows in the CLI result line, `summary.md`, `metadata.json`, and the Studio run/history panels.",
+            },
+          },
+          {
+            heading: { zh: "三级开关", en: "Three-level switch" },
+            body: {
+              zh: "优先级从高到低：CLI `--verify` / `--no-verify` > YAML 顶层 `verify:` > 步骤级 `verify: false`。默认开，只影响写了 `acceptance` 的步骤；核验/返工消耗如实计入该步 token 成本（单次核验是 max_tokens 500 的小额调用）。",
+              en: "Priority high to low: CLI `--verify` / `--no-verify` > top-level `verify:` in YAML > per-step `verify: false`. On by default and only affects steps that declare `acceptance`; verify/rework usage counts toward that step's token cost (a single check is a small max_tokens-500 call).",
+            },
+            code: "ao run workflow.yaml --no-verify   # 本次运行关闭自动核验",
           },
         ],
       },

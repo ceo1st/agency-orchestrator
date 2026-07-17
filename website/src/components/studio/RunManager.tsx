@@ -20,6 +20,8 @@ export interface LiveStep {
   total?: number;
   content: string;
   meta?: string;
+  /** 验收核验未满足的条目（来自 step-verify-item 事件），展示为核验详情而非正文 */
+  verifyItems?: string[];
   status: StepStatus;
 }
 
@@ -213,6 +215,12 @@ export function RunProvider({ children }: { children: ReactNode }) {
               upsert(data.id, { meta: data.meta, status: "done" });
             }
             break;
+          case "step-verify-item": {
+            const i = inst.steps.findIndex((s) => s.id === data.id);
+            const prev = i >= 0 ? inst.steps[i].verifyItems ?? [] : [];
+            upsert(data.id, { verifyItems: [...prev, data.text] });
+            break;
+          }
           case "workflow-summary":
             inst.summary = data.text;
             break;

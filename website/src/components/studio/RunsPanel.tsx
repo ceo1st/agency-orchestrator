@@ -144,6 +144,19 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                   {isFinal && <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">✦ {t.studio.runs.finalResult}</span>}
                   {s.status === "failed" && <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold text-red-500">{t.studio.runs.stepFailed}</span>}
                   {s.status === "skipped" && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{t.studio.runs.stepSkipped}</span>}
+                  {s.verification && (
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                        s.verification.pass ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                      )}
+                      title={s.verification.reworked ? t.studio.runs.verifyReworkedTitle : undefined}
+                    >
+                      {s.verification.pass
+                        ? `${t.studio.runs.verifyPass}${s.verification.reworked ? t.studio.runs.verifyReworkedSuffix : ""}`
+                        : `${t.studio.runs.verifyFailPrefix}${s.verification.failed.length}${t.studio.runs.verifyFailSuffix}`}
+                    </span>
+                  )}
                   {s.duration && <span className="shrink-0 text-xs text-muted-foreground">{s.duration}</span>}
                 </button>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -188,6 +201,16 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                     <div className="mb-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] px-3 py-2 text-xs">
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">{lang === "en" ? "✅ Acceptance criteria" : "✅ 验收标准"}</span>
                       <p className="mt-1 whitespace-pre-wrap leading-relaxed text-muted-foreground">{s.acceptance}</p>
+                    </div>
+                  )}
+                  {s.verification && !s.verification.pass && s.verification.failed.length > 0 && (
+                    <div className="mb-2.5 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-xs">
+                      <span className="font-semibold text-amber-600 dark:text-amber-400">{t.studio.runs.verifyUnmetTitle}</span>
+                      <ul className="mt-1 space-y-0.5 leading-relaxed text-muted-foreground">
+                        {s.verification.failed.map((f, fi) => (
+                          <li key={fi}>· {f}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                   <Markdown>{s.content}</Markdown>
