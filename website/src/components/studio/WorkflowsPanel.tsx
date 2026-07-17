@@ -1,4 +1,4 @@
-import { Check, Download, GitCompare, Loader2, Play, Scale, Search, Star, Trash2, Workflow as WorkflowIcon, X } from "lucide-react";
+import { Check, Download, GitCompare, Loader2, Paperclip, Play, Scale, Search, Star, Trash2, Workflow as WorkflowIcon, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -44,6 +44,36 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     return init;
   });
   const [materialize, setMaterialize] = useState(false);
+  // 从文件读入输入变量（#96）：浏览器端 FileReader 读文本填进值，不经服务器路径，
+  // 与引擎的 AO_NO_AT_FILE 防护（禁止网页按路径读服务器文件）互不冲突。
+  // 上限 200KB：值最终经 `-i k=v` 进程参数传给 CLI，留足 ARG_MAX 余量。
+  const FILE_LIMIT = 200 * 1024;
+  const [fileMeta, setFileMeta] = useState<Record<string, string>>({});
+  const [fileErr, setFileErr] = useState<string | null>(null);
+  const filePickFor = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pickFileFor = (name: string) => {
+    filePickFor.current = name;
+    fileInputRef.current?.click();
+  };
+  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    const name = filePickFor.current;
+    if (!f || !name) return;
+    if (f.size > FILE_LIMIT) {
+      setFileErr(`${t.studio.workflows.inputFileTooLargePrefix}${f.name}（${Math.ceil(f.size / 1024)} KB）`);
+      return;
+    }
+    const r = new FileReader();
+    r.onload = () => {
+      setVals((p) => ({ ...p, [name]: String(r.result ?? "") }));
+      setFileMeta((p) => ({ ...p, [name]: `${f.name} · ${Math.max(1, Math.ceil(f.size / 1024))} KB` }));
+      setFileErr(null);
+    };
+    r.onerror = () => setFileErr(`${t.studio.workflows.inputFileReadFailPrefix}${f.name}`);
+    r.readAsText(f);
+  };
 
   const submit = () => {
     onRun({ kind: "workflow", title: wf.name, file: wf.file, inputs: vals, provider: provider || undefined, cast: wf.steps, materialize });
@@ -67,9 +97,22 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
         <div className="mt-4 space-y-3">
           {inputs.map((inp) => (
             <label key={inp.name} className="block">
-              <span className="text-sm font-medium">
-                {inp.name}
-                {inp.required && <span className="text-red-500"> *</span>}
+              <span className="flex items-center justify-between text-sm font-medium">
+                <span>
+                  {inp.name}
+                  {inp.required && <span className="text-red-500"> *</span>}
+                </span>
+                {/* #96：识别技术文档类场景——把 .md/.txt/代码等文本文件内容一键填进输入 */}
+                <Tip label={t.studio.workflows.inputFromFile}>
+                  <button
+                    type="button"
+                    onClick={() => pickFileFor(inp.name)}
+                    className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs font-normal text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    <Paperclip className="size-3.5" />
+                    {t.studio.workflows.inputFromFileShort}
+                  </button>
+                </Tip>
               </span>
               {inp.description && <span className="block text-xs text-muted-foreground">{inp.description}</span>}
               <textarea
@@ -78,8 +121,13 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
                 rows={2}
                 className="mt-1 w-full rounded-xl border border-border/70 bg-card/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
               />
+              {fileMeta[inp.name] && (
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">📎 {fileMeta[inp.name]}</span>
+              )}
             </label>
           ))}
+          {fileErr && <p className="text-xs text-red-500">{fileErr}</p>}
+          <input ref={fileInputRef} type="file" accept=".md,.txt,.markdown,.json,.yaml,.yml,.csv,.log,.html,.css,.js,.ts,.tsx,.py,.java,.go,.rs,.sh,.xml,.toml,.ini,text/*" hidden onChange={onFilePicked} />
           {!inputs.length && <p className="text-sm text-muted-foreground">{t.studio.workflows.noInputsNeeded}</p>}
         </div>
         <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-xl border border-border/70 bg-card/40 p-3">
