@@ -1525,6 +1525,9 @@ app.post('/api/custom-providers', (req, res) => {
   if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
     return res.status(400).json({ error: 'baseUrl required' });
   }
+  if (typeof apiKey === 'string' && apiKey.trim() && /[^\x20-\x7E]/.test(apiKey)) {
+    return res.status(400).json({ error: 'API key 含中文/全角字符——通常是复制时把旁边的说明文字一起带上了，请只粘贴 key 本身（重新复制或删掉多余字符）' });
+  }
   const err = validateCustomProviderId(id, reservedProviderIds());
   const existing = readCustomProviders(CUSTOM_PROVIDERS_FILE);
   if (existing.some((p) => p.id === id)) {
