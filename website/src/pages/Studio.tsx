@@ -115,7 +115,7 @@ function StudioInner() {
         <div className="sticky top-16 z-30 border-b border-border/60 bg-background/85 backdrop-blur-xl">
           <div className="container-page flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
             <span className="flex items-center gap-2 font-bold">
-              <span className="grid size-7 place-items-center rounded-lg bg-primary text-sm text-primary-foreground">ao</span>
+              <img src="/logo/ao-app-icon.svg" alt="AO" className="size-7" />
               {t.nav.studio}
             </span>
 

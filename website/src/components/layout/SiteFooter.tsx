@@ -40,7 +40,7 @@ export function SiteFooter() {
       <div className="container-page grid gap-10 py-14 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <Link to={prefix("/")} className="flex items-center gap-2.5 font-bold">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">ao</span>
+            <img src="/logo/ao-app-icon.svg" alt="AO" className="h-8 w-8" />
             Agency Orchestrator
           </Link>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">{f.tagline}</p>

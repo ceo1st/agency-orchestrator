@@ -37,9 +37,7 @@ export function SiteNavbar() {
     <header className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
       <nav className="container-page flex h-16 items-center justify-between">
         <Link to={prefix("/")} className="flex items-center gap-2.5 font-bold" onClick={() => setOpen(false)}>
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-            ao
-          </span>
+          <img src="/logo/ao-app-icon.svg" alt="AO" className="h-8 w-8 drop-shadow-[0_4px_10px_rgba(99,102,241,0.35)]" />
           <span className="hidden text-[15px] sm:block">Agency Orchestrator</span>
         </Link>
 
