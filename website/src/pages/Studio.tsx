@@ -40,7 +40,7 @@ const TAB_META: { id: Tab; icon: typeof Users }[] = [
 
 function StudioInner() {
   const { t, lang } = useLanguage();
-  const { status, version } = useBackend();
+  const { status, version, stale } = useBackend();
   // 防御：任一 tab 文案缺失也不要让整个 Studio 渲染崩溃（否则所有 tab 都点不动）
   const TABS = TAB_META.map((tb) => ({
     ...tb,
@@ -144,16 +144,21 @@ function StudioInner() {
 
             <div className="ml-auto flex items-center gap-2">
               <span
-                title={status === "online" ? `${t.studio.shell.engineOnline} v${version ?? ""}` : status === "offline" ? t.studio.shell.engineOffline : t.studio.shell.engineChecking}
+                title={
+                  status === "online" && stale ? t.studio.shell.engineStaleTitle
+                  : status === "online" ? `${t.studio.shell.engineOnline} v${version ?? ""}`
+                  : status === "offline" ? t.studio.shell.engineOffline
+                  : t.studio.shell.engineChecking
+                }
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                  status === "online" && "bg-emerald-500/15 text-emerald-500",
-                  status === "offline" && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                  status === "online" && !stale && "bg-emerald-500/15 text-emerald-500",
+                  ((status === "online" && stale) || status === "offline") && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
                   status === "checking" && "bg-muted text-muted-foreground",
                 )}
               >
-                <span className={cn("size-1.5 rounded-full", status === "online" ? "bg-emerald-500" : status === "offline" ? "bg-amber-500" : "bg-muted-foreground")} />
-                {status === "online" ? t.studio.shell.statusOnline : status === "offline" ? t.studio.shell.statusOffline : t.studio.shell.statusChecking}
+                <span className={cn("size-1.5 rounded-full", status === "online" && !stale ? "bg-emerald-500" : status === "checking" ? "bg-muted-foreground" : "bg-amber-500")} />
+                {status === "online" ? (stale ? t.studio.shell.statusStale : t.studio.shell.statusOnline) : status === "offline" ? t.studio.shell.statusOffline : t.studio.shell.statusChecking}
               </span>
               <ProviderSelect value={provider} onChange={setProvider} onOpenProviders={() => setTab("providers")} />
               <ModelSelect provider={provider} />

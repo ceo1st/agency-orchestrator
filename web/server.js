@@ -1462,7 +1462,7 @@ app.post('/api/config', (req, res) => {
   // process.env"（因为压根没写过）。
   const isCustom = readCustomProviders(CUSTOM_PROVIDERS_FILE).some((p) => p.id === provider) || !!remoteProviderSpec(provider);
   const isKeyed = !!KEY_ENV[provider] || isCustom;
-  if (!provider || (!isKeyed && provider !== 'ollama')) return res.status(400).json({ error: 'unknown provider' });
+  if (!provider || (!isKeyed && provider !== 'ollama')) return res.status(400).json({ error: `unknown provider: ${provider || '(空)'}（引擎不认识该供应商——若刚更新过 AO 或重新构建，请重启引擎后重试）` });
   const saved = readKeys();
   // explicit clear (empty apiKey for keyed / empty model for ollama, nothing else)
   const clearing = isKeyed
@@ -1576,7 +1576,7 @@ app.post('/api/test-provider', async (req, res) => {
   const { provider, apiKey: overrideKey, baseUrl: overrideBase, model: overrideModel } = req.body || {};
   await getRemoteManifest();
   const isCustomProvider = readCustomProviders(CUSTOM_PROVIDERS_FILE).some((p) => p.id === provider) || !!remoteProviderSpec(provider);
-  if (!provider || (!KEY_ENV[provider] && provider !== 'ollama' && !isCustomProvider)) return res.status(400).json({ ok: false, error: 'unknown provider' });
+  if (!provider || (!KEY_ENV[provider] && provider !== 'ollama' && !isCustomProvider)) return res.status(400).json({ ok: false, error: `unknown provider: ${provider || '(空)'}（引擎不认识该供应商——若刚更新过 AO 或重新构建，请重启引擎后重试）` });
   // 自定义供应商没有专属 env 变量名，key 只存在 saved[provider].apiKey 里。
   const key = provider === 'ollama' ? 'n/a'
     : ((typeof overrideKey === 'string' && overrideKey.trim()) || (KEY_ENV[provider] ? process.env[KEY_ENV[provider].key] : readKeys()[provider]?.apiKey));
@@ -1774,7 +1774,19 @@ app.post('/api/ccswitch-import', (req, res) => {
   res.json({ ok: true, keyPreview: entry.keyPreview });
 });
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, version: PKG_VERSION }));
+// 引擎代码热更新检测：进程启动后若 server.js / dist（注册表、CLI）被重新构建，
+// 内存里跑的仍是旧代码——会出现"前端认识新供应商、引擎报 unknown provider"、
+// 新端点 404 之类的版本漂移谜题。health 带上 stale 标记，前端据此提示重启引擎。
+const BOOT_TIME = Date.now();
+const STALE_PROBES = [
+  join(__dirname, 'server.js'),
+  join(ROOT, 'dist', 'connectors', 'api-providers.js'),
+  CLI,
+];
+const isEngineStale = () => STALE_PROBES.some(f => {
+  try { return statSync(f).mtimeMs > BOOT_TIME; } catch { return false; }
+});
+app.get('/api/health', (_req, res) => res.json({ ok: true, version: PKG_VERSION, stale: isEngineStale() }));
 
 // SPA fallback: serve the React app for any non-API, non-asset route.
 // 故意「无条件」注册：即便启动时前端缺失（HAS_NEW_UI=false），也要给一个可读的诊断页，
