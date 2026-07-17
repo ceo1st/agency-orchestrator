@@ -4,7 +4,7 @@
  * DAG: L0=[analyze]  L1=[tech_review, design_review]  L2=[final_summary]
  */
 import { resolve } from 'node:path';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { parseWorkflow } from '../src/core/parser.js';
 import { buildDAG } from '../src/core/dag.js';
 import { executeDAG } from '../src/core/executor.js';
@@ -115,10 +115,14 @@ await test('首次运行 + 保存 metadata', async () => {
   result.name = 'product-review-resume-test';
   // 模拟 run() 的行为：把原始用户 input 写进 result.inputs，供下次 resume 恢复
   result.inputs = { prd_content: '# 登录系统 PRD' };
+  // 模拟 run() 的行为：记录源工作流路径，供历史记录重跑/续跑定位源文件
+  result.file = wfPath;
   assert(conn.calls === 4, `首跑应调用 4 次，实际 ${conn.calls}`);
 
   const dir = saveResults(result, tmpOut);
   assert(existsSync(resolve(dir, 'metadata.json')), 'metadata.json 应存在');
+  const meta = JSON.parse(readFileSync(resolve(dir, 'metadata.json'), 'utf-8'));
+  assert(meta.file === wfPath, `metadata.file 应为源工作流路径，实际 ${meta.file}`);
 
   const completed = getCompletedStepIds(dir);
   assert(completed.length === 4, `应记录 4 个已完成步骤，实际 ${completed.length}`);

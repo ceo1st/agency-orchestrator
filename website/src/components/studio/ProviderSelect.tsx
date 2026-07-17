@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 const FLAGSHIP_ID = sponsorsByTier("flagship")[0]?.id;
 // 普通赞助商对应的 provider id（中性「赞助商」标记，不抢旗舰风头），来自统一注册表。
 const SPONSOR_IDS = API_PROVIDERS.filter((p) => p.sponsor).map((p) => p.id);
+// 进阶赞助商 id（主色/紫色高亮 + 星标，介于旗舰金与普通赞助商之间），来自统一注册表。
+const ADVANCED_IDS = API_PROVIDERS.filter((p) => p.advanced).map((p) => p.id);
 
 /**
  * Studio 顶部 provider 选择器。原生 <select> 无法给单个选项上色/加徽章，
@@ -56,8 +58,10 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
       ?? remoteProviders.find((r) => r.id === p)?.name
       ?? p;
   const isFlagship = (p: string) => !!FLAGSHIP_ID && p === FLAGSHIP_ID;
+  const isAdvanced = (p: string) => ADVANCED_IDS.includes(p);
   const isSponsor = (p: string) => SPONSOR_IDS.includes(p) || !!remoteProviders.find((r) => r.id === p)?.sponsor;
   const selectedFlagship = isFlagship(value);
+  const selectedAdvanced = isAdvanced(value);
 
   const g = t.studio.providers;
   // CLI 中转商（如赞助商 Cubence）：不是可选的运行方式（它服务于本地 CLI），但要在
@@ -113,12 +117,12 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
         title={t.studio.shell.providerSelectTitle}
         className={cn(
           "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm outline-none transition-colors",
-          selectedFlagship
+          selectedFlagship || selectedAdvanced
             ? "border-gold/60 bg-gold/10 font-semibold text-gold"
             : "border-border/70 bg-card/60 text-foreground hover:border-border",
         )}
       >
-        {selectedFlagship && <Star className="size-3.5 shrink-0 fill-gold text-gold" />}
+        {(selectedFlagship || selectedAdvanced) && <Star className="size-3.5 shrink-0 fill-gold text-gold" />}
         <span className="max-w-[160px] truncate">{labelFor(value)}</span>
         <ChevronDown className="size-3.5 shrink-0 opacity-60" />
       </button>
@@ -133,6 +137,7 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
                 </div>
                 {group.ids.map((p) => {
                   const flag = isFlagship(p);
+                  const adv = isAdvanced(p);
                   const sponsor = isSponsor(p);
                   const on = p === value;
                   return (
@@ -145,12 +150,13 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
                       }}
                       className={cn(
                         "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors",
-                        flag ? "font-semibold text-gold hover:bg-gold/10" : "text-foreground hover:bg-muted",
-                        on && !flag && "bg-muted",
-                        on && flag && "bg-gold/10",
+                        flag || adv ? "font-semibold text-gold hover:bg-gold/10"
+                        : "text-foreground hover:bg-muted",
+                        on && !flag && !adv && "bg-muted",
+                        on && (flag || adv) && "bg-gold/10",
                       )}
                     >
-                      {flag ? (
+                      {flag || adv ? (
                         <Star className="size-4 shrink-0 fill-gold text-gold" />
                       ) : (
                         <span className="size-4 shrink-0" />
@@ -159,6 +165,11 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
                       {flag && (
                         <span className="shrink-0 rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
                           {t.studio.providers.flagshipTag}
+                        </span>
+                      )}
+                      {adv && (
+                        <span className="shrink-0 rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
+                          {t.studio.providers.advancedTag}
                         </span>
                       )}
                       {sponsor && (

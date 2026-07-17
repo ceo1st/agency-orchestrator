@@ -379,18 +379,7 @@ steps:
   model: "deepseek-chat"`,
           },
           {
-            heading: { zh: "优云智算 CompShare（赞助商）", en: "CompShare (优云智算 · sponsor)" },
-            body: {
-              zh: "本项目的赞助商**优云智算（UCloud）** 提供 OpenAI 兼容的模型 API，已作为内置 provider `compshare` 接入——base_url 已写死，你**只需填自己的 key 和模型名**即可使用（key 在 console.compshare.cn 获取，模型如 `deepseek-ai/DeepSeek-R1`）。在网页 Studio 的「供应商」面板里粘贴 key 即可；命令行设 `COMPSHARE_API_KEY` 环境变量。",
-              en: "Our sponsor **CompShare (优云智算 / UCloud)** offers an OpenAI-compatible model API, wired in as the built-in `compshare` provider — the base URL is baked in, so you **just supply your own key and a model name** (get the key at console.compshare.cn; models like `deepseek-ai/DeepSeek-R1`). Paste the key in the Studio Providers panel, or set the `COMPSHARE_API_KEY` env var for the CLI.",
-            },
-            code: `llm:
-  provider: "compshare"
-  model: "deepseek-ai/DeepSeek-R1"
-# 或命令行：COMPSHARE_API_KEY=sk-... ao run workflow.yaml --provider compshare --model deepseek-ai/DeepSeek-R1`,
-          },
-          {
-            heading: { zh: "火山引擎 · 豆包大模型（赞助商）", en: "Volcengine Ark · Doubao (sponsor)" },
+            heading: { zh: "火山引擎（赞助商）", en: "Volcengine (sponsor)" },
             body: {
               zh: "本项目的赞助商**火山引擎**（字节跳动）提供豆包 / Kimi / GLM / DeepSeek 等大模型，已作为内置 provider `volcengine` 接入（火山方舟 Ark，OpenAI 兼容端点已写死）。三点须知：① 豆包是**云端闭源模型，不可下载**，必须先注册拿 key（当前活动注册领 2500 万 Tokens）；② key 在 console.volcengine.com/ark 创建，**模型要先在方舟控制台开通**才能调用；③ 模型 ID 带版本后缀（如 `doubao-seed-2-1-pro-260628`），填 key 后在 Studio「供应商」面板点「获取模型列表」拉你已开通的全量模型。同一账号还能给 Claude Code / Codex 配中转（供应商面板「本地 CLI」区一键预填端点与模型映射）。",
               en: "Our sponsor **Volcengine** (ByteDance) serves Doubao / Kimi / GLM / DeepSeek models, wired in as the built-in `volcengine` provider (Ark, OpenAI-compatible endpoint baked in). Three notes: ① Doubao models are **cloud-only and not downloadable** — you need a key (sign-up promo grants 25M tokens); ② create the key at console.volcengine.com/ark and **activate the model in the Ark console first**; ③ model IDs carry version suffixes (e.g. `doubao-seed-2-1-pro-260628`) — after saving the key, click “Fetch model list” in the Studio Providers panel to pull everything you've activated. The same account can also relay the local coding CLIs (one-click preset in the Providers panel).",

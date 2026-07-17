@@ -51,6 +51,8 @@ export interface RunStepSummary {
   content?: string;
   /** 该步声明的验收标准（运行时渲染后），来自 metadata.json */
   acceptance?: string;
+  /** 失败原因（含"运行被中断"），来自 metadata.json */
+  error?: string;
 }
 
 export interface RunSummary {
@@ -438,7 +440,7 @@ export function groupModelsByVendor(models: string[]): [string, string[]][] {
 
 // 有正方形图标素材的赞助商/供应商 → website/public/sponsors/logo-<id>-icon.png（served at /sponsors/…）。
 // 只对确有文件的 id 返回路径，避免其它供应商拿到 404 的 <img>。
-const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine"]);
+const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx"]);
 export function providerLogo(id: string): string | undefined {
   return PROVIDER_LOGO_IDS.has(id) ? `/sponsors/logo-${id}-icon.png` : undefined;
 }
@@ -460,6 +462,11 @@ export const api = {
   // protocol:"anthropic" = Anthropic 兼容端点（claude-code 中转商），认证头用 x-api-key
   providerModels: (body: { provider?: string; baseUrl?: string; apiKey?: string; protocol?: "anthropic" }) =>
     postJSON<{ ok: boolean; models?: string[]; error?: string; source?: string }>("/provider-models", body),
+  // 本机 cc-switch 已配供应商（一键导入 key 用；key 只回脱敏预览，原文不出后端）
+  ccswitchProviders: () =>
+    getJSON<{ ok: boolean; providers?: { id: string; name: string; appType: string; baseUrl: string; keyPreview: string; isCurrent: boolean }[] }>("/ccswitch-providers"),
+  ccswitchImport: (body: { source: string; provider: string; includeBaseUrl?: boolean }) =>
+    postJSON<{ ok: boolean; keyPreview?: string }>("/ccswitch-import", body),
   deleteCustomProvider: (id: string) => delJSON<{ ok: boolean }>(`/custom-providers/${encodeURIComponent(id)}`),
   updateCustomProvider: (id: string, body: { name?: string; note?: string; homepageUrl?: string }) =>
     putJSON<{ ok: boolean }>(`/custom-providers/${encodeURIComponent(id)}`, body),
@@ -614,6 +621,8 @@ export interface ApiProviderMeta {
   /** true=模型公司官方 API(如 DeepSeek/Anthropic/OpenAI),false/缺省=聚合平台 */
   vendor?: boolean;
   flagship?: boolean;
+  /** 进阶赞助商 —— 视觉与旗舰同款金色高亮+星标,仅徽章文案不同(进阶赞助商),用于置顶展示的重点赞助商 */
+  advanced?: boolean;
   sponsor?: boolean;
   modelSuggestions?: string[];
 }
@@ -637,10 +646,11 @@ export const COMMON_RELAY_MODELS = [
 // 供应商的 GET /models（配了 key 即生效）；模型换代时优先改官网远程清单的
 // providerOverrides（push 即生效，不用发版），这里的静态基线随版本更新兜底。
 export const API_PROVIDERS: ApiProviderMeta[] = [
-  // 旗舰赞助商 APINEBULA —— 置顶 + 金色高亮（大屏特有）
+  // 进阶赞助商 多元探索 DuoyuanX —— 置顶第一 + 主色(紫)高亮；全球 AI 模型 API 聚合与源头直供：
+  // 一个 key 通 OpenAI/Claude/Gemini/DeepSeek 等数百款；专属链接注册送 3 元
+  { id: "duoyuanx", name: "多元探索", shortName: "多元探索", hint: "duoyuanx.com · 注册送 3 元", defaultBaseUrl: "https://duoyuanx.com/v1", signupUrl: "https://duoyuanx.com/register?aff=LErO", advanced: true, modelSuggestions: COMMON_RELAY_MODELS },
+  // 旗舰赞助商 APINEBULA —— 金色高亮（大屏特有）
   { id: "apinebula", name: "APINEBULA", hint: "apinebula.com", defaultBaseUrl: "https://apinebula.com/v1", signupUrl: "https://apinebula.com/V6ekjG", flagship: true, modelSuggestions: ["gpt-5.5", "claude-opus-4-8", "claude-sonnet-5", "gemini-3.5-flash", "deepseek-chat"] },
-  // 普通赞助商 CompShare —— 次于旗舰，中性「赞助商」标记
-  { id: "compshare", name: "CompShare", hint: "console.compshare.cn", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents", sponsor: true, modelSuggestions: ["deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-Coder-480B-A35B-Instruct", "MiniMaxAI/MiniMax-M2.7"] },
   // 普通赞助商 RootFlowAI —— 前 3 位，紧跟两家旗舰/赞助商之后
   { id: "rootflowai", name: "RootFlowAI", hint: "rootflowai.com", defaultBaseUrl: "https://api.rootflowai.com/v1", signupUrl: "https://rootflowai.com/register?utm_source=agency-agents-zh&utm_medium=sponsor&utm_campaign=studio", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
   // 赞助商 Cubence —— API 中转：一个 key 通用多家模型（此为直连 API 用法；
@@ -652,6 +662,8 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 火山引擎（赞助商）—— 字节跳动火山方舟：豆包/Kimi/GLM 等，注册领 2500 万 Tokens；
   // 直连走 OpenAI 兼容 /api/v3（配 key 后可点「获取模型列表」拉全量），Claude Code 中转见 CLI_RELAY_PRESETS
   { id: "volcengine", name: "火山引擎", hint: "ark.cn-beijing.volces.com", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", sponsor: true, modelSuggestions: ["doubao-seed-2-1-pro-260628"] },
+  // 普通赞助商 CompShare（优云智算）—— 排在赞助商组最后一位
+  { id: "compshare", name: "CompShare", hint: "console.compshare.cn", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents", sponsor: true, modelSuggestions: ["deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-Coder-480B-A35B-Instruct", "MiniMaxAI/MiniMax-M2.7"] },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   { id: "claude", name: "Claude (Anthropic)", shortName: "Claude", hint: "console.anthropic.com", defaultBaseUrl: "https://api.anthropic.com/v1", vendor: true, modelSuggestions: ["claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"] },
   { id: "openai", name: "OpenAI", hint: "gpt-5.5 {etc} · platform.openai.com", defaultBaseUrl: "https://api.openai.com/v1", vendor: true, modelSuggestions: ["gpt-5.5", "gpt-5.4-mini", "gpt-4o"] },

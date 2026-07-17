@@ -62,6 +62,8 @@ export interface RunInstance {
   pendingInput?: PendingInput | null;
   /** 本次运行产物的保存目录（绝对路径,来自服务端 output-dir 事件） */
   outputDir?: string;
+  /** 专家咨询自动落盘的工作流文件（来自 workflow-saved 事件），完成后提示用户去「工作流」页 */
+  savedWorkflow?: string;
 }
 
 interface RunManagerValue {
@@ -89,6 +91,19 @@ function notifyRunEnd(title: string, ok: boolean, body: string) {
     if (document.visibilityState === "visible") return;
     if (Notification.permission !== "granted") return;
     new Notification(`${ok ? "✅" : "❌"} ${title}`, { body });
+  } catch {
+    /* 通知失败绝不影响运行本身 */
+  }
+}
+
+// human_input/approval 暂停等输入时同样把人叫回来——错过弹框运行会一直干等，
+// 比"跑完了没人知道"更伤（token 已花，产出卡在半路）。仅页面不可见时弹。
+function notifyInputNeeded(title: string, prompt: string) {
+  try {
+    if (typeof Notification === "undefined" || typeof document === "undefined") return;
+    if (document.visibilityState === "visible") return;
+    if (Notification.permission !== "granted") return;
+    new Notification(`⏸ ${title}`, { body: prompt });
   } catch {
     /* 通知失败绝不影响运行本身 */
   }
@@ -165,6 +180,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
             break;
           case "await-input":
             inst.pendingInput = { stepId: data.stepId, prompt: data.prompt, type: data.type };
+            notifyInputNeeded(inst.title, data.prompt || "");
             break;
           case "step-header":
             // 某步推进了 → 清掉等待态（用户已提交、或本就不需要输入）
@@ -202,6 +218,9 @@ export function RunProvider({ children }: { children: ReactNode }) {
             break;
           case "output-dir":
             inst.outputDir = data.dir;
+            break;
+          case "workflow-saved":
+            inst.savedWorkflow = data.file;
             break;
           case "stdout":
             inst.terminal += data.text;

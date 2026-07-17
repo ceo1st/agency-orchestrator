@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, ChevronDown, Clock, Download, Loader2, RotateCcw, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, Clock, Download, Loader2, Play, RotateCcw, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -50,6 +50,14 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
     return [...ss].reverse().find((s) => s.content?.trim()) ?? null;
   }, [run]);
 
+  // 未完成的 run（含 human_input 等输入时被中断的）：续跑起点优先取第一个失败步
+  // （条件分支正常跳过的步不该作为起点），没有失败步再退回第一个非完成步
+  const firstIncomplete = useMemo(() => {
+    if (!run || run.success) return null;
+    const ss = run.steps ?? [];
+    return ss.find((s) => s.status === "failed") ?? ss.find((s) => s.status !== "completed") ?? null;
+  }, [run]);
+
   if (err) return <p className="p-6 text-sm text-red-500">{err}</p>;
   if (!run)
     return (
@@ -95,6 +103,30 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
 
       <div className="flex-1 space-y-2.5 overflow-auto p-5">
         {!canResume && <p className="text-xs text-muted-foreground">{t.studio.runs.cannotResume}</p>}
+        {canResume && firstIncomplete && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.06] px-4 py-3">
+            <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground">
+              {t.studio.runs.incompleteHintPrefix}
+              <span className="font-semibold text-foreground">{firstIncomplete.agentName ?? firstIncomplete.id}</span>
+              {t.studio.runs.incompleteHintSuffix}
+            </p>
+            <Button
+              size="sm"
+              onClick={() =>
+                onRun({
+                  kind: "workflow",
+                  title: `${t.studio.runs.resumeFromPrefix}${firstIncomplete.agentName ?? firstIncomplete.id}${t.studio.runs.resumeFromSuffix} · ${run.name}`,
+                  file: run.file!,
+                  provider: provider || undefined,
+                  resume: run.id,
+                  fromStep: firstIncomplete.id,
+                })
+              }
+            >
+              <Play className="size-3.5" /> {t.studio.runs.continueRun}
+            </Button>
+          </div>
+        )}
         {(run.steps ?? []).map((s, i) => {
           const isOpen = open === s.id;
           const isFinal = finalStep?.id === s.id && (run.steps ?? []).length > 1;
@@ -110,6 +142,8 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                   <span className="shrink-0">{s.agentEmoji ?? "•"}</span>
                   <span className="truncate">{s.agentName ?? s.id}</span>
                   {isFinal && <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">✦ {t.studio.runs.finalResult}</span>}
+                  {s.status === "failed" && <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold text-red-500">{t.studio.runs.stepFailed}</span>}
+                  {s.status === "skipped" && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{t.studio.runs.stepSkipped}</span>}
                   {s.duration && <span className="shrink-0 text-xs text-muted-foreground">{s.duration}</span>}
                 </button>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -145,6 +179,9 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                   )}
                 </div>
               </div>
+              {isOpen && !s.content && s.error && (
+                <p className="border-t border-border/60 px-3 py-2.5 text-xs leading-relaxed text-red-500">{s.error}</p>
+              )}
               {isOpen && s.content && (
                 <div className="max-h-[60vh] overflow-auto border-t border-border/60 px-3 py-2.5">
                   {s.acceptance && (

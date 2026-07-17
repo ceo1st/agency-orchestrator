@@ -104,6 +104,8 @@ export interface WorkflowResult {
   totalTokens: { input: number; output: number };
   /** 原始用户输入（用于 --resume 时恢复） */
   inputs?: Record<string, string>;
+  /** 源工作流文件绝对路径（随 metadata 存档，供历史记录重跑/续跑定位源文件） */
+  file?: string;
 }
 
 export interface StepResult {

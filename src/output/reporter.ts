@@ -103,6 +103,7 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
   // 保存元数据（含 output 变量名，用于 resume）
   const metadata: Record<string, unknown> = {
     name: result.name,
+    file: result.file,
     success: result.success,
     totalDuration: `${(result.totalDuration / 1000).toFixed(1)}s`,
     totalTokens: result.totalTokens,
@@ -115,6 +116,8 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
       status: s.status,
       output_var: s.output_var,
       acceptance: s.acceptance,
+      // 失败原因（含"运行被中断"）随档案保存，历史查看器展示失败步骤时用
+      error: s.error,
       duration: `${(s.duration / 1000).toFixed(1)}s`,
       tokens: s.tokens,
     })),

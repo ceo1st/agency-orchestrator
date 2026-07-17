@@ -95,6 +95,12 @@ export async function run(
     feedback?: string;
     /** 覆盖 LLM 配置（例如来自 ao demo） */
     llmOverride?: Partial<import('./types.js').LLMConfig>;
+    /**
+     * SIGTERM/SIGINT（网页端关闭页面杀子进程、终端 Ctrl-C）时把已完成步骤落盘成
+     * metadata 再退出——中断的 run 才能出现在历史里、支持「继续运行」。
+     * 仅 CLI 进程开启；库内嵌调用（如 web 服务的 in-process compare）勿开。
+     */
+    signalFlush?: boolean;
   }
 ): Promise<import('./types.js').WorkflowResult> {
   const workflow = parseWorkflow(workflowPath);
@@ -256,6 +262,53 @@ export async function run(
     console.log('─'.repeat(50));
   }
 
+  // SIGTERM/SIGINT 优雅落盘：executor 增量写入 partialSteps，信号来时把
+  // 已完成步骤 + 未完成占位存成 metadata 再退出。没有它，网页端"等输入时关页"
+  // 或终端 Ctrl-C 的 run 会无痕消失，历史里无法「继续运行」。
+  const partialSteps: import('./types.js').StepResult[] = [];
+  const runStartedAt = Date.now();
+  if (options?.signalFlush) {
+    const flushAndExit = (signal: NodeJS.Signals) => {
+      try {
+        const doneById = new Map(partialSteps.map(s => [s.id, s]));
+        const interrupted: import('./types.js').WorkflowResult = {
+          name: workflow.name,
+          file: resolve(workflowPath),
+          success: false,
+          steps: dag.levels.flat().map(id => {
+            const node = dag.nodes.get(id)!;
+            return doneById.get(id) ?? {
+              id,
+              role: node.step.role || '',
+              status: 'failed' as const,
+              error: `运行被中断 (${signal})`,
+              output_var: node.step.output,
+              duration: 0,
+              tokens: { input: 0, output: 0 },
+            };
+          }),
+          totalDuration: Date.now() - runStartedAt,
+          totalTokens: partialSteps.reduce(
+            (acc, s) => ({ input: acc.input + s.tokens.input, output: acc.output + s.tokens.output }),
+            { input: 0, output: 0 }
+          ),
+          inputs: Object.fromEntries(
+            Array.from(inputMap.entries()).filter(([k]) => (workflow.inputs || []).some(i => i.name === k))
+          ),
+        };
+        const dir = saveResults(interrupted, options?.outputDir || defaultOutputDir());
+        if (!options?.quiet) {
+          const done = partialSteps.filter(s => s.status === 'completed').length;
+          console.log(`\n⚠️  运行被中断 (${signal})，已完成 ${done} 步已存档: ${dir}`);
+        }
+      } catch { /* 落盘失败也必须退出 */ }
+      process.exit(signal === 'SIGINT' ? 130 : 143);
+    };
+    // once：触发即自动移除；CLI 进程一次只跑一个工作流，正常结束后进程随即退出，无泄漏面
+    process.once('SIGTERM', flushAndExit);
+    process.once('SIGINT', flushAndExit);
+  }
+
   const result = await executeDAG(dag, {
     connector,
     agentsDir: workflow.agents_dir,
@@ -264,6 +317,7 @@ export async function run(
     inputs: inputMap,
     skipStepIds,
     feedback: feedbackOption,
+    stepResultsSink: partialSteps,
     onBatchStart: quiet ? undefined : useWatch ? (nodes) => {
       for (const node of nodes) {
         watchCallback!({ type: 'step_start', stepId: node.step.id, role: node.step.role, total: totalSteps, completed: stepCounter });
@@ -288,6 +342,8 @@ export async function run(
   } satisfies ExecutorOptions);
 
   result.name = workflow.name;
+  // 源文件绝对路径随 metadata 存档——历史记录的"重跑/从某步续跑"靠它定位工作流
+  result.file = resolve(workflowPath);
   // 保存原始用户输入，便于 --resume 下次恢复
   result.inputs = Object.fromEntries(
     Array.from(inputMap.entries()).filter(([k]) =>

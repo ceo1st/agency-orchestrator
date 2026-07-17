@@ -174,6 +174,8 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
             {exportErr ? `导出失败：${exportErr}` : running ? t.studio.run.backgroundHint : run.state === "done" ? (
               <>
                 {t.studio.run.savedToHistory}
+                {/* 专家咨询自动落盘为可复用工作流——明确告知去处（用户反馈"不知道保存到哪里去了"） */}
+                {run.savedWorkflow && <span className="ml-2">{t.studio.run.savedToWorkflows}</span>}
                 {/* 保存位置:用户反馈"不知道文件存在哪"——显示绝对路径,点击复制 */}
                 {run.outputDir && (
                   <button
@@ -240,9 +242,10 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
                 {lang === "en" ? "vs Single AI" : "对比单个 AI"}
               </Button>
             )}
-            {!running && run.state === "done" && onViewHistory && (
+            {/* 失败/中断的运行更需要这个入口——历史详情里有「继续运行」可从失败步续跑 */}
+            {!running && (run.state === "done" || run.state === "error") && onViewHistory && (
               <Button size="sm" variant="ghost" onClick={() => onViewHistory()}>
-                {t.studio.run.viewHistory}
+                {run.state === "error" ? t.studio.run.viewHistoryContinue : t.studio.run.viewHistory}
               </Button>
             )}
             {!running && (

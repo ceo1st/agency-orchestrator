@@ -33,6 +33,7 @@ function ProviderRow({
   statusLine,
   statusTone = "muted",
   flagship,
+  advanced,
   sponsor,
   active,
   onSetActive,
@@ -45,6 +46,7 @@ function ProviderRow({
   statusLine: string;
   statusTone?: "muted" | "ok";
   flagship?: boolean;
+  advanced?: boolean;
   sponsor?: boolean;
   active: boolean;
   onSetActive: () => void;
@@ -57,7 +59,7 @@ function ProviderRow({
     <div
       className={cn(
         "flex items-center justify-between gap-2 rounded-xl border bg-card/60 px-4 py-3",
-        flagship ? "border-gold/60 bg-gold/[0.04]" : active ? "border-primary/60" : "border-border/70",
+        flagship ? "border-gold/60 bg-gold/[0.04]" : advanced ? "border-gold/60 bg-gold/[0.04]" : active ? "border-primary/60" : "border-border/70",
       )}
     >
       <span className="flex min-w-0 items-center gap-2.5">
@@ -70,6 +72,11 @@ function ProviderRow({
           {flagship && (
             <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
               <Sparkles className="size-2.5" /> {t.studio.providers.flagshipTag}
+            </span>
+          )}
+          {advanced && (
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
+              <Sparkles className="size-2.5" /> {t.studio.providers.advancedTag}
             </span>
           )}
           {sponsor && (
@@ -198,6 +205,7 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
     : id === "rootflowai" ? t.studio.providers.rootflowaiName
     : id === "cubence" ? t.studio.providers.cubenceName
     : id === "volcengine" ? t.studio.providers.volcengineName
+    : id === "duoyuanx" ? t.studio.providers.duoyuanxName
     : fallback;
   const displayHint = (id: string, fallback: string) =>
     id === "compshare" ? t.studio.providers.compshareHint
@@ -205,6 +213,7 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
     : id === "rootflowai" ? t.studio.providers.rootflowaiHint
     : id === "cubence" ? t.studio.providers.cubenceHint
     : id === "volcengine" ? t.studio.providers.volcengineHint
+    : id === "duoyuanx" ? t.studio.providers.duoyuanxHint
     : fallback.replace("{etc}", t.studio.providers.etc);
 
   const keyStatus = (id: string): { line: string; tone: "muted" | "ok" } => {
@@ -283,6 +292,7 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
                     statusLine={st.line}
                     statusTone={st.tone}
                     flagship={m.flagship}
+                    advanced={m.advanced}
                     sponsor={m.sponsor}
                     active={eff === m.id}
                     onSetActive={() => onSetActive(m.id)}

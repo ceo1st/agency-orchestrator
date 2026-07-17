@@ -225,6 +225,7 @@ async function handleRun(): Promise<void> {
       fromStep,
       feedback,
       llmOverride,
+      signalFlush: true,
     });
 
     // --materialize <dir>：把开发步产出的"文件块"落盘成真实项目脚手架
@@ -517,6 +518,7 @@ async function handleCompose(): Promise<void> {
 
       const result = await run(resolve(savedPath), inputs, {
         quiet: false,
+        signalFlush: true,
         // 用 compose 时同样的 provider 执行，避免 YAML 里写的 provider 和用户实际可用的不一致
         // CLI provider 单步调用可能很慢（1-20 分钟），给足超时；用户显式 --timeout 优先
         llmOverride: {
@@ -800,6 +802,7 @@ async function runWithTeam(teamRef: string): Promise<void> {
     console.log(`  ${t('compose.auto_running')}\n`);
     const result = await run(resolve(savedPath), {}, {
       quiet: args.includes('--quiet') || args.includes('-q'),
+      signalFlush: true,
       watch: args.includes('--watch'),
       outputDir: getArgValue('--output') || defaultOutputDir(),
       llmOverride: {

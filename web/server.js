@@ -7,11 +7,11 @@
  * Not for production — single-user local tool for testing + demo recording.
  */
 import express from 'express';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
 import { detectInstalledCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
@@ -548,7 +548,14 @@ app.post('/api/run', (req, res) => {
     if (llm.api_key) args.push('--api-key', llm.api_key);
   }
   if (resume) {
-    args.push('--resume', resume === true ? 'last' : resume);
+    let resumeArg = resume === true ? 'last' : String(resume);
+    // 历史面板传的是 run 目录名（ao-output/ 下），而 CLI 的 --resume 按 cwd 解析相对
+    // 路径——补全成绝对路径，否则会指到 DATA_DIR/<id> 找不到 metadata.json。
+    if (resumeArg !== 'last') {
+      const candidate = join(OUTPUT_DIR, resumeArg);
+      if (existsSync(join(candidate, 'metadata.json'))) resumeArg = candidate;
+    }
+    args.push('--resume', resumeArg);
     if (fromStep) args.push('--from', fromStep);
   }
   // 对话式返工：把某一步的修改意见交回给该专家在原稿基础上重做。
@@ -797,17 +804,39 @@ app.post('/api/run-role', (req, res) => {
   const { role, task, provider, lang } = req.body || {};
   if (!role || !task) return res.status(400).json({ error: 'role and task required' });
 
-  // Build a temp single-step workflow. Top-level llm is required; keyed providers
+  // Build a single-step workflow. Top-level llm is required; keyed providers
   // (deepseek/openai/claude) also require a model — buildLLMConfig fills it.
+  // api_key 绝不写进 yaml（文件会持久化到用户目录、可被下载/分享）——注册 provider
+  // 的 key 启动时已注入 process.env,自定义供应商的 key 走 --api-key CLI 参数。
+  const { api_key: consultKey, ...llmSafe } = cleanLLMConfig(provider);
+  const roleShort = String(role).split('/').pop();
+  // 卡片/历史标题用角色显示名（中文站「人类学家」而非英文 slug），来自角色 frontmatter
+  const langKey = lang === 'en' ? 'en' : 'zh';
+  if (!rolesCache[langKey]) rolesCache[langKey] = loadRoles(langKey);
+  const roleName = rolesCache[langKey].find(r => r.id === roleShort)?.name || roleShort;
   const wfDoc = {
-    name: `专家咨询: ${role.split('/').pop()}`,
-    agents_dir: agentsDirFor(lang === 'en' ? 'en' : 'zh'),
-    llm: cleanLLMConfig(provider),
+    name: langKey === 'en' ? `Expert consult: ${roleName}` : `专家咨询: ${roleName}`,
+    description: String(task).slice(0, 140),
+    agents_dir: agentsDirFor(langKey),
+    llm: llmSafe,
     steps: [{ id: 'consult', role, task, output: 'result' }],
   };
 
-  const tmpFile = join(tmpdir(), `ao-role-${Date.now()}.yaml`);
-  writeFileSync(tmpFile, yaml.dump(wfDoc, { lineWidth: -1 }), 'utf-8');
+  // 持久化到「我的工作流」(COMPOSED_DIR):历史记录可重跑,列表里可再运行/删除。
+  // 文件名保留角色 slug（稳定、无歧义）。同角色**同问题**重复咨询直接复用已有文件
+  // （重复运行不该堆出 -2/-3 卡片）;问题不同才按 compose 的 dedupe 规则另存。
+  mkdirSync(COMPOSED_DIR, { recursive: true });
+  const consultSafe = `${langKey === 'en' ? 'expert-consult' : '专家咨询'}-${roleShort}`.replace(/[^\w.一-龥-]+/g, '-');
+  const consultYaml = yaml.dump(wfDoc, { lineWidth: -1 });
+  let consultFile = join(COMPOSED_DIR, `${consultSafe}.yaml`);
+  let consultSeq = 2;
+  while (existsSync(consultFile)) {
+    let same = false;
+    try { same = readFileSync(consultFile, 'utf-8') === consultYaml; } catch {}
+    if (same) break;
+    consultFile = join(COMPOSED_DIR, `${consultSafe}-${consultSeq}.yaml`); consultSeq++;
+  }
+  writeFileSync(consultFile, consultYaml, 'utf-8');
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -816,12 +845,16 @@ app.post('/api/run-role', (req, res) => {
 
   const send = (type, data) => { if (res.writableEnded) return; res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`); };
 
-  // Don't pass --provider here: the temp workflow already bakes a full llm block
+  // Don't pass --provider here: the saved workflow already bakes a full llm block
   // (provider + model). A bare --provider override would drop the model and the
   // API call would 400 with "missing field model".
-  const args = [CLI, 'run', tmpFile];
+  // 自定义供应商的 key 不在 env 也不进 yaml,单独经 CLI 参数传给引擎。
+  const args = [CLI, 'run', consultFile];
+  if (consultKey) args.push('--api-key', consultKey);
 
   send('start', { cmd: `ao run (${role})`, task });
+  // 告知前端本次咨询已落盘为可复用工作流（未知事件前端安全忽略）
+  send('workflow-saved', { file: consultFile });
 
   let lineBuffer = '';
   let collecting = false;
@@ -855,7 +888,7 @@ app.post('/api/run-role', (req, res) => {
   }
 
   console.log('[run-role]', role, task.slice(0, 60));
-  // AO_NO_RESUME_HINT=1 → 单角色一次性运行(临时工作流跑完即删),不打印失效的 --resume 提示
+  // AO_NO_RESUME_HINT=1 → 单角色咨询是一次性问答,终端的 --resume 提示对网页用户是噪音
   const child = spawn(NODE_BIN, args, { cwd: DATA_DIR, env: { ...process.env, FORCE_COLOR: '0', AO_NO_AT_FILE: '1', AO_NO_RESUME_HINT: '1' } });
 
   child.stdout.on('data', chunk => {
@@ -866,17 +899,17 @@ app.post('/api/run-role', (req, res) => {
     while ((idx = lineBuffer.indexOf('\n')) >= 0) { parseLine(lineBuffer.slice(0, idx)); lineBuffer = lineBuffer.slice(idx + 1); }
   });
   child.stderr.on('data', chunk => send('stderr', { text: chunk.toString() }));
+  // 工作流文件已持久化在 COMPOSED_DIR（「我的工作流」），任何退出路径都不再删除。
   child.on('exit', (code, signal) => {
     if (lineBuffer.trim()) parseLine(lineBuffer);
     send('done', { code, signal, content });
     res.end();
-    try { unlinkSync(tmpFile); } catch {}
   });
-  child.on('error', err => { send('error', { message: err.message }); res.end(); try { unlinkSync(tmpFile); } catch {} });
+  child.on('error', err => { send('error', { message: err.message }); res.end(); });
 
   let finished = false;
   child.on('exit', () => { finished = true; });
-  res.on('close', () => { if (!finished && !child.killed) { child.kill('SIGTERM'); try { unlinkSync(tmpFile); } catch {} } });
+  res.on('close', () => { if (!finished && !child.killed) child.kill('SIGTERM'); });
 });
 
 // ── 对话（不组队）────────────────────────────────────────────────────────
@@ -1610,24 +1643,44 @@ app.post('/api/provider-models', async (req, res) => {
   const headers = isClaude
     ? { ...(key ? { 'x-api-key': key } : {}), 'anthropic-version': '2023-06-01' }
     : key ? { authorization: `Bearer ${key}` } : {};
-  // 端点候选（cc-switch endpointCandidates 思路）：用户填的 base 常少带 /v1
-  // （照抄 CLI 中转配置的根地址），{base}/models 404 时自动补 /v1 再试一次。
-  const candidates = [`${base}/models`];
-  if (!/\/v\d+$/.test(base)) candidates.push(`${base}/v1/models`);
+  // 对齐 cc-switch：显式带 User-Agent。undici 默认不发 UA，部分端点的 WAF/UA 白名单会拦
+  // 裸请求（cc-switch 实测 Kimi 等站点白名单只认 claude-cli/* 前缀；Anthropic 协议目标
+  // 用它最稳），OpenAI 兼容目标用产品 UA（诚实标识，非伪装浏览器）。
+  headers['user-agent'] = isClaude ? 'claude-cli/2.1.161 (external, cli)' : `agency-orchestrator/${PKG_VERSION}`;
+  // 端点候选（对齐 cc-switch build_models_url_candidates 的顺序，避免多打一次必 404 的请求）：
+  //  · base 已以版本段 /v{N} 结尾（如 /v1、智谱 /paas/v4）→ 版本号已在路径里，正确端点是 {base}/models；
+  //    版本非 /v1 时再把 {base}/v1/models 作为兜底次候选。
+  //  · base 是不带版本的根地址（用户照抄 CLI 中转端点常见）→ 先试 OpenAI 惯例的 {base}/v1/models，
+  //    再把 {base}/models 作为兜底。
+  // 404/405 时自动尝试下一个候选；其它状态（401/403 等换路径也没用）直接停。
+  const endsWithVersion = /\/v\d+$/.test(base);
+  const candidates = endsWithVersion
+    ? (base.endsWith('/v1') ? [`${base}/models`] : [`${base}/models`, `${base}/v1/models`])
+    : [`${base}/v1/models`, `${base}/models`];
   let lastErr = '';
   try {
     for (const url of candidates) {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 12000);
+      // 网络层瞬断（TLS 握手失败/连接重置等，实测部分聚合站 CDN 时好时坏）自动重试一次，
+      // 对齐 cc-switch「多线路候选 + 重试」的容错思路；HTTP 有响应（哪怕 4xx/5xx）不重试。
       let r;
-      try {
-        r = await fetch(url, { signal: ctrl.signal, headers });
-      } catch (e) {
-        clearTimeout(timer);
-        lastErr = e?.name === 'AbortError' ? '超时（12s）' : (e?.message || String(e));
-        break;
+      for (let attempt = 0; attempt < 2 && !r; attempt++) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 20000);
+        try {
+          r = await fetch(url, { signal: ctrl.signal, headers });
+        } catch (e) {
+          // fetch() 抛错时 undici 只给一句 'fetch failed'，真正原因在 e.cause（ENOTFOUND/
+          // ECONNREFUSED/ETIMEDOUT/证书错误/连接重置…）。把 cause 一并带出，用户/日志才看得懂到底卡在哪。
+          const cause = e?.cause?.code || e?.cause?.message || e?.cause;
+          lastErr = e?.name === 'AbortError'
+            ? '超时（20s）：该端点响应过慢或网络不通'
+            : `${e?.message || String(e)}${cause ? `（${cause}）` : ''} · 端点 ${url}`;
+          if (attempt === 0) await new Promise((ok) => setTimeout(ok, 800));
+        } finally {
+          clearTimeout(timer);
+        }
       }
-      clearTimeout(timer);
+      if (!r) break;
       if (r.ok) {
         const j = await r.json().catch(() => ({}));
         const models = (Array.isArray(j.data) ? j.data : Array.isArray(j.models) ? j.models : [])
@@ -1640,12 +1693,72 @@ app.post('/api/provider-models', async (req, res) => {
       }
       const txt = (await r.text().catch(() => '')).slice(0, 200);
       lastErr = `HTTP ${r.status} ${txt}`;
-      if (r.status !== 404) break; // 401/403 等换路径也没用，只有 404 才试下一个候选
+      // 404/405 = 该路径不对/不支持 GET，换下一个候选；401/403 等换路径也没用，直接停（对齐 cc-switch）
+      if (r.status !== 404 && r.status !== 405) break;
     }
     return await modelsDevFallback(!key && /HTTP 40[13]/.test(lastErr) ? `未设置 API key（${lastErr}）` : lastErr);
   } catch (e) {
     return await modelsDevFallback(e?.message || String(e));
   }
+});
+
+// ── 从本机 cc-switch 一键导入已配供应商的 key ──────────────────────────────
+// cc-switch 桌面版把各家中转商的 key 存在 ~/.cc-switch/cc-switch.db（SQLite，v3.10+）。
+// 很多用户在 cc-switch 里已配好 key —— 与其让他复制粘贴一遍，不如一键导入。这等价于
+// cc-switch 自家的 ccswitch:// 深链接「URL 直接带 key 导入」思路，只是数据源换成本机已有
+// 配置。只读访问（-readonly），绝不写 cc-switch 的库；key 原文不出服务端，前端只见脱敏预览。
+// 读库用系统 sqlite3 CLI（macOS/多数 Linux 自带；缺失则整个功能静默隐藏，不影响其它）。
+function readCcSwitchProviders() {
+  const db = join(homedir(), '.cc-switch', 'cc-switch.db');
+  if (!existsSync(db)) return null;
+  let rows;
+  try {
+    const out = execFileSync('sqlite3', ['-json', '-readonly', db,
+      'SELECT app_type, name, website_url, settings_config, is_current FROM providers'], { timeout: 5000 }).toString();
+    rows = out.trim() ? JSON.parse(out) : [];
+  } catch { return null; }
+  const list = [];
+  for (const row of rows) {
+    let cfg; try { cfg = JSON.parse(row.settings_config || '{}'); } catch { continue; }
+    const env = cfg?.env && typeof cfg.env === 'object' ? cfg.env : {};
+    const key = env.ANTHROPIC_AUTH_TOKEN || env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY || env.GEMINI_API_KEY || '';
+    if (!key || typeof key !== 'string') continue; // 官方登录/无 key 的条目（如 Claude Official）跳过
+    const baseUrl = env.ANTHROPIC_BASE_URL || env.OPENAI_BASE_URL || env.GEMINI_BASE_URL || '';
+    list.push({
+      id: `${row.app_type}:${row.name}`,
+      name: row.name,
+      appType: row.app_type,
+      baseUrl,
+      keyPreview: key.length > 10 ? `${key.slice(0, 6)}…${key.slice(-4)}` : `${key.slice(0, 2)}…`,
+      isCurrent: !!row.is_current,
+      _key: key, // 内部字段：仅服务端使用，响应前剥除
+    });
+  }
+  return list;
+}
+
+// 列出 cc-switch 里可导入的条目（key 只回脱敏预览）
+app.get('/api/ccswitch-providers', (_req, res) => {
+  const list = readCcSwitchProviders();
+  if (!list) return res.json({ ok: false });
+  res.json({ ok: true, providers: list.map(({ _key, ...pub }) => pub) });
+});
+
+// 把选中条目的 key 写入 AO 的目标 provider（key 全程留在服务端，不经过浏览器）。
+// includeBaseUrl 默认不带：cc-switch 存的是 Anthropic 协议根地址（如 api.modelverse.cn），
+// 与 AO 云端 API 供应商的 OpenAI 兼容 /v1 端点语义不同，盲导会把聊天打挂；
+// 只有 claude-code 中转这类同语义目标才由前端显式传 true。
+app.post('/api/ccswitch-import', (req, res) => {
+  const { source, provider, includeBaseUrl } = req.body || {};
+  if (!source || !provider) return res.status(400).json({ error: 'source and provider required' });
+  const list = readCcSwitchProviders();
+  const entry = list?.find((x) => x.id === source);
+  if (!entry) return res.status(404).json({ error: 'cc-switch entry not found' });
+  const keys = readKeys();
+  keys[provider] = { ...(keys[provider] || {}), apiKey: entry._key, ...(includeBaseUrl && entry.baseUrl ? { baseUrl: entry.baseUrl } : {}) };
+  writeKeys(keys);
+  applyKeys(keys);
+  res.json({ ok: true, keyPreview: entry.keyPreview });
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, version: PKG_VERSION }));

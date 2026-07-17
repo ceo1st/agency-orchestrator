@@ -1,8 +1,9 @@
 import { ArrowLeft, Check, Download, ExternalLink, Eye, EyeOff, Loader2, Plug, Plus, TriangleAlert, XCircle } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, CLI_RELAY_PRESETS, CUSTOM_PROVIDER_PRESETS, groupModelsByVendor, providerLogo, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
+import { sponsors, sponsorUrl } from "@/content/sponsors";
 import { cn } from "@/lib/utils";
 
 /**
@@ -44,7 +45,7 @@ export function ProviderConfigView({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const p = t.studio.providers;
   const isAdd = target.kind === "add-custom";
   const isRelay = target.kind === "cli-relay";
@@ -82,6 +83,30 @@ export function ProviderConfigView({
   const [fetchedModels, setFetchedModels] = useState<string[] | null>(null);
   const [fetchingModels, setFetchingModels] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  // needsKey=true 时,fetchError 是「先填 key 再拉列表」的操作引导(非真失败)——用琥珀色而非报错红,
+  // 且下方常用模型仍可直接点选,避免用户误以为坏了(部分聚合商的 /models 需鉴权,如多元探索)。
+  const [fetchNeedsKey, setFetchNeedsKey] = useState(false);
+  // 模型列表搜索词（大列表时用来筛几百个模型）
+  const [modelFilter, setModelFilter] = useState("");
+
+  // 从本机 cc-switch 一键导入 key（对齐 cc-switch 深链接「直接带 key 导入」的思路，
+  // 数据源换成 ~/.cc-switch 本机库）。后端探测不到库/没有带 key 的条目时按钮不出现。
+  const [ccEntries, setCcEntries] = useState<{ id: string; name: string; appType: string; baseUrl: string; keyPreview: string; isCurrent: boolean }[]>([]);
+  const [ccOpen, setCcOpen] = useState(false);
+  const [ccImported, setCcImported] = useState<string | null>(null);
+  useEffect(() => {
+    api.ccswitchProviders().then((r) => { if (r.ok && r.providers?.length) setCcEntries(r.providers); }).catch(() => {});
+  }, []);
+  const importFromCc = async (sourceId: string) => {
+    try {
+      // key 全程留在后端；claude-code 中转与 cc-switch 同为 Anthropic 协议根地址，连 base 一起导
+      const r = await api.ccswitchImport({ source: sourceId, provider: providerId, includeBaseUrl: isCcRelay });
+      if (r.ok) { setCcImported(r.keyPreview || ""); setCcOpen(false); onSaved(); }
+    } catch (e: any) {
+      setError(e?.message || String(e));
+      setCcOpen(false);
+    }
+  };
 
   // 测试连接
   const [test, setTest] = useState<{ status: "idle" | "testing" | "ok" | "fail"; msg?: string }>({ status: "idle" });
@@ -103,6 +128,12 @@ export function ProviderConfigView({
     target.kind === "api" ? target.signupUrl
     : isRelay ? relayPresets.find((r) => r.signupUrl && r.baseUrls[providerId] === baseUrl)?.signupUrl
     : undefined;
+  // 赞助商优惠信息（对齐 cc-switch 的合作伙伴提示条）：优惠文案/优惠码之前只在官网赞助商页,
+  // 配 key 时看不见 —— 现在直接展示在 API Key 输入框下方。数据复用 content/sponsors.ts,
+  // 不再维护第二份。优云智算的 sponsor id 是 youyun、provider id 是 compshare,单独映射。
+  const sponsorEntry = !isAdd
+    ? sponsors.find((s) => s.id === (providerId === "compshare" ? "youyun" : providerId))
+    : undefined;
 
   const applyPreset = (preset: (typeof CUSTOM_PROVIDER_PRESETS)[number]) => {
     setCustomName(preset.name);
@@ -116,10 +147,15 @@ export function ProviderConfigView({
   const fetchModels = async () => {
     setFetchingModels(true);
     setFetchError(null);
+    setFetchNeedsKey(false);
     try {
+      // 输入框留空时，回退到该供应商前端已知的默认端点（API_PROVIDERS.defaultBaseUrl）并显式发给后端 ——
+      // 这样即便后端 dist 尚未认识某个新增供应商（未重启/未重编），也不会因 spec 缺失、base 解析为空而 400，
+      // 前端始终能自带 base。（对齐 cc-switch：base 缺失时无法拼 /models 候选。）
+      const knownBase = target.kind === "api" ? target.defaultBaseUrl : undefined;
       // claude-code 中转端点是 Anthropic 协议根路径（如 api.cubence.com），
       // 模型列表在 /v1/models —— 给 base 补 /v1 并声明 anthropic 协议
-      const rawBase = baseUrl.trim().replace(/\/+$/, "");
+      const rawBase = (baseUrl.trim() || knownBase || "").replace(/\/+$/, "");
       const effBase = isCcRelay && rawBase && !/\/v1$/.test(rawBase) ? `${rawBase}/v1` : rawBase;
       const r = await api.providerModels({
         provider: isAdd ? undefined : providerId,
@@ -129,7 +165,7 @@ export function ProviderConfigView({
       });
       if (r.ok && r.models) setFetchedModels(r.models);
       // 没填 key 又被中转拒绝(401/未设置 key)时,别把原始 JSON 甩给用户,给一句可操作的引导
-      else if (!key.trim() && /401|403|未设置 API key|authentication|credential/i.test(r.error || "")) setFetchError(p.fetchNeedsKey);
+      else if (!key.trim() && /401|403|未设置 API key|authentication|credential|invalid token/i.test(r.error || "")) { setFetchNeedsKey(true); setFetchError(p.fetchNeedsKey); }
       else setFetchError(r.error || "failed");
     } catch (e: any) {
       setFetchError(e?.message || String(e));
@@ -220,6 +256,10 @@ export function ProviderConfigView({
   const inputCls = "h-10 w-full rounded-xl border border-border/70 bg-background px-3 text-sm outline-none focus:border-primary/50";
   const labelCls = "mb-1 block text-xs font-medium text-muted-foreground";
   const modelChips = fetchedModels ?? (target.kind === "api" ? target.suggestions ?? [] : []);
+  // 聚合站一拉就是几百个模型，平铺没法选 —— 大列表时给个搜索框先筛（对齐 cc-switch 的可搜下拉体验）。
+  const filteredChips = modelFilter.trim()
+    ? modelChips.filter((m) => m.toLowerCase().includes(modelFilter.trim().toLowerCase()))
+    : modelChips;
 
   // 生效配置预览（对齐 cc-switch 的「配置 JSON」透明度）：AO 不写全局配置文件，
   // 注入的是 AO 所启动 CLI 子进程的环境变量——预览的就是保存后实际生效的那份 env。
@@ -449,6 +489,65 @@ export function ProviderConfigView({
                     {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
+                {/* 获取 key 独立行（对齐 cc-switch 合作伙伴提示条）：优惠文案 + 优惠码 + 直达链接 */}
+                {(sponsorEntry || registerUrl) && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-xl border border-gold/40 bg-gold/[0.06] px-3 py-2">
+                    <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-foreground/85">
+                      💡 {sponsorEntry?.perk?.[lang] ?? p.getKeyGeneric}
+                      {sponsorEntry?.couponCode && (
+                        <>
+                          {" · "}{p.couponLabel}
+                          <code className="ml-1 rounded bg-gold/15 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-gold">{sponsorEntry.couponCode}</code>
+                        </>
+                      )}
+                    </p>
+                    <a
+                      href={sponsorEntry ? sponsorUrl(sponsorEntry, lang) : registerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-gold/15 px-2.5 py-1 text-xs font-semibold text-gold transition-colors hover:bg-gold/25"
+                    >
+                      {p.getApiKey} <ExternalLink className="size-3" />
+                    </a>
+                  </div>
+                )}
+                {/* 本机 cc-switch 已有配好的 key → 一键导入,不用再复制粘贴（key 不经过浏览器） */}
+                {ccEntries.length > 0 && !isAdd && (
+                  <div className="mt-1.5">
+                    {ccImported ? (
+                      <p className="text-[11px] text-emerald-500">
+                        <Check className="mr-0.5 inline size-3" />
+                        {p.ccswitchImported}（{ccImported}）
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setCcOpen((v) => !v)}
+                        className="flex items-center gap-1 rounded-lg border border-border/70 px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                      >
+                        <Download className="size-3" /> {p.ccswitchImport}
+                      </button>
+                    )}
+                    {ccOpen && !ccImported && (
+                      <div className="mt-1.5 space-y-1 rounded-xl border border-border/60 bg-muted/20 p-2">
+                        <p className="text-[11px] text-muted-foreground">{p.ccswitchPick}</p>
+                        {ccEntries.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => importFromCc(c.id)}
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted"
+                          >
+                            <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
+                            <span className="shrink-0 text-muted-foreground">{c.appType}</span>
+                            {c.baseUrl && <span className="hidden max-w-[180px] shrink-0 truncate font-mono text-muted-foreground/70 sm:inline">{c.baseUrl.replace(/^https?:\/\//, "")}</span>}
+                            <span className="shrink-0 font-mono text-muted-foreground/70">{c.keyPreview}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </Section>
@@ -470,7 +569,7 @@ export function ProviderConfigView({
                   {p.fetchModels}
                 </button>
               </div>
-              {fetchError && <p className="text-[11px] text-red-500">{fetchError}</p>}
+              {fetchError && <p className={cn("text-[11px]", fetchNeedsKey ? "text-amber-500" : "text-red-500")}>{fetchError}</p>}
               {fetchedModels && (
                 <p className="text-[11px] text-muted-foreground">{p.modelsFetchedPre}{fetchedModels.length}{p.modelsFetchedPost}</p>
               )}
@@ -528,17 +627,30 @@ export function ProviderConfigView({
                   )}
                 </div>
                 <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={p.customProviderModelPlaceholder} autoComplete="off" className={inputCls} />
-                {fetchError && <p className="mt-1 text-[11px] text-red-500">{fetchError}</p>}
+                {fetchError && <p className={cn("mt-1 text-[11px]", fetchNeedsKey ? "text-amber-500" : "text-red-500")}>{fetchError}</p>}
                 {fetchedModels && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {p.modelsFetchedPre}{fetchedModels.length}{p.modelsFetchedPost}
                   </p>
                 )}
-                {modelChips.length > 0 &&
-                  (modelChips.length > 12 ? (
+                {/* 模型多时给个搜索框先筛（聚合站常几百个），筛完再点选 */}
+                {modelChips.length > 8 && (
+                  <input
+                    value={modelFilter}
+                    onChange={(e) => setModelFilter(e.target.value)}
+                    placeholder={p.modelFilterPlaceholder}
+                    autoComplete="off"
+                    className={cn(inputCls, "mt-1.5 h-8 text-xs")}
+                  />
+                )}
+                {modelChips.length > 0 && filteredChips.length === 0 && (
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">{p.modelFilterNoMatch}</p>
+                )}
+                {filteredChips.length > 0 &&
+                  (filteredChips.length > 12 ? (
                     // 大列表(通常是拉到的真实全量):按厂商分组,像 cc-switch 那样可扫读,不再一堆平铺
                     <div className="mt-1.5 max-h-60 space-y-2 overflow-auto pr-1">
-                      {groupModelsByVendor(modelChips).map(([vendor, ms]) => (
+                      {groupModelsByVendor(filteredChips).map(([vendor, ms]) => (
                         <div key={vendor}>
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
                             {vendor} · {ms.length}
@@ -563,7 +675,7 @@ export function ProviderConfigView({
                     </div>
                   ) : (
                     <div className="mt-1.5 flex max-h-44 flex-wrap gap-1.5 overflow-auto">
-                      {modelChips.map((m) => (
+                      {filteredChips.map((m) => (
                         <button
                           key={m}
                           type="button"

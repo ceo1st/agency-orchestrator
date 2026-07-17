@@ -1,5 +1,6 @@
 import { Check, Download, GitCompare, Loader2, Play, Scale, Search, Star, Trash2, Workflow as WorkflowIcon, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
@@ -306,29 +307,33 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="flex items-center gap-1.5 font-semibold leading-snug">
-                  <button
-                    onClick={() => toggleFav(w)}
-                    title={
+                  <Tip
+                    label={
                       w.private
                         ? favs.has(w.file) ? (lang === "en" ? "Unpin" : "取消置顶") : (lang === "en" ? "Pin to top" : "置顶到最前")
                         : favs.has(w.file) ? (lang === "en" ? "Unfavorite" : "取消收藏") : (lang === "en" ? "Add to favorites" : "收藏为常用")
                     }
-                    className="shrink-0 text-muted-foreground/50 transition-colors hover:text-amber-400"
                   >
-                    <Star className={cn("size-3.5", favs.has(w.file) && "fill-amber-400 text-amber-400")} />
-                  </button>
+                    <button
+                      onClick={() => toggleFav(w)}
+                      className="shrink-0 text-muted-foreground/50 transition-colors hover:text-amber-400"
+                    >
+                      <Star className={cn("size-3.5", favs.has(w.file) && "fill-amber-400 text-amber-400")} />
+                    </button>
+                  </Tip>
                   {w.name}
                 </h3>
-                <button
-                  onClick={() => togglePick(w)}
-                  title={t.studio.workflows.checkToCompare}
-                  className={cn(
-                    "grid size-5 shrink-0 place-items-center rounded-md border transition-colors",
-                    on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
-                  )}
-                >
-                  {on && <Check className="size-3.5" />}
-                </button>
+                <Tip label={t.studio.workflows.checkToCompare}>
+                  <button
+                    onClick={() => togglePick(w)}
+                    className={cn(
+                      "grid size-5 shrink-0 place-items-center rounded-md border transition-colors",
+                      on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
+                    )}
+                  >
+                    {on && <Check className="size-3.5" />}
+                  </button>
+                </Tip>
               </div>
               {w.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{w.description}</p>}
               {!!(w.steps && w.steps.length) && (
@@ -342,30 +347,39 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
                   {`${w.steps?.length ?? 0} ${t.studio.workflows.steps}`}
                 </span>
                 <div className="flex items-center gap-1.5">
-                  <Button size="sm" variant="ghost" onClick={() => (demo ? onInstallPrompt?.() : setCanvasFor(w))} title={lang === "en" ? "View as canvas" : "画布视图（可视化工作流图）"}>
-                    <WorkflowIcon className="size-3.5" />
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => compareOne(w)} title={lang === "en" ? "Compare vs single-shot" : "对比单次基线（看多智能体到底强在哪）"}>
-                    <Scale className="size-3.5" />
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => downloadOne(w)} title={lang === "en" ? "Download YAML (use in CLI / anywhere)" : "下载 YAML（可在 CLI / 其他机器直接用）"}>
-                    <Download className="size-3.5" />
-                  </Button>
-                  {w.deletable && !demo && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => { setDelErr(null); setConfirmDel(w); }}
-                      title={lang === "en" ? "Delete" : "删除此工作流"}
-                      className="text-muted-foreground hover:text-red-500"
-                    >
-                      <Trash2 className="size-3.5" />
+                  <Tip label={lang === "en" ? "View as canvas" : "画布视图（可视化编辑）"}>
+                    <Button size="sm" variant="ghost" onClick={() => (demo ? onInstallPrompt?.() : setCanvasFor(w))}>
+                      <WorkflowIcon className="size-3.5" />
                     </Button>
+                  </Tip>
+                  <Tip label={lang === "en" ? "Compare vs single-shot baseline" : "对比单次基线（多智能体强在哪）"}>
+                    <Button size="sm" variant="ghost" onClick={() => compareOne(w)}>
+                      <Scale className="size-3.5" />
+                    </Button>
+                  </Tip>
+                  <Tip label={lang === "en" ? "Download YAML" : "下载 YAML（CLI / 其他机器可用）"}>
+                    <Button size="sm" variant="ghost" onClick={() => downloadOne(w)}>
+                      <Download className="size-3.5" />
+                    </Button>
+                  </Tip>
+                  {w.deletable && !demo && (
+                    <Tip label={lang === "en" ? "Delete this workflow" : "删除此工作流"}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setDelErr(null); setConfirmDel(w); }}
+                        className="text-muted-foreground hover:text-red-500"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </Tip>
                   )}
-                  <Button size="sm" onClick={() => runOne(w)}>
-                    <Play className="size-3.5" />
-                    {t.studio.workflows.run}
-                  </Button>
+                  <Tip label={lang === "en" ? "Run this workflow" : "运行此工作流"}>
+                    <Button size="sm" onClick={() => runOne(w)}>
+                      <Play className="size-3.5" />
+                      {t.studio.workflows.run}
+                    </Button>
+                  </Tip>
                 </div>
               </div>
             </div>

@@ -37,6 +37,11 @@ export interface ExecutorOptions {
    * 按意见修改重做（而非从零重写）。配合 --resume --from <stepId> 使用。
    */
   feedback?: { stepId: string; text: string; previousOutput?: string };
+  /**
+   * 调用方提供的步骤结果收集数组：executor 增量写入（每步完成即可见），
+   * 供 SIGTERM/SIGINT 中断时把已完成步骤落盘成 metadata（否则中断的 run 无痕）。
+   */
+  stepResultsSink?: StepResult[];
 }
 
 export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<WorkflowResult> {
@@ -53,7 +58,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
   // 变量上下文：inputs + 每步的 output
   const context = new Map(inputs);
   const startTime = Date.now();
-  const stepResults: StepResult[] = [];
+  const stepResults: StepResult[] = options.stepResultsSink ?? [];
 
   const isCLI = llmConfig.provider.endsWith('-cli') || llmConfig.provider === 'claude-code';
   const isLocal = llmConfig.provider === 'ollama';
