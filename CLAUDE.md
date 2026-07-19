@@ -10,7 +10,7 @@ ao run <workflow.yaml> --resume last --from <step-id>  # Re-run from a specific 
 ao validate <workflow.yaml>           # Validate without running
 ao plan <workflow.yaml>               # Show DAG execution plan
 ao doctor [--fix]                     # Self-check provider/creds/CLI/system Claude Code; --fix repairs a hijacked ~/.claude (fake token / relay base_url)
-ao roles                              # List all 216 available roles
+ao roles                              # List all 267 available roles
 ao install --tool claude-code         # Install bundled roles into a coding tool (claude-code/cursor/copilot/gemini-cli/qwen/opencode); --lang zh|en, --category, --dry-run
 ao run <workflow.yaml> --compare      # Run workflow + single-shot baseline + blind judge → side-by-side verdict (productized eval)
 ao team save <workflow.yaml>          # Save a role line-up as a reusable team (Loadout)
@@ -129,7 +129,7 @@ steps:
 
 ## Role Directory
 
-Roles are in `agency-agents-zh/` (or `node_modules/agency-agents-zh/`). Each role is a `.md` file with frontmatter + system prompt. Use `ao roles` to list all 216 roles.
+Roles are in `agency-agents-zh/` (or `node_modules/agency-agents-zh/`). Each role is a `.md` file with frontmatter + system prompt. Use `ao roles` to list all 267 roles.
 
 ## Project Structure
 

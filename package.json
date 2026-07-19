@@ -90,7 +90,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
     "@modelcontextprotocol/sdk": "^1.28.0",
-    "agency-agents-zh": "^1.2.2",
+    "agency-agents-zh": "^1.2.7",
     "html-to-docx": "^1.8.0",
     "js-yaml": "^4.1.0",
     "marked": "^18.0.5",
