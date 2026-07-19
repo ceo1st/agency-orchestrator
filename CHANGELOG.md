@@ -4,10 +4,21 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-19
+
 ### Added（本次新增）
+- **我的角色（自建，叠加式）**：`~/.ao/roles/<id>.md`（`AO_USER_ROLES_DIR` 可覆盖）与内置角色库共存，工作流里用 `my/<id>` 引用，run / compose / validate / resume / `ao roles` / MCP 全链路可解析。Studio「角色组队」新增「我的」分类：内置「新建角色」表单，自建卡可删（应用内确认框，严格限用户目录）。
+- **提示生成 → 角色沉淀闭环**：「提示词优化」更名「提示生成」（CLI 命令 `ao prompt optimize` 不变）；system 模式生成结果旁新增「存为我的角色」，一键把生成的 system prompt 沉淀为 `my/` 角色，直接出现在组队「我的」里。
+- **角色 ☆ 常用**：角色卡点星收藏（localStorage，与工作流卡同一交互），类目栏出现「常用」并全局置顶。
+- **多语言角色库**：5 个社区语言包发布至 npm（`agency-agents-{ko,ru,pt-br,id,ar}`，各 187 = 184 上游翻译 + 3 本地市场原创）。装了即在 Studio「角色组队」出现「角色库」下拉（界面语言与角色库语言解耦）；compose 生成的 YAML `agents_dir` 直接写包名，`ao run` 从 node_modules 解析。官网专家库同步支持 7 库在线浏览（`/experts?lib=ko` 可直链）。桌面端随包内置全部语言库。
 - **Docker / NAS 部署**（#93）：官方镜像 `ghcr.io/jnmetacode/agency-orchestrator`（amd64/arm64），`docker run -d -p 8088:8088 -v ao-data:/data …:latest` 即起；密钥/产物/自组工作流全部落在挂载卷。仓库根附 `docker-compose.yml` 一键部署，发布走 GHCR（release-docker workflow）。
 - **供应商专有参数透传**（#90）：`llm:`（全局或步骤级）新增 `params:` 字段，键值原样并入请求体——DeepSeek/OpenAI 的 reasoning 档位、Anthropic thinking 预算、ollama top_k 等都能配，不再等逐个开关；核心字段（model/messages/stream）受保护不可被覆盖。
 - **Studio 输入支持从文件读入**（#96）：运行工作流的输入弹框里，每个输入旁新增「从文件读入」——把 .md/.txt/代码等文本文件内容一键填进输入变量（浏览器端读取，不经服务器路径，上限 200 KB），"识别技术文档"类场景不用再手动复制粘贴。CLI 侧对应能力为 `-i 变量=@文件`。
+
+### Fixed
+- **带 `my/` 自建角色人设聊天报 400**：`/api/chat` 的路径守卫只认内置库，自建角色无法单聊——现走用户角色目录解析。
+- **Studio 角色列表因严格 YAML 悄悄丢角色**：翻译文本裸冒号等使 frontmatter 解析失败时，退回引擎同款逐行宽松解析，角色不再从列表消失；5 个语言包内 30 个文件的 frontmatter 已在 1.0.1 修复源头。
+- **全站角色计数对齐**：`agency-agents-zh` 升 1.2.7（267 角色，check-counts 发布门禁曾卡住 267 未发）；README（中英）、官网文案、CLI 帮助里散落的 216 全部改为 267。
 
 ## [0.11.0] - 2026-07-17
 
