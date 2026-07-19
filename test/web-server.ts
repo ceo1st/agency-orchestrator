@@ -34,7 +34,7 @@ let server: ChildProcess | null = null;
 
 try {
   server = spawn(process.execPath, [resolve('web/server.js')], {
-    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', AO_NODE: process.execPath, AO_DATA_DIR: dataDir },
+    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', AO_NODE: process.execPath, AO_DATA_DIR: dataDir, AO_USER_ROLES_DIR: join(dataDir, 'my-roles') },
     stdio: 'ignore',
   });
 
@@ -139,6 +139,20 @@ try {
       assert((await del(savedFile)).status === 200, 'DELETE /api/workflows 用户工作流 → 200 删除');
       assert((await del(savedFile)).status === 404, 'DELETE /api/workflows 已删文件再删 → 404');
     }
+
+    // ── 我的角色（用户自建）POST/DELETE /api/roles/my ──
+    assert(await post(base, '/api/roles/my', { name: '测试专家' }) === 400, 'POST /api/roles/my 缺 systemPrompt → 400');
+    const createRes = await fetch(base + '/api/roles/my', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '测试专家', description: '一句话描述', systemPrompt: '你是一位测试专家。' }) });
+    const created = await createRes.json();
+    assert(createRes.status === 200 && created.role === `my/${created.id}`, `POST /api/roles/my → 200 创建(${created.role})`);
+    const rolesWithMy = (await (await fetch(base + '/api/roles')).json()) as Array<{ id: string; category: string; custom?: boolean; name: string }>;
+    const myRole = rolesWithMy.find((r) => r.category === 'my' && r.id === created.id);
+    assert(!!myRole && myRole.custom === true && myRole.name === '测试专家', '/api/roles 列表含「我的」分类且带 custom 标记');
+    const detail = await (await fetch(base + `/api/roles/my/${created.id}`)).json();
+    assert(detail.content === '你是一位测试专家。', 'GET /api/roles/my/:id 返回 system prompt 正文');
+    assert((await fetch(base + '/api/roles/my/..%2F..%2Fetc%2Fpasswd', { method: 'DELETE' })).status === 403, 'DELETE /api/roles/my 路径穿越 → 403');
+    assert((await fetch(base + `/api/roles/my/${created.id}`, { method: 'DELETE' })).status === 200, 'DELETE /api/roles/my/:id → 200 删除');
+    assert((await fetch(base + `/api/roles/my/${created.id}`, { method: 'DELETE' })).status === 404, 'DELETE 已删角色再删 → 404');
 
     // ── 报告导出 /api/export ──
     assert(await post(base, '/api/export', { format: 'docx' }) === 400, '/api/export 缺 markdown → 400');

@@ -43,6 +43,16 @@ roles. Teams persist as `~/.ao/teams/*.team.yaml` (override dir with `AO_TEAMS_D
 **shared between the CLI and the web Studio** (`GET/POST/DELETE /api/teams` in `web/server.js`).
 Bring-your-own roles: `AO_AGENTS_DIR=/path` overrides the built-in catalog everywhere.
 
+## My Roles (user-built, additive)
+
+`~/.ao/roles/<id>.md` (override dir with `AO_USER_ROLES_DIR`) holds user-created roles — referenced
+as `my/<id>` in workflows. Unlike `AO_AGENTS_DIR` (which *replaces* the catalog), these are
+**merged on top** of the built-in library: `loadAgent` falls back to the user dir for `my/*`
+(`src/agents/loader.ts`), so run/compose/validate/`ao roles` all resolve them. Studio: "角色组队 →
+我的" tab has create/delete UI (`POST/DELETE /api/roles/my` in `web/server.js`); the Prompt
+Generator's system mode has "存为我的角色" to turn a generated system prompt into a role. Role
+favorites (☆常用, localStorage) mirror the workflow-card star.
+
 ## Resume — Iterative Optimization
 
 After `ao run` completes, all step outputs are saved to `ao-output/<name>-<timestamp>/`. Users can iterate on any step without re-running the entire workflow.

@@ -313,7 +313,7 @@ export async function startServer(verbose = false): Promise<void> {
     async ({ agents_dir }) => {
       try {
         const agentsDir = findAgentsDir(agents_dir);
-        const agents = listAgents(agentsDir);
+        const agents = listAgents(agentsDir, true);
 
         const lines = agents.map(a => {
           const emoji = a.emoji || ' ';

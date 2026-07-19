@@ -1,8 +1,9 @@
-import { Bookmark, Check, Loader2, MessageCircle, MessageSquare, Search, Sparkles, Trash2, Users, X } from "lucide-react";
+import { Bookmark, Check, Loader2, MessageCircle, MessageSquare, Plus, Search, Sparkles, Star, Trash2, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, type ComposeResult, type Role, type Team, type Workflow } from "@/lib/studio";
+import { api, getFavRoles, setFavRoles, type ComposeResult, type Role, type Team, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { demoRoles } from "@/lib/demo";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,30 @@ export function RolesPicker({
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string>("all");
   const [selected, setSelected] = useState<Record<string, Role>>({});
+
+  // 用户自选「常用」角色：点星收藏（localStorage，与工作流的 ☆ 同一交互）
+  const [favs, setFavs] = useState<Set<string>>(() => getFavRoles());
+  const toggleFav = (r: Role, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFavs((prev) => {
+      const n = new Set(prev);
+      const key = roleKey(r);
+      if (n.has(key)) n.delete(key); else n.add(key);
+      setFavRoles(n);
+      return n;
+    });
+  };
+
+  // 「我的」自建角色：新建表单 + 删除确认（应用内 ConfirmDialog，与工作流删除同规）
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newPrompt, setNewPrompt] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createErr, setCreateErr] = useState<string | null>(null);
+  const [confirmDelRole, setConfirmDelRole] = useState<Role | null>(null);
+  const [deletingRole, setDeletingRole] = useState(false);
+  const [delRoleErr, setDelRoleErr] = useState<string | null>(null);
 
   // compose tray state
   const [task, setTask] = useState("");
@@ -94,20 +119,66 @@ export function RolesPicker({
       .finally(() => setLoading(false));
   }, [lang, demo]);
 
+  // 新建/删除自建角色后静默刷新列表（不闪 loading）
+  const refreshRoles = () => {
+    if (demo) return;
+    api.roles(lang).then((r) => setRoles(r)).catch(() => {});
+  };
+
+  const createMyRole = async () => {
+    if (demo) { onInstallPrompt?.(); return; }
+    if (!newName.trim() || !newPrompt.trim()) return;
+    setCreating(true);
+    setCreateErr(null);
+    try {
+      await api.createMyRole({ name: newName.trim(), description: newDesc.trim() || undefined, systemPrompt: newPrompt.trim() });
+      setShowCreate(false);
+      setNewName(""); setNewDesc(""); setNewPrompt("");
+      setCat("my");
+      refreshRoles();
+    } catch (e: any) {
+      setCreateErr(e?.message || t.studio.roles.newRoleFailed);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const doDeleteRole = async () => {
+    if (!confirmDelRole) return;
+    setDeletingRole(true);
+    setDelRoleErr(null);
+    try {
+      await api.deleteMyRole(confirmDelRole.id);
+      // 顺手摘掉选择区/收藏里的残留引用
+      setSelected((prev) => { const n = { ...prev }; delete n[roleKey(confirmDelRole)]; return n; });
+      setFavs((prev) => { const n = new Set(prev); n.delete(roleKey(confirmDelRole)); setFavRoles(n); return n; });
+      setConfirmDelRole(null);
+      refreshRoles();
+    } catch (e: any) {
+      setDelRoleErr(e?.message || String(e));
+    } finally {
+      setDeletingRole(false);
+    }
+  };
+
   const categories = useMemo(() => {
     const map = new Map<string, string>();
-    roles.forEach((r) => map.set(r.category, r.categoryName || r.category));
+    // 「我的」有专属 tab（始终显示，含新建入口），不混进普通类目
+    roles.forEach((r) => { if (r.category !== "my") map.set(r.category, r.categoryName || r.category); });
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [roles]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return roles.filter((r) => {
-      if (cat !== "all" && r.category !== cat) return false;
+    const list = roles.filter((r) => {
+      if (cat === "fav") { if (!favs.has(roleKey(r))) return false; }
+      else if (cat !== "all" && r.category !== cat) return false;
       if (!needle) return true;
       return (r.name + r.description + r.categoryName).toLowerCase().includes(needle);
     });
-  }, [roles, q, cat]);
+    // ⭐ 常用置顶（与工作流列表同规），其余保持原目录顺序
+    return [...list].sort((a, b) => (favs.has(roleKey(b)) ? 1 : 0) - (favs.has(roleKey(a)) ? 1 : 0));
+  }, [roles, q, cat, favs]);
 
   const selectedList = Object.values(selected);
   const count = selectedList.length;
@@ -400,6 +471,30 @@ export function RolesPicker({
         >
           {t.studio.roles.categoryAll}
         </button>
+        {favs.size > 0 && (
+          <button
+            onClick={() => setCat("fav")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              cat === "fav" ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Star className={cn("size-3", cat === "fav" ? "fill-current" : "fill-amber-400 text-amber-400")} />
+            {t.studio.roles.categoryFav}
+          </button>
+        )}
+        {/* 「我的」始终显示——空着也要能发现「新建角色」入口 */}
+        {!demo && (
+          <button
+            onClick={() => setCat("my")}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              cat === "my" ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.studio.roles.categoryMy}
+          </button>
+        )}
         {categories.map((c) => (
           <button
             key={c.id}
@@ -416,9 +511,23 @@ export function RolesPicker({
 
       {/* role grid */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {/* 「我的」tab 首位固定放新建入口 */}
+        {cat === "my" && !demo && (
+          <button
+            onClick={() => { setCreateErr(null); setShowCreate(true); }}
+            className="group flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/80 bg-card/30 p-4 text-center transition-all hover:-translate-y-0.5 hover:border-primary/50"
+          >
+            <span className="grid size-10 place-items-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+              <Plus className="size-5" />
+            </span>
+            <span className="text-sm font-semibold">{t.studio.roles.newRole}</span>
+            <span className="text-xs text-muted-foreground">{t.studio.roles.newRoleHint}</span>
+          </button>
+        )}
         {filtered.map((r) => {
           const key = roleKey(r);
           const on = !!selected[key];
+          const faved = favs.has(key);
           return (
             <button
               key={key}
@@ -451,14 +560,41 @@ export function RolesPicker({
                 </span>
                 <div className="min-w-0 pr-5">
                   <span className="block text-xs font-medium text-primary">{r.categoryName}</span>
-                  <span className="block truncate font-semibold">{r.name}</span>
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    {/* ⭐ 常用：与工作流卡片同一交互，星标置顶 */}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      title={faved ? t.studio.roles.favRemove : t.studio.roles.favAdd}
+                      onClick={(e) => toggleFav(r, e)}
+                      className="shrink-0 text-muted-foreground/50 transition-colors hover:text-amber-400"
+                    >
+                      <Star className={cn("size-3.5", faved && "fill-amber-400 text-amber-400")} />
+                    </span>
+                    <span className="truncate">{r.name}</span>
+                  </span>
                 </div>
               </div>
               <span className="mt-2.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{r.description}</span>
+              {/* 自建角色可删（严格限用户角色目录，内置库无此入口） */}
+              {r.custom && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  title={t.studio.roles.deleteRole}
+                  onClick={(e) => { e.stopPropagation(); setDelRoleErr(null); setConfirmDelRole(r); }}
+                  className="absolute bottom-3 right-3 grid size-6 place-items-center rounded-full text-muted-foreground/50 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
+                >
+                  <Trash2 className="size-3.5" />
+                </span>
+              )}
             </button>
           );
         })}
       </div>
+      {cat === "my" && !demo && filtered.length === 0 && (
+        <p className="mt-3 text-center text-xs text-muted-foreground">{t.studio.roles.myEmptyHint}</p>
+      )}
 
       {/* selection tray */}
       {count > 0 && (
@@ -538,6 +674,74 @@ export function RolesPicker({
         </div>
       )}
 
+      {/* 新建角色弹窗：名称 + 一句话描述 + system prompt，存入 ~/.ao/roles（「我的」分类） */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !creating && setShowCreate(false)}>
+          <div
+            className="w-full max-w-lg rounded-2xl border border-border/70 bg-background p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-base font-semibold">
+                <Plus className="size-4 text-primary" />
+                {t.studio.roles.newRole}
+              </h3>
+              <button onClick={() => !creating && setShowCreate(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder={t.studio.roles.newRoleNamePh}
+                className="h-10 rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
+              />
+              <input
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                placeholder={t.studio.roles.newRoleDescPh}
+                className="h-10 rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
+              />
+              <textarea
+                value={newPrompt}
+                onChange={(e) => setNewPrompt(e.target.value)}
+                placeholder={t.studio.roles.newRolePromptPh}
+                className="h-40 resize-y rounded-xl border border-border/70 bg-card/60 p-3 text-sm outline-none focus:border-primary/50"
+              />
+            </div>
+            {createErr && (
+              <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">{createErr}</p>
+            )}
+            <div className="mt-3 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setShowCreate(false)} disabled={creating}>
+                {lang === "en" ? "Cancel" : "取消"}
+              </Button>
+              <Button onClick={createMyRole} disabled={creating || !newName.trim() || !newPrompt.trim()}>
+                {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                {creating ? t.studio.roles.newRoleCreating : t.studio.roles.newRoleCreate}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmDelRole && (
+        <ConfirmDialog
+          danger
+          title={t.studio.roles.deleteRole}
+          body={
+            lang === "en"
+              ? `Delete "${confirmDelRole.name}"? Its file will be removed from your roles dir (~/.ao/roles). This cannot be undone.`
+              : `确定删除「${confirmDelRole.name}」？其文件将从你的角色目录（~/.ao/roles）移除，此操作不可恢复。`
+          }
+          confirmLabel={lang === "en" ? "Delete" : "删除"}
+          cancelLabel={lang === "en" ? "Cancel" : "取消"}
+          busy={deletingRole}
+          error={delRoleErr}
+          onConfirm={doDeleteRole}
+          onClose={() => { setConfirmDelRole(null); setDelRoleErr(null); }}
+        />
+      )}
       {detail && <RoleDetail role={detail} onClose={() => setDetail(null)} onChat={(seed, r) => onPlainChat?.(seed, r)} demo={demo} onInstallPrompt={onInstallPrompt} />}
       {preview && (
         <ComposePreview

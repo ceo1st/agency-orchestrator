@@ -16,10 +16,10 @@ import { getActiveProvider } from "@/lib/studio";
 export default function PromptStudio() {
   const { t, lang } = useLanguage();
   useSeo(
-    lang === "en" ? "Prompt Studio — AI rewrites your prompt to be more effective | Agency Orchestrator"
-      : "提示词优化 — AI 帮你把提示词改得更有效 | Agency Orchestrator",
-    lang === "en" ? "Optimize, test and compare prompts with AI. System & user prompt meta-optimization, free to try."
-      : "用 AI 优化、测试、对比提示词。系统/用户提示词元优化,免费试用。",
+    lang === "en" ? "Prompt Generator — AI turns your idea into an effective prompt | Agency Orchestrator"
+      : "提示生成 — AI 帮你生成更有效的提示词 | Agency Orchestrator",
+    lang === "en" ? "Generate, test and compare prompts with AI. System & user prompt generation, free to try."
+      : "用 AI 生成、测试、对比提示词。系统/用户提示词生成,免费试用。",
   );
   const { status } = useBackend();
   const [installOpen, setInstallOpen] = useState(false);
@@ -37,8 +37,8 @@ export default function PromptStudio() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {lang === "en"
-                ? "Optimize, test and compare prompts — turn gut-feel into reusable assets. Free to try here; install for the full flow."
-                : "把靠感觉的提示词，变成可优化 · 可测试 · 可对比的资产。这里可免费试用；完整流程本地安装后使用。"}
+                ? "Generate, test and compare prompts — turn a rough idea into reusable assets. Free to try here; install for the full flow."
+                : "一句想法生成可用提示词——可测试 · 可对比 · 可沉淀的资产。这里可免费试用；完整流程本地安装后使用。"}
             </p>
           </header>
           <PromptLab provider={provider} demo={offline} onInstallPrompt={() => setInstallOpen(true)} hideHeader />

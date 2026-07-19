@@ -10,7 +10,7 @@ export { buildDAG, formatDAG } from './core/dag.js';
 export { executeDAG } from './core/executor.js';
 export { evaluateCondition } from './core/condition.js';
 export { renderTemplate, extractVariables } from './core/template.js';
-export { loadAgent, listAgents } from './agents/loader.js';
+export { loadAgent, listAgents, listUserAgents, userRolesDir, USER_ROLE_CATEGORY } from './agents/loader.js';
 export { ClaudeConnector } from './connectors/claude.js';
 export { OllamaConnector } from './connectors/ollama.js';
 export { OpenAICompatibleConnector } from './connectors/openai-compatible.js';

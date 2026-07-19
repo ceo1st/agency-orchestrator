@@ -8,6 +8,8 @@ export interface Role {
   description: string;
   color?: string;
   content?: string;
+  /** 用户自建角色（「我的」分类，~/.ao/roles）——可删除 */
+  custom?: boolean;
 }
 
 export interface WorkflowStepMeta {
@@ -344,6 +346,17 @@ export function setFavWorkflows(keys: Set<string>) {
   window.localStorage.setItem(FAV_KEY, JSON.stringify([...keys]));
 }
 
+// ── 用户自选「常用」角色（点星收藏，存 localStorage，按机器；key = "category/id"） ──
+const FAV_ROLES_KEY = "ao-fav-roles";
+export function getFavRoles(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try { return new Set(JSON.parse(window.localStorage.getItem(FAV_ROLES_KEY) || "[]") as string[]); } catch { return new Set(); }
+}
+export function setFavRoles(keys: Set<string>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(FAV_ROLES_KEY, JSON.stringify([...keys]));
+}
+
 export interface UsageDay {
   date: string;
   input: number;
@@ -473,6 +486,10 @@ export const api = {
   updateCustomProvider: (id: string, body: { name?: string; note?: string; homepageUrl?: string }) =>
     putJSON<{ ok: boolean }>(`/custom-providers/${encodeURIComponent(id)}`, body),
   roles: (lang?: string) => getJSON<Role[]>(`/roles${lang === "en" ? "?lang=en" : ""}`),
+  // 我的角色（用户自建，~/.ao/roles）：创建后即出现在角色组队「我的」分类里，可组队/单聊/存团队
+  createMyRole: (body: { name: string; description?: string; systemPrompt: string; color?: string; emoji?: string }) =>
+    postJSON<{ id: string; role: string; name: string }>("/roles/my", body),
+  deleteMyRole: (id: string) => delJSON<{ ok: boolean }>(`/roles/my/${encodeURIComponent(id)}`),
   role: (category: string, id: string, lang?: string) =>
     getJSON<Role>(`/roles/${category}/${id}${lang === "en" ? "?lang=en" : ""}`),
   workflows: (lang?: string) => getJSON<Workflow[]>(`/workflows${lang === "en" ? "?lang=en" : ""}`),

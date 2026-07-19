@@ -1,4 +1,4 @@
-import { Bookmark, Check, Copy, FlaskConical, Loader2, Scale, Sparkles, Sprout, Star, Trash2 } from "lucide-react";
+import { Bookmark, Check, Copy, FlaskConical, Loader2, Scale, Sparkles, Sprout, Star, Trash2, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -7,30 +7,34 @@ import { cn } from "@/lib/utils";
 
 const STR = {
   zh: {
-    title: "提示词优化", sub: "把靠感觉的提示词，变成可优化 · 可测试 · 可对比 · 可沉淀的资产",
+    title: "提示生成", sub: "一句想法生成可用提示词——可测试 · 可对比 · 可沉淀的资产",
     modeUser: "任务提示词", modeSystem: "角色/系统提示词",
-    rawPlaceholder: "粘贴你的原始提示词…（例如：帮我写个朋友圈文案卖咖啡）",
-    optimize: "一键优化", optimizing: "优化中…",
-    garden: "从模板起手", original: "原始", optimized: "优化后", copy: "复制", copied: "已复制",
-    adopt: "采纳优化版", testTitle: "实测对比", testPlaceholder: "样例输入（system 模式下作为用户消息；user 模式可留空）",
+    rawPlaceholder: "粘贴你的原始提示词或一句想法…（例如：帮我写个朋友圈文案卖咖啡）",
+    optimize: "一键生成", optimizing: "生成中…",
+    garden: "从模板起手", original: "原始", optimized: "生成版", copy: "复制", copied: "已复制",
+    adopt: "采纳生成版", testTitle: "实测对比", testPlaceholder: "样例输入（system 模式下作为用户消息；user 模式可留空）",
     runTest: "测试两版", testing: "测试中…", scoreBtn: "AI 评分对比", scoring: "评分中…",
     best: "胜出", saveName: "给这条提示词起个名字", save: "保存", saving: "保存中…", saved: "已保存",
-    saveNeedName: "请先起个名字", saveNeedOpt: "先优化或填写内容再保存",
+    saveNeedName: "请先起个名字", saveNeedOpt: "先生成或填写内容再保存",
     myPrompts: "我的提示词", empty: "还没有保存的提示词", versions: "版", delete: "删除", load: "载入",
     needRaw: "请先输入原始提示词", fav: "收藏",
+    saveAsRole: "存为我的角色", roleNamePh: "角色名称，如：朋友圈文案专家", roleSaving: "保存中…",
+    roleSaved: "已存为角色——在「角色组队 → 我的」里就能用它组队", roleSaveFailed: "存为角色失败",
   },
   en: {
-    title: "Prompt Optimizer", sub: "Turn gut-feel prompts into assets you can optimize · test · compare · save",
+    title: "Prompt Generator", sub: "Turn a rough idea into a working prompt — test · compare · save as an asset",
     modeUser: "Task prompt", modeSystem: "Role/system prompt",
-    rawPlaceholder: "Paste your raw prompt… (e.g. write a tweet selling coffee)",
-    optimize: "Optimize", optimizing: "Optimizing…",
-    garden: "Start from a template", original: "Original", optimized: "Optimized", copy: "Copy", copied: "Copied",
-    adopt: "Adopt optimized", testTitle: "Test & compare", testPlaceholder: "Sample input (used as user message in system mode; optional in user mode)",
+    rawPlaceholder: "Paste your raw prompt or a rough idea… (e.g. write a tweet selling coffee)",
+    optimize: "Generate", optimizing: "Generating…",
+    garden: "Start from a template", original: "Original", optimized: "Generated", copy: "Copy", copied: "Copied",
+    adopt: "Adopt generated", testTitle: "Test & compare", testPlaceholder: "Sample input (used as user message in system mode; optional in user mode)",
     runTest: "Test both", testing: "Testing…", scoreBtn: "AI score", scoring: "Scoring…",
     best: "winner", saveName: "Name this prompt", save: "Save", saving: "Saving…", saved: "Saved",
-    saveNeedName: "Name it first", saveNeedOpt: "Optimize or write content first",
+    saveNeedName: "Name it first", saveNeedOpt: "Generate or write content first",
     myPrompts: "My Prompts", empty: "No saved prompts yet", versions: "ver", delete: "Delete", load: "Load",
     needRaw: "Enter a raw prompt first", fav: "Favorite",
+    saveAsRole: "Save as my role", roleNamePh: "Role name, e.g. Tweet copywriter", roleSaving: "Saving…",
+    roleSaved: "Saved as a role — use it under Build a Team → My Roles", roleSaveFailed: "Failed to save as role",
   },
 };
 
@@ -60,6 +64,11 @@ export function PromptLab({ provider, demo, onInstallPrompt, hideHeader }: { pro
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // system 模式的生成结果本质是一段角色 system prompt——可一键存进 ~/.ao/roles，
+  // 出现在「角色组队 → 我的」里直接组队（提示生成 → 角色 的闭环）。
+  const [roleName, setRoleName] = useState("");
+  const [savingRole, setSavingRole] = useState(false);
+  const [roleMsg, setRoleMsg] = useState<string | null>(null);
   const [prompts, setPrompts] = useState<PromptRecord[]>([]);
   const [garden, setGarden] = useState<GardenSeed[]>([]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -138,6 +147,20 @@ export function PromptLab({ provider, demo, onInstallPrompt, hideHeader }: { pro
       setMsg(`✅ ${L.saved}`); refresh();
     } catch (e: any) { setMsg(e?.message || "save failed"); }
     finally { setSaving(false); }
+  };
+
+  const doSaveAsRole = async () => {
+    if (demo) return onInstallPrompt?.();
+    if (!optimized || !roleName.trim()) return;
+    setSavingRole(true); setRoleMsg(null);
+    try {
+      // 描述用原始想法（组队 LLM 靠它了解角色定位），截断防超长
+      const desc = raw.trim().split("\n")[0].slice(0, 100);
+      await api.createMyRole({ name: roleName.trim(), description: desc, systemPrompt: optimized });
+      setRoleMsg(`✅ ${L.roleSaved}`);
+      setRoleName("");
+    } catch (e: any) { setRoleMsg(e?.message || L.roleSaveFailed); }
+    finally { setSavingRole(false); }
   };
 
   const loadRecord = (r: PromptRecord) => {
@@ -233,11 +256,23 @@ export function PromptLab({ provider, demo, onInstallPrompt, hideHeader }: { pro
               <Pane k="orig" label={L.original} text={raw} />
               <Pane k="opt" label={L.optimized} text={optimized} />
             </div>
-            <div className="mt-2 flex justify-end">
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+              {/* system 模式：生成的就是角色 system prompt，起个名就能存进「角色组队 → 我的」 */}
+              {mode === "system" && (
+                <>
+                  <input value={roleName} onChange={(e) => setRoleName(e.target.value)} placeholder={L.roleNamePh}
+                    className="h-8 rounded-lg border border-border/70 bg-card/60 px-2.5 text-xs outline-none focus:border-primary/50 sm:w-52" />
+                  <Button size="sm" variant="outline" onClick={doSaveAsRole} disabled={savingRole || !roleName.trim()}>
+                    {savingRole ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+                    {savingRole ? L.roleSaving : L.saveAsRole}
+                  </Button>
+                </>
+              )}
               <Button size="sm" variant="outline" onClick={() => { setRaw(optimized); setOptimized(null); setOuts({}); setScore(null); }}>
                 <Check className="size-4" />{L.adopt}
               </Button>
             </div>
+            {roleMsg && <p className="mt-1.5 text-right text-xs text-muted-foreground">{roleMsg}</p>}
           </div>
         )}
 

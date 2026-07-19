@@ -46,6 +46,11 @@ const AGENTS_DIR = join(ROOT, 'node_modules', 'agency-agents-zh');
 const AGENTS_DIR_EN = join(ROOT, 'agency-agents');
 // 自定义角色目录（自带私有专家）：AO_AGENTS_DIR 存在时覆盖内置库，CLI 与 Studio 共用同一开关。
 const CUSTOM_AGENTS_DIR = process.env.AO_AGENTS_DIR ? resolve(process.env.AO_AGENTS_DIR) : '';
+// 用户自建角色目录（「我的」分类）：与内置库叠加而非替换，CLI（my/<id>）与 Studio 共用。
+// 与 ~/.ao/teams、~/.ao/prompts 同体系；引擎侧解析在 src/agents/loader.ts（userRolesDir）。
+const USER_ROLES_DIR = process.env.AO_USER_ROLES_DIR
+  ? resolve(process.env.AO_USER_ROLES_DIR)
+  : join(homedir(), '.ao', 'roles');
 function agentsDirFor(lang) {
   if (CUSTOM_AGENTS_DIR && existsSync(CUSTOM_AGENTS_DIR)) return CUSTOM_AGENTS_DIR;
   if (lang === 'en' && existsSync(AGENTS_DIR_EN)) return AGENTS_DIR_EN;
@@ -749,6 +754,7 @@ app.post('/api/compare', async (req, res) => {
 // ── Roles / Agents ──
 const CATEGORY_NAMES = {
   zh: {
+    my: '我的',
     marketing: '市场营销', 'paid-media': '付费媒体', sales: '销售', product: '产品',
     'project-management': '项目管理', testing: '质量测试', support: '运营支持',
     'spatial-computing': '空间计算', specialized: '专业服务', 'game-development': '游戏开发',
@@ -756,6 +762,7 @@ const CATEGORY_NAMES = {
     hr: '人力资源', legal: '法务', strategy: '战略', 'supply-chain': '供应链',
   },
   en: {
+    my: 'My Roles',
     marketing: 'Marketing', 'paid-media': 'Paid Media', sales: 'Sales', product: 'Product',
     'project-management': 'Project Management', testing: 'Testing', support: 'Support',
     'spatial-computing': 'Spatial Computing', specialized: 'Specialized', 'game-development': 'Game Dev',
@@ -766,11 +773,33 @@ const CATEGORY_NAMES = {
 
 function loadRoles(lang) {
   const agentsDir = agentsDirFor(lang);
-  if (!existsSync(agentsDir)) return [];
-
   const categoryNames = CATEGORY_NAMES[lang === 'en' ? 'en' : 'zh'];
 
   const roles = [];
+  // 用户自建角色（~/.ao/roles）排最前，归「我的」分类；custom 标记供前端渲染删除入口。
+  // 中英文站都展示——用户自己的专家不分语言库。
+  if (existsSync(USER_ROLES_DIR)) {
+    for (const f of readdirSync(USER_ROLES_DIR).filter(n => n.endsWith('.md'))) {
+      try {
+        const raw = readFileSync(join(USER_ROLES_DIR, f), 'utf-8');
+        const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+        if (!fmMatch) continue;
+        const fm = yaml.load(fmMatch[1]);
+        if (!fm || !fm.name) continue;
+        roles.push({
+          id: f.replace('.md', ''),
+          category: 'my',
+          categoryName: categoryNames.my,
+          name: fm.name,
+          description: fm.description || '',
+          color: fm.color || '#888',
+          custom: true,
+        });
+      } catch {}
+    }
+  }
+
+  if (!existsSync(agentsDir)) return roles;
   for (const cat of readdirSync(agentsDir)) {
     const catDir = join(agentsDir, cat);
     try { if (!statSync(catDir).isDirectory()) continue; } catch { continue; }
@@ -803,14 +832,59 @@ app.get('/api/roles', (req, res) => {
 });
 
 app.get('/api/roles/:category/:id', (req, res) => {
-  const agentsDir = agentsDirFor(req.query.lang === 'en' ? 'en' : 'zh');
-  const filePath = join(agentsDir, req.params.category, req.params.id + '.md');
-  if (!isInside(filePath, agentsDir) || !existsSync(filePath)) return res.status(404).json({ error: 'not found' });
+  // 「我的」分类走用户角色目录（平铺，无子目录）
+  const isMy = req.params.category === 'my';
+  const baseDir = isMy ? USER_ROLES_DIR : agentsDirFor(req.query.lang === 'en' ? 'en' : 'zh');
+  const filePath = isMy ? join(baseDir, req.params.id + '.md') : join(baseDir, req.params.category, req.params.id + '.md');
+  if (!isInside(filePath, baseDir) || !existsSync(filePath)) return res.status(404).json({ error: 'not found' });
   const raw = readFileSync(filePath, 'utf-8');
   const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
   const fm = fmMatch ? yaml.load(fmMatch[1]) : {};
   const body = fmMatch ? raw.slice(fmMatch[0].length).trim() : raw;
   res.json({ id: req.params.id, category: req.params.category, name: fm.name || req.params.id, description: fm.description || '', color: fm.color || '#888', content: body });
+});
+
+// ── 我的角色（用户自建，~/.ao/roles）：创建 / 删除。列表走 /api/roles 的「我的」分类 ──
+// id 只允许 [a-z0-9-]（引擎 loadAgent 的路径白名单是 ASCII）；中文名自动落到 custom-role-N。
+function slugifyRoleId(name) {
+  const base = String(name || '').toLowerCase().trim()
+    .replace(/[^a-z0-9-\s_]/g, '').replace(/[\s_]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+  return base.slice(0, 48);
+}
+app.post('/api/roles/my', (req, res) => {
+  const { name, description, systemPrompt, color, emoji } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: 'name required' });
+  if (!systemPrompt || !String(systemPrompt).trim()) return res.status(400).json({ error: 'systemPrompt required' });
+  mkdirSync(USER_ROLES_DIR, { recursive: true });
+  let id = slugifyRoleId(name);
+  if (!id) {
+    let n = 1;
+    while (existsSync(join(USER_ROLES_DIR, `custom-role-${n}.md`))) n++;
+    id = `custom-role-${n}`;
+  } else if (existsSync(join(USER_ROLES_DIR, `${id}.md`))) {
+    let n = 2;
+    while (existsSync(join(USER_ROLES_DIR, `${id}-${n}.md`))) n++;
+    id = `${id}-${n}`;
+  }
+  const filePath = join(USER_ROLES_DIR, `${id}.md`);
+  if (!isInside(filePath, USER_ROLES_DIR)) return res.status(400).json({ error: 'bad name' });
+  const fm = { name: String(name).trim() };
+  if (description && String(description).trim()) fm.description = String(description).trim();
+  if (emoji && String(emoji).trim()) fm.emoji = String(emoji).trim();
+  fm.color = (color && /^#[0-9a-fA-F]{3,8}$/.test(String(color))) ? String(color) : '#7c6cf0';
+  const content = `---\n${yaml.dump(fm).trimEnd()}\n---\n\n${String(systemPrompt).trim()}\n`;
+  writeFileSync(filePath, content, 'utf-8');
+  delete rolesCache.zh; delete rolesCache.en;
+  res.json({ id, role: `my/${id}`, name: fm.name });
+});
+app.delete('/api/roles/my/:id', (req, res) => {
+  const filePath = join(USER_ROLES_DIR, req.params.id + '.md');
+  // 严格限定用户角色目录，内置库一律 403（与 /api/workflows 删除守卫同规）
+  if (!isInside(filePath, USER_ROLES_DIR)) return res.status(403).json({ error: 'forbidden' });
+  if (!existsSync(filePath)) return res.status(404).json({ error: 'not found' });
+  unlinkSync(filePath);
+  delete rolesCache.zh; delete rolesCache.en;
+  res.json({ ok: true });
 });
 
 // ── Run single role ──

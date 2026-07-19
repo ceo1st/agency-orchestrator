@@ -1322,7 +1322,7 @@ function handleRoles(): void {
     || (args[1] && !args[1].startsWith('-') ? args[1] : '');
 
   try {
-    const all = listAgents(resolve(agentsDir));
+    const all = listAgents(resolve(agentsDir), true);
     const agents = keyword ? filterAgentsByKeyword(all, keyword) : all;
 
     if (keyword) {

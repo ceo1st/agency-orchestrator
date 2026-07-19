@@ -77,7 +77,8 @@ export interface RoleSummary {
  * 从 agents 目录构建精简的角色目录
  */
 export function buildRoleCatalog(agentsDir: string): RoleSummary[] {
-  const agents = listAgents(agentsDir);
+  // 叠加用户自建角色（~/.ao/roles 的 my/*）：手动组队可锁定自建专家，自动组队也能挑到
+  const agents = listAgents(agentsDir, true);
   return agents
     .filter(a => a.rolePath)
     .map(a => ({
