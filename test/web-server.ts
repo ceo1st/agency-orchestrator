@@ -150,6 +150,11 @@ try {
     assert(!!myRole && myRole.custom === true && myRole.name === '测试专家', '/api/roles 列表含「我的」分类且带 custom 标记');
     const detail = await (await fetch(base + `/api/roles/my/${created.id}`)).json();
     assert(detail.content === '你是一位测试专家。', 'GET /api/roles/my/:id 返回 system prompt 正文');
+    const upd = await fetch(base + `/api/roles/my/${created.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '测试专家改', systemPrompt: '你是改过的测试专家。' }) });
+    assert(upd.status === 200 && (await upd.json()).name === '测试专家改', 'PUT /api/roles/my/:id → 200 编辑');
+    const updDetail = await (await fetch(base + `/api/roles/my/${created.id}`)).json();
+    assert(updDetail.name === '测试专家改' && updDetail.content === '你是改过的测试专家。' && updDetail.description === '一句话描述', 'PUT 字段级合并:改了名字与正文,没传的描述保留');
+    assert((await fetch(base + '/api/roles/my/nope-xyz', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status === 404, 'PUT 不存在的角色 → 404');
     assert((await fetch(base + '/api/roles/my/..%2F..%2Fetc%2Fpasswd', { method: 'DELETE' })).status === 403, 'DELETE /api/roles/my 路径穿越 → 403');
     assert((await fetch(base + `/api/roles/my/${created.id}`, { method: 'DELETE' })).status === 200, 'DELETE /api/roles/my/:id → 200 删除');
     assert((await fetch(base + `/api/roles/my/${created.id}`, { method: 'DELETE' })).status === 404, 'DELETE 已删角色再删 → 404');
@@ -164,6 +169,15 @@ try {
     }
     const fallback = (await (await fetch(base + '/api/roles?lang=hax')).json()) as unknown[];
     assert(Array.isArray(fallback) && fallback.length > 0, '未知 lang 回落 zh 而不是报错');
+
+    // ── 嵌套子目录角色(递归枚举 + 带斜杠 id 的详情) ──
+    const zhRoles = (await (await fetch(base + '/api/roles')).json()) as Array<{ id: string; category: string }>;
+    const nested = zhRoles.find((r) => r.id.includes('/'));
+    assert(!!nested, `角色列表含嵌套子目录角色(${zhRoles.length} 总数)`);
+    if (nested) {
+      const nd = await (await fetch(base + `/api/roles/${encodeURIComponent(nested.category)}/${encodeURIComponent(nested.id)}`)).json();
+      assert(!!nd.content, '嵌套角色详情(带 %2F 的 id) → 200 + 正文');
+    }
 
     // ── 报告导出 /api/export ──
     assert(await post(base, '/api/export', { format: 'docx' }) === 400, '/api/export 缺 markdown → 400');

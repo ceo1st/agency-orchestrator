@@ -413,6 +413,10 @@ const zh = {
       newRoleCreated: "已创建，出现在「我的」分类里",
       newRoleFailed: "创建失败",
       deleteRole: "删除这个角色",
+      editRole: "编辑这个角色",
+      editRoleTitle: "编辑角色",
+      editRoleSave: "保存修改",
+      editRoleSaving: "保存中…",
       myEmptyHint: "「我的」还没有角色——新建一个，或在「提示生成」页把生成的 system prompt 存为角色。",
     },
     chat: {
@@ -1077,6 +1081,10 @@ const en: typeof zh = {
       newRoleCreated: "Created — find it under “My Roles”",
       newRoleFailed: "Create failed",
       deleteRole: "Delete this role",
+      editRole: "Edit this role",
+      editRoleTitle: "Edit role",
+      editRoleSave: "Save changes",
+      editRoleSaving: "Saving…",
       myEmptyHint: "No roles of your own yet — create one, or save a generated system prompt as a role from the Prompts page.",
     },
     chat: {

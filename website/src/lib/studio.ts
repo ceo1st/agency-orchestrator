@@ -491,9 +491,12 @@ export const api = {
   // 我的角色（用户自建，~/.ao/roles）：创建后即出现在角色组队「我的」分类里，可组队/单聊/存团队
   createMyRole: (body: { name: string; description?: string; systemPrompt: string; color?: string; emoji?: string }) =>
     postJSON<{ id: string; role: string; name: string }>("/roles/my", body),
+  updateMyRole: (id: string, body: { name?: string; description?: string; systemPrompt?: string; color?: string; emoji?: string }) =>
+    putJSON<{ id: string; role: string; name: string }>(`/roles/my/${encodeURIComponent(id)}`, body),
   deleteMyRole: (id: string) => delJSON<{ ok: boolean }>(`/roles/my/${encodeURIComponent(id)}`),
+  // 嵌套角色 id 带子路径(如 unity/unity-architect)——%2F 编码后 Express 仍按单段匹配并自动解码
   role: (category: string, id: string, lang?: string) =>
-    getJSON<Role>(`/roles/${category}/${id}${lang && lang !== "zh" ? `?lang=${encodeURIComponent(lang)}` : ""}`),
+    getJSON<Role>(`/roles/${encodeURIComponent(category)}/${encodeURIComponent(id)}${lang && lang !== "zh" ? `?lang=${encodeURIComponent(lang)}` : ""}`),
   workflows: (lang?: string) => getJSON<Workflow[]>(`/workflows${lang === "en" ? "?lang=en" : ""}`),
   // 仅用户工作流可删（服务端限制目录）；下载复用 /workflows/yaml 原文
   deleteWorkflow: (file: string) => delJSON<{ ok: boolean }>(`/workflows?file=${encodeURIComponent(file)}`),

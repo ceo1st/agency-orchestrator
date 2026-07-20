@@ -1,4 +1,4 @@
-import { Bookmark, Check, Loader2, MessageCircle, MessageSquare, Plus, Search, Sparkles, Star, Trash2, Users, X } from "lucide-react";
+import { Bookmark, Check, Loader2, MessageCircle, MessageSquare, Pencil, Plus, Search, Sparkles, Star, Trash2, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -74,8 +74,9 @@ export function RolesPicker({
     });
   };
 
-  // 「我的」自建角色：新建表单 + 删除确认（应用内 ConfirmDialog，与工作流删除同规）
+  // 「我的」自建角色：新建/编辑共用一个表单弹窗(editingRole 非空=编辑模式) + 删除确认
   const [showCreate, setShowCreate] = useState(false);
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newPrompt, setNewPrompt] = useState("");
@@ -148,8 +149,13 @@ export function RolesPicker({
     setCreating(true);
     setCreateErr(null);
     try {
-      await api.createMyRole({ name: newName.trim(), description: newDesc.trim() || undefined, systemPrompt: newPrompt.trim() });
+      if (editingRole) {
+        await api.updateMyRole(editingRole.id, { name: newName.trim(), description: newDesc.trim(), systemPrompt: newPrompt.trim() });
+      } else {
+        await api.createMyRole({ name: newName.trim(), description: newDesc.trim() || undefined, systemPrompt: newPrompt.trim() });
+      }
       setShowCreate(false);
+      setEditingRole(null);
       setNewName(""); setNewDesc(""); setNewPrompt("");
       setCat("my");
       refreshRoles();
@@ -158,6 +164,21 @@ export function RolesPicker({
     } finally {
       setCreating(false);
     }
+  };
+
+  // 编辑自建角色：拉取全文预填进同一个表单
+  const openEditRole = async (r: Role, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCreateErr(null);
+    setEditingRole(r);
+    setNewName(r.name);
+    setNewDesc(r.description || "");
+    setNewPrompt("");
+    setShowCreate(true);
+    try {
+      const full = await api.role(r.category, r.id);
+      setNewPrompt(full.content || "");
+    } catch { /* 拉不到就留空;保存时留空则不覆盖正文(服务端字段级合并) */ }
   };
 
   const doDeleteRole = async () => {
@@ -608,15 +629,26 @@ export function RolesPicker({
               <span className="mt-2.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{r.description}</span>
               {/* 自建角色可删（严格限用户角色目录，内置库无此入口） */}
               {r.custom && (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  title={t.studio.roles.deleteRole}
-                  onClick={(e) => { e.stopPropagation(); setDelRoleErr(null); setConfirmDelRole(r); }}
-                  className="absolute bottom-3 right-3 grid size-6 place-items-center rounded-full text-muted-foreground/50 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
-                >
-                  <Trash2 className="size-3.5" />
-                </span>
+                <>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title={t.studio.roles.editRole}
+                    onClick={(e) => openEditRole(r, e)}
+                    className="absolute bottom-3 right-10 grid size-6 place-items-center rounded-full text-muted-foreground/50 opacity-0 transition-all hover:bg-primary/10 hover:text-primary group-hover:opacity-100"
+                  >
+                    <Pencil className="size-3.5" />
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title={t.studio.roles.deleteRole}
+                    onClick={(e) => { e.stopPropagation(); setDelRoleErr(null); setConfirmDelRole(r); }}
+                    className="absolute bottom-3 right-3 grid size-6 place-items-center rounded-full text-muted-foreground/50 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </span>
+                </>
               )}
             </button>
           );
@@ -706,17 +738,17 @@ export function RolesPicker({
 
       {/* 新建角色弹窗：名称 + 一句话描述 + system prompt，存入 ~/.ao/roles（「我的」分类） */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !creating && setShowCreate(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { if (!creating) { setShowCreate(false); setEditingRole(null); } }}>
           <div
             className="w-full max-w-lg rounded-2xl border border-border/70 bg-background p-5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-base font-semibold">
-                <Plus className="size-4 text-primary" />
-                {t.studio.roles.newRole}
+                {editingRole ? <Pencil className="size-4 text-primary" /> : <Plus className="size-4 text-primary" />}
+                {editingRole ? t.studio.roles.editRoleTitle : t.studio.roles.newRole}
               </h3>
-              <button onClick={() => !creating && setShowCreate(false)} className="text-muted-foreground hover:text-foreground">
+              <button onClick={() => { if (!creating) { setShowCreate(false); setEditingRole(null); } }} className="text-muted-foreground hover:text-foreground">
                 <X className="size-4" />
               </button>
             </div>
@@ -744,12 +776,14 @@ export function RolesPicker({
               <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">{createErr}</p>
             )}
             <div className="mt-3 flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setShowCreate(false)} disabled={creating}>
+              <Button variant="ghost" onClick={() => { setShowCreate(false); setEditingRole(null); }} disabled={creating}>
                 {lang === "en" ? "Cancel" : "取消"}
               </Button>
               <Button onClick={createMyRole} disabled={creating || !newName.trim() || !newPrompt.trim()}>
-                {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-                {creating ? t.studio.roles.newRoleCreating : t.studio.roles.newRoleCreate}
+                {creating ? <Loader2 className="size-4 animate-spin" /> : editingRole ? <Pencil className="size-4" /> : <Plus className="size-4" />}
+                {creating
+                  ? (editingRole ? t.studio.roles.editRoleSaving : t.studio.roles.newRoleCreating)
+                  : (editingRole ? t.studio.roles.editRoleSave : t.studio.roles.newRoleCreate)}
               </Button>
             </div>
           </div>

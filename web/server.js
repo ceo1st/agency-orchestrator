@@ -847,26 +847,40 @@ function loadRoles(lang) {
   }
 
   if (!existsSync(agentsDir)) return roles;
+  // 分类目录内递归（含 game-development/unity/* 等嵌套角色，id 带子路径）——
+  // 与引擎 listAgents / 官网画廊同口径，此前只收一层导致 Studio 比 CLI 少一截角色。
+  const SKIP_DIRS = new Set(['node_modules', 'scripts', 'integrations', 'examples']);
   for (const cat of readdirSync(agentsDir)) {
+    if (cat.startsWith('.') || SKIP_DIRS.has(cat)) continue;
     const catDir = join(agentsDir, cat);
     try { if (!statSync(catDir).isDirectory()) continue; } catch { continue; }
-    const files = readdirSync(catDir).filter(f => f.endsWith('.md'));
-    for (const f of files) {
-      try {
-        const raw = readFileSync(join(catDir, f), 'utf-8');
-        const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
-        if (!fmMatch) continue;
-        const fm = parseFrontmatter(fmMatch[1]);
-        roles.push({
-          id: f.replace('.md', ''),
-          category: cat,
-          categoryName: categoryNames[cat] || cat,
-          name: fm.name || f.replace('.md', ''),
-          description: fm.description || '',
-          color: fm.color || '#888',
-        });
-      } catch {}
-    }
+    const walk = (dir, relDir) => {
+      for (const f of readdirSync(dir)) {
+        if (f.startsWith('.') || SKIP_DIRS.has(f)) continue;
+        const full = join(dir, f);
+        let isDir = false;
+        try { isDir = statSync(full).isDirectory(); } catch { continue; }
+        if (isDir) { walk(full, relDir ? `${relDir}/${f}` : f); continue; }
+        if (!f.endsWith('.md')) continue;
+        try {
+          const raw = readFileSync(full, 'utf-8');
+          const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+          if (!fmMatch) continue;
+          const fm = parseFrontmatter(fmMatch[1]);
+          if (!fm.name) continue;
+          const base = f.replace('.md', '');
+          roles.push({
+            id: relDir ? `${relDir}/${base}` : base,
+            category: cat,
+            categoryName: categoryNames[cat] || cat,
+            name: fm.name,
+            description: fm.description || '',
+            color: fm.color || '#888',
+          });
+        } catch {}
+      }
+    };
+    walk(catDir, '');
   }
   return roles;
 }
@@ -924,6 +938,27 @@ app.post('/api/roles/my', (req, res) => {
   delete rolesCache.zh; delete rolesCache.en;
   res.json({ id, role: `my/${id}`, name: fm.name });
 });
+// 编辑自建角色:字段级合并(没传的不动),id 不变
+app.put('/api/roles/my/:id', (req, res) => {
+  const filePath = join(USER_ROLES_DIR, req.params.id + '.md');
+  if (!isInside(filePath, USER_ROLES_DIR)) return res.status(403).json({ error: 'forbidden' });
+  if (!existsSync(filePath)) return res.status(404).json({ error: 'not found' });
+  const raw = readFileSync(filePath, 'utf-8');
+  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+  const fm = fmMatch ? parseFrontmatter(fmMatch[1]) : {};
+  const body = fmMatch ? raw.slice(fmMatch[0].length).trim() : raw.trim();
+  const { name, description, systemPrompt, color, emoji } = req.body || {};
+  const next = {
+    name: (name && String(name).trim()) || fm.name || req.params.id,
+    ...( (description !== undefined ? String(description).trim() : fm.description) ? { description: description !== undefined ? String(description).trim() : fm.description } : {} ),
+    ...( (emoji !== undefined ? String(emoji).trim() : fm.emoji) ? { emoji: emoji !== undefined ? String(emoji).trim() : fm.emoji } : {} ),
+    color: (color && /^#[0-9a-fA-F]{3,8}$/.test(String(color))) ? String(color) : (fm.color || '#7c6cf0'),
+  };
+  const nextBody = (systemPrompt !== undefined && String(systemPrompt).trim()) ? String(systemPrompt).trim() : body;
+  writeFileSync(filePath, `---\n${yaml.dump(next).trimEnd()}\n---\n\n${nextBody}\n`, 'utf-8');
+  delete rolesCache.zh; delete rolesCache.en;
+  res.json({ id: req.params.id, role: `my/${req.params.id}`, name: next.name });
+});
 app.delete('/api/roles/my/:id', (req, res) => {
   const filePath = join(USER_ROLES_DIR, req.params.id + '.md');
   // 严格限定用户角色目录，内置库一律 403（与 /api/workflows 删除守卫同规）
@@ -950,7 +985,8 @@ app.post('/api/run-role', (req, res) => {
   // 角色库语言(roleLang)决定从哪套库解析角色;界面语言(langKey)只影响命名措辞
   const roleLib = normalizeRoleLang(roleLang || langKey);
   if (!rolesCache[roleLib]) rolesCache[roleLib] = loadRoles(roleLib);
-  const roleName = rolesCache[roleLib].find(r => r.id === roleShort)?.name || roleShort;
+  const roleName = rolesCache[roleLib].find(r => `${r.category}/${r.id}` === String(role))?.name
+    || rolesCache[roleLib].find(r => r.id === roleShort)?.name || roleShort;
   const wfDoc = {
     name: langKey === 'en' ? `Expert consult: ${roleName}` : `专家咨询: ${roleName}`,
     description: String(task).slice(0, 140),

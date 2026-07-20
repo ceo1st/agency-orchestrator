@@ -10,8 +10,12 @@ import type { DAGNode } from '../types.js';
  * 验收核验结果 → 一句人读状态（CLI 行 / summary / 步骤文件头共用一份措辞）。
  * 无核验（没写 acceptance / 关闭 / 核验器不可用）返回 null，展示层不加噪音。
  */
-export function formatVerification(v: StepVerification | undefined): string | null {
+export function formatVerification(v: StepVerification | undefined, en = false): string | null {
   if (!v) return null;
+  if (en) {
+    if (v.pass) return v.reworked ? 'Acceptance ✓ (passed after 1 rework)' : 'Acceptance ✓';
+    return `Acceptance ⚠️ ${v.failed.length} unmet${v.reworked ? ' (reworked once)' : ''}`;
+  }
   if (v.pass) return v.reworked ? '验收 ✓（返工 1 轮后通过）' : '验收 ✓';
   return `验收 ⚠️ ${v.failed.length} 条未满足${v.reworked ? '（已返工 1 轮）' : ''}`;
 }
@@ -42,12 +46,13 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     const name = step.agentName || step.role || step.id;
     const duration = step.duration ? `${(step.duration / 1000).toFixed(1)}s` : '';
     // 标签按该步内容语言自动选：英文角色/产出 → "Step"，中文 → "步骤"
-    const stepLabel = /[一-鿿]/.test(`${name}${step.output || ''}`) ? '步骤' : 'Step';
+    const stepEn = !/[一-鿿]/.test(`${name}${step.output || ''}`);
+    const stepLabel = stepEn ? 'Step' : '步骤';
     // 验收标准放头部引用块内（web 端按 '\n---\n' 截头取正文，标准不混入产出本体）
     const accLabel = /[一-鿿]/.test(step.acceptance || '') ? '✅ 验收标准' : '✅ Acceptance';
     const accBlock = step.acceptance ? `> ${accLabel}: ${step.acceptance.replace(/\n/g, '\n> ')}\n` : '';
     // 核验结果也放头部引用块（同 acceptance：web 端按 '\n---\n' 截头，不混入产出本体）
-    const verifLine = formatVerification(step.verification);
+    const verifLine = formatVerification(step.verification, stepEn);
     const verifBlock = verifLine
       ? `> 🔍 ${verifLine}${step.verification!.failed.length ? `\n> ${step.verification!.failed.map(f => `· ${f}`).join('\n> ')}` : ''}\n`
       : '';
@@ -95,7 +100,7 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     const name = step.agentName || step.role || step.id;
     const duration = step.duration ? ` | ${(step.duration / 1000).toFixed(1)}s` : '';
 
-    const verifBadge = formatVerification(step.verification);
+    const verifBadge = formatVerification(step.verification, !/[一-鿿]/.test(`${name}${step.output || ''}`));
     summaryLines.push(`${status} **[${filename}](steps/${filename})**${isFinal ? ' ⭐ 最终成品' : ''}${verifBadge ? ` · ${verifBadge}` : ''}  `);
     summaryLines.push(`  ${emoji} ${name}${duration}  `);
     if (step.status === 'failed' && step.error) {
@@ -158,7 +163,7 @@ export function printStepResult(node: DAGNode, stepIndex: number, totalSteps: nu
   console.log(`\n  ── [${stepIndex}/${totalSteps}] ${emoji} ${name} (${node.step.id}) ──`);
 
   if (node.status === 'completed') {
-    const verif = formatVerification(node.verification);
+    const verif = formatVerification(node.verification, !/[一-鿿]/.test(`${name}${node.result || ''}`));
     console.log(`  完成 | ${duration.toFixed(1)}s | ${tokens}${verif ? ` | ${verif}` : ''}`);
     if (node.verification && !node.verification.pass) {
       for (const f of node.verification.failed) console.log(`    ⚠️ ${f}`);
