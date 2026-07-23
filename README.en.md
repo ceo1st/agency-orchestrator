@@ -15,7 +15,7 @@
 
 > **Note:** `ao compose --run` auto-detects your language. Both 267 Chinese roles and 184 English roles ([agency-agents](https://github.com/msitarzewski/agency-agents), MIT) are **bundled in the npm package — no extra download needed**. **10 English workflow templates** are ready in `workflows/en/`.
 
-> 📖 [Full Tutorial](https://dev.to/jnmetacode/agency-orchestrator-one-sentence-five-ai-agents-a-complete-plan-in-3-minutes-1ij6) (install to real-world use in 10 minutes) &nbsp;·&nbsp; 🎓 **Free companion learning**: [Learn AI coding from zero](https://aiolaola.com/?utm_source=github&utm_campaign=orchestrator) (180 hands-on lessons + AI Coding Trilogy + community, forever free)
+> 📖 [Full Tutorial](https://dev.to/jnmetacode/agency-orchestrator-one-sentence-five-ai-agents-a-complete-plan-in-3-minutes-1ij6) (install to real-world use in 10 minutes) &nbsp;·&nbsp; 🎓 **Free companion courses (English)**: [Learn AI Coding](https://aiolaola.com/en?utm_source=github&utm_campaign=orchestrator) (180 lessons) + [Build AI Agents](https://aiolaola.com/en/course/agents?utm_source=github&utm_campaign=orchestrator) (40 lessons, incl. multi-agent) · also in [日本語](https://aiolaola.com/ja?utm_source=github&utm_campaign=orchestrator) / [Español](https://aiolaola.com/es?utm_source=github&utm_campaign=orchestrator) / [한국어](https://aiolaola.com/ko?utm_source=github&utm_campaign=orchestrator)
 
 > If you find this useful, please **Star** it — helps others discover the project.
 
